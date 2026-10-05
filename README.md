@@ -6,7 +6,7 @@ This is v3 of my portfolio. The home page is a lobby, and each part of my work h
 
 The site is live at [liambsullivan.com](https://liambsullivan.com), hosted on Vercel.
 
-Earlier versions stay up: [v2](https://v2.liambsullivan.com) and [v1](https://v1.liambsullivan.com). The "v3." button in the footer links to both.
+Earlier versions are still published: [v2](https://v2.liambsullivan.com) and [v1](https://v1.liambsullivan.com). The "v3." button in the footer links to both.
 
 ## Features
 
@@ -35,7 +35,7 @@ Site images live in Cloudinary under `site/`. Photography lives at the root of t
 
 - `scripts/cloudinary-map.mjs` maps each image's public ID to its source file.
 - `npm run cloudinary:seed` uploads the mapped images and writes their sizes to `src/data/cloudinary-manifest.json`.
-- An ID that isn't in the manifest yet renders as an "Image coming soon" placeholder.
+- An ID that isn't in the manifest yet renders as a gray skeleton and does not request the image. The same skeleton appears if an uploaded image fails to load.
 - `npm run photos:tags -- add featured <public_id>` tags photos. The `featured` tag puts a photo in the Photography carousel. Run `npm run photos:tags` with no arguments for the full usage.
 
 ## API routes

@@ -275,7 +275,8 @@ label[for] {
      ~120px nav type → 0.97 (3%)
      ~300px tiles → 0.982 (1.8%)
      ~700px lightbox photo → 0.989 (1.1%)
-   Cards and timeline rows don't press (§15: lighten/darken only). */
+   Cards and timeline rows don't press (§15: lighten/darken only).
+   Motion=Off cancels the scale in ReducedMotion.astro (Tailwind would drop it here). */
 .squishy {
   --press-scale: 0.95;
   transition:

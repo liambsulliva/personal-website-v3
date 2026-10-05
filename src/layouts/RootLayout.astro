@@ -1,5 +1,6 @@
 ---
 import "../styles/global.css";
+import ReducedMotion from "../components/chrome/ReducedMotion.astro";
 
 interface Props {
   title?: string;
@@ -72,6 +73,7 @@ const ogImage = new URL("/banner.jpg", origin);
     >
       Skip to content
     </a>
+    <ReducedMotion />
     <slot />
     <script>
       import "../scripts/controls";

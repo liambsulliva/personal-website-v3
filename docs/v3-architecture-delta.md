@@ -119,8 +119,10 @@ z.object({
   company: z.string(),
   role: z.string(),
   dates: z.string(),
-  monogram: z.string().max(2).optional(),
-  logo: z.string().optional(), // image path
+  monogram: z.string().max(4).optional(), // Figma Education row uses "Pitt"
+  logo: z.string().optional(), // Cloudinary public_id (site/career/*)
+  whiteLogoOnDark: z.boolean().default(false), // one-color marks (Pitt) render white in dark mode
+  href: z.string().url(),
   order: z.number().default(0),
 })
 ```
@@ -272,7 +274,7 @@ Build from Figma components on page `0:1`. Restyle; do not keep v2 dark hex as t
 | --- | --- | --- | --- |
 | Theme + reduced-motion | inline `<head>` script | `localStorage` / `matchMedia` only | no |
 | Timer | `client:idle` | clock tick | no |
-| Logomark versions | `<details>` if possible | none | no |
+| Logomark versions | `<details>` + small script | WAAPI spring open/close (zap: instant) | no |
 | Featured carousel | SSR 5 `featured` slides; `client:visible` for controls | index, keyboard, resize | **no** (dice is dead) |
 | Gallery | SSR first page | IntersectionObserver pagination, lightbox | only for **next** page |
 | `Book.svelte` | `client:visible` on HERL write-up | tilt / page flip | no |
@@ -476,7 +478,7 @@ Zap: `transition: none` and `animation: none`.
 | `ProjectCard`, `ArticleCard` | v2-style **lighten/darken** of the surface, `--motion-fast`. No lift, no scale. |
 | `Badge` / chips | Same lighten/darken, `--motion-fast`. |
 | `WriteupButton`, `VersionOption` | Color `--motion-fast`. |
-| `TimelineRow` | None. |
+| `TimelineRow` | Ghost 5% `--fg` tint via `::before` opacity, `--motion-fast`. No lift, no scale. |
 | Lobby `NavLink` | Figma Default/Hover/Active color only. |
 
 ### Scare-bounce (desktop subpage menu only)
@@ -484,6 +486,14 @@ Zap: `transition: none` and `animation: none`.
 **Target:** `SubpageHeader` → `compact-nav` → `CompactNavIcon` (Me, Career, Engineering, Design, Photography, Writing). Desktop only. Not the lobby stair-step, not Controls, not socials, not mobile menu.
 
 **Feel:** on hover, the icon **jumps up as if scared of the cursor**, then **falls back down** (short overshoot). CSS `@keyframes` on `:hover`. Zap: no animation, static icon.
+
+### Logomark spring
+
+The version rail is still `<details>`. With motion on, a page script springs the panel open from the pill (`scale(0.56, 0.46)` → 1) and pops the version rows out of the top (bottom row first). Close reverses it, then the pill settles. Zap: native open/close, no spring, no press scale.
+
+### Breadcrumb name strum
+
+Subpage `Breadcrumb` “Liam Sullivan” letters strum 7px up in sequence on hover and focus-visible (360ms, 24ms stagger). The animation runs to the end even if the pointer leaves. Zap: static name, no transform.
 
 ### Theme color tween (still MPA)
 
@@ -505,12 +515,12 @@ Do **not** tween `box-shadow` or every utility. Zap: instant class swap.
 - **Word/token chunks** with slight jitter, not 100ms-per-character.
 - Lines run **sequentially**.
 - **Blinking caret** until line 3 finishes, then the caret is gone.
-- **BSA icon and PNC mark pop in when their word finishes** (“Analyst”, “PNC”), not after the whole line.
+- **BSA icon and PNC mark pop in when their word finishes** (“Analyst”, “PNC”), not after the whole line. CSS `hero-pop` scales them 0.6 → 1 over `--motion-medium`. Each mark lives inside its link; on phones, `white-space: nowrap` keeps the word and mark on one line.
 - **Once per session** (`sessionStorage`). Later visits to `/` in that session show the finished three lines.
 - **SSR the finished three lines** for LCP, SEO, and no-JS. Script types only when motion is allowed and the session flag is unset.
 - **Zap / no-JS:** leave the SSR text. Never run the typer.
 
-This is the one lobby script. Do not revive `DescriptionTyper.astro`.
+The typer is the lobby page script. Logomark’s spring is a separate chrome script. Do not revive `DescriptionTyper.astro`.
 
 ### Photography carousel
 
@@ -530,9 +540,13 @@ First masonry page: no enter animation (SSR). No album stagger.
 | Need | Tool |
 | --- | --- |
 | Hover color, badges, cards | CSS `transition` |
+| TimelineRow ghost tint | CSS `::before` opacity |
 | Compact-nav scare-bounce | CSS `@keyframes` |
+| Logomark spring | WAAPI on `<details>` |
+| Breadcrumb name strum | CSS `@keyframes` + tiny script |
 | Theme tween | `@property` + class on `html` |
 | Hero type-in | Astro `<script>`, sessionStorage |
+| Hero PNC / chart pops | CSS `@keyframes` when the word finishes |
 | Carousel slide | Existing React carousel island |
 | 404 dial | Page script, gated |
 | Route change | Nothing |

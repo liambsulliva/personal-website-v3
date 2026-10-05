@@ -11,6 +11,9 @@ import LobbyHero from "../../src/components/chrome/LobbyHero.astro";
 import Breadcrumb from "../../src/components/chrome/Breadcrumb.astro";
 import RootLayout from "../../src/layouts/RootLayout.astro";
 import ProgressiveImage from "../../src/components/islands/ProgressiveImage";
+import FeaturedArticle from "../../src/components/cards/FeaturedArticle.astro";
+import BrandGlyph from "../../src/components/icons/BrandGlyph.astro";
+import TimelineRow from "../../src/components/cards/TimelineRow.astro";
 
 let container: AstroContainer;
 
@@ -94,6 +97,72 @@ describe("CldImage", () => {
   });
 });
 
+describe("FeaturedArticle", () => {
+  it("unseeded covers stay a skeleton and never request the image", async () => {
+    const html = await container.renderToString(FeaturedArticle, {
+      props: {
+        title: "English is the New Frontier.",
+        description: "A dek",
+        meta: "Blog • Sep 2026",
+        href: "https://example.com/post",
+        image: "site/pieces/writing/featured/english-is-the-new-frontier",
+      },
+    });
+    expect(html).toContain("cld--missing");
+    expect(html).not.toContain("<img");
+    expect(html).not.toContain("Image coming soon");
+  });
+});
+
+describe("BrandGlyph", () => {
+  it("inverts Next.js, Swift, D3 and Astro in dark mode", async () => {
+    for (const brand of ["Next.js", "Swift", "D3", "Astro"] as const) {
+      const html = await container.renderToString(BrandGlyph, {
+        props: { brand },
+      });
+      expect(html).toContain("brand-glyph--invert-dark");
+    }
+  });
+
+  it("leaves color marks and unused Express alone", async () => {
+    for (const brand of ["React", "Express"] as const) {
+      const html = await container.renderToString(BrandGlyph, {
+        props: { brand },
+      });
+      expect(html).not.toContain("brand-glyph--invert-dark");
+    }
+  });
+});
+
+describe("TimelineRow", () => {
+  it("flags the Pitt wordmark to render white in dark mode", async () => {
+    const html = await container.renderToString(TimelineRow, {
+      props: {
+        company: "University of Pittsburgh",
+        role: "BS",
+        dates: "2022 – 2026",
+        href: "https://www.pitt.edu",
+        logo: "site/career/pitt",
+        whiteLogoOnDark: true,
+      },
+    });
+    expect(html).toContain("timeline-row__logo--white");
+  });
+
+  it("leaves color logos alone", async () => {
+    const html = await container.renderToString(TimelineRow, {
+      props: {
+        company: "PNC",
+        role: "Analyst",
+        dates: "2025",
+        href: "https://www.pnc.com",
+        logo: "site/career/pnc",
+      },
+    });
+    expect(html).not.toContain("timeline-row__logo--white");
+  });
+});
+
 describe("SectionLabel", () => {
   it("uses the standard 24px bold heading, not the oversized muted featured style", async () => {
     const html = await container.renderToString(SectionLabel, {
@@ -131,6 +200,20 @@ describe("LobbyHero", () => {
   it("does not repeat 'PNC' in the heading's accessible name", async () => {
     const html = await container.renderToString(LobbyHero);
     expect(html).not.toMatch(/<img[^>]*alt="PNC"/);
+  });
+
+  it("keeps Analyst+chart and PNC+mark together inside their links", async () => {
+    const html = await container.renderToString(LobbyHero);
+    const analyst = html.match(
+      /<a[^>]*tealhq\.com[^>]*>([\s\S]*?)<\/a>/,
+    )?.[1];
+    const pnc = html.match(/<a[^>]*pnc\.com[^>]*>([\s\S]*?)<\/a>/)?.[1];
+    expect(analyst).toContain("Analyst");
+    expect(analyst).toContain("chart-column");
+    expect(analyst).toContain("hero__keep");
+    expect(pnc).toContain("PNC");
+    expect(pnc).toContain("/brand/pnc.png");
+    expect(pnc).toContain("hero__keep");
   });
 });
 

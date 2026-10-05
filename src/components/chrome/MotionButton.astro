@@ -22,4 +22,26 @@ import Icon from "../icons/Icon.astro";
   :root:not([data-reduced-motion]) .motion-label[data-for="off"] {
     display: none;
   }
+
+  /* Press scale is a transform, so zap's `transition: none` still leaves an
+     instant shrink. Lives here (not global.css) so Tailwind/Lightning CSS
+     cannot flatten or drop the override. */
+  :root[data-reduced-motion] .squishy:not(:disabled):active,
+  :root[data-reduced-motion] .yarl__button:not(:disabled):active,
+  :root[data-reduced-motion] .logomark__summary:active,
+  :root[data-reduced-motion] .version-option:active {
+    transform: none;
+  }
+  :root[data-reduced-motion] .yarl__navigation_prev:not(:disabled):active {
+    transform: translateY(-50%);
+  }
+  :root[data-reduced-motion] .yarl__navigation_next:not(:disabled):active {
+    transform: translateY(-50%);
+  }
+  :root[data-reduced-motion] [dir="rtl"] .yarl__navigation_prev:not(:disabled):active,
+  :root[data-reduced-motion][dir="rtl"] .yarl__navigation_prev:not(:disabled):active,
+  :root[data-reduced-motion] [dir="rtl"] .yarl__navigation_next:not(:disabled):active,
+  :root[data-reduced-motion][dir="rtl"] .yarl__navigation_next:not(:disabled):active {
+    transform: translateY(-50%) rotate(180deg);
+  }
 </style>

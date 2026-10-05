@@ -1,0 +1,30 @@
+---
+/**
+ * Motion=Off press-scale cancellation. Zap already sets transition/animation
+ * to none, but :active { transform: scale(...) } still shrinks instantly.
+ * This CSS cannot live in global.css or RootLayout: Tailwind flattens those
+ * `:root… .squishy:active` rules and drops identity transforms. A component
+ * stylesheet ships as its own tag and keeps them.
+ */
+---
+
+<style is:global>
+  :root[data-reduced-motion] .squishy:not(:disabled):active,
+  :root[data-reduced-motion] .yarl__button:not(:disabled):active,
+  :root[data-reduced-motion] .logomark__summary:active,
+  :root[data-reduced-motion] .version-option:active {
+    transform: none !important;
+  }
+  :root[data-reduced-motion] .yarl__navigation_prev:not(:disabled):active {
+    transform: translateY(-50%) !important;
+  }
+  :root[data-reduced-motion] .yarl__navigation_next:not(:disabled):active {
+    transform: translateY(-50%) !important;
+  }
+  :root[data-reduced-motion] [dir="rtl"] .yarl__navigation_prev:not(:disabled):active,
+  :root[data-reduced-motion][dir="rtl"] .yarl__navigation_prev:not(:disabled):active,
+  :root[data-reduced-motion] [dir="rtl"] .yarl__navigation_next:not(:disabled):active,
+  :root[data-reduced-motion][dir="rtl"] .yarl__navigation_next:not(:disabled):active {
+    transform: translateY(-50%) rotate(180deg) !important;
+  }
+</style>

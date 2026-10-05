@@ -6,7 +6,7 @@ import {
   publicCloudinarySearchUrl,
 } from "../../src/lib/cloudinarySearchPolicy";
 import { cldTransform, cldSrcSet } from "../../src/lib/cloudinary";
-import { brandFor, docsUrl } from "../../src/lib/brands";
+import { BRANDS, brandFor, docsUrl } from "../../src/lib/brands";
 import { toFeaturedSlide, toGalleryPhoto } from "../../src/lib/photos";
 import { SECTIONS, SOCIALS, VERSIONS } from "../../src/lib/sections";
 
@@ -150,6 +150,13 @@ describe("brands", () => {
     expect(brandFor("Unknown tool")).toBeUndefined();
     expect(docsUrl("Next.js")).toBe("https://nextjs.org/docs");
   });
+
+  it("marks black glyphs so they invert in dark mode", () => {
+    for (const name of ["Next.js", "Swift", "D3", "Astro"] as const)
+      expect(BRANDS[name].invertOnDark).toBe(true);
+    expect(BRANDS.React.invertOnDark).toBeUndefined();
+    expect(BRANDS.Express.invertOnDark).toBeUndefined();
+  });
 });
 
 describe("site chrome data", () => {
@@ -165,6 +172,11 @@ describe("site chrome data", () => {
   });
 
   it("links socials and old versions to absolute https URLs", () => {
+    expect(SOCIALS.map((social) => social.label)).toEqual([
+      "Resume",
+      "GitHub",
+      "LinkedIn",
+    ]);
     for (const social of SOCIALS) expect(social.href).toMatch(/^https:\/\//);
     expect(VERSIONS[0].href).toBeNull();
     for (const version of VERSIONS.slice(1))
