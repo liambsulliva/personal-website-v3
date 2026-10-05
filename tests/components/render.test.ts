@@ -15,6 +15,7 @@ import FeaturedArticle from "../../src/components/cards/FeaturedArticle.astro";
 import BrandGlyph from "../../src/components/icons/BrandGlyph.astro";
 import TimelineRow from "../../src/components/cards/TimelineRow.astro";
 import Mark from "../../src/components/chrome/Mark.astro";
+import PhoneMockup from "../../src/components/writeup/PhoneMockup.astro";
 
 let container: AstroContainer;
 
@@ -203,6 +204,25 @@ describe("Mark", () => {
     expect(open).not.toContain("whitespace-nowrap");
     expect(open).not.toContain("inline-flex");
     expect(html).not.toMatch(/height:\s*26px/);
+  });
+});
+
+describe("PhoneMockup", () => {
+  it("clips the Kingdra screenshot inside the frame instead of translating it to the viewport top", async () => {
+    const html = await container.renderToString(PhoneMockup, {
+      props: {
+        content: "site/projects/kingdra-case-study/mobile-view",
+        frame: "site/ui/iphone-frame",
+        alt: "The original Kingdra mobile UI, showing a long scroll of Pokémon",
+      },
+    });
+    const shell = html.match(/<div class="phone-mockup[^"]*"/)?.[0] ?? "";
+    const screen = html.match(/class="phone-mockup__screen[^"]*"/)?.[0] ?? "";
+    expect(html).toContain("kingdra-case-study/mobile-view");
+    expect(shell).toMatch(/overflow-(hidden|clip)/);
+    expect(screen).not.toContain("-translate-y-1/2");
+    expect(screen).not.toContain("top-1/2");
+    expect(screen).toMatch(/overflow-y-auto/);
   });
 });
 

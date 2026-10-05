@@ -1,5 +1,10 @@
 ---
-/** Scrollable screenshot inside a phone frame (both from Cloudinary). */
+/**
+ * Scrollable screenshot inside a phone frame (both from Cloudinary).
+ * The screen is sized with % + contain (not translate-centered): iOS WebKit
+ * lets a tall overflow-y child of top/left 50% + translate(-50%, -50%) grow
+ * and paint to the viewport top, so the frame no longer covers it.
+ */
 import { cldSrcSet, cldUrl, assetRatio } from "../../lib/cloudinary";
 
 interface Props {
@@ -10,8 +15,8 @@ interface Props {
 const { content, frame, alt = "Mobile view" } = Astro.props;
 ---
 
-<div class="phone-mockup relative mx-auto aspect-[9/16] w-full max-w-[260px]">
-  <div class="phone-mockup__screen absolute top-1/2 left-1/2 z-[1] aspect-[9/16] w-[90%] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[28px] bg-skeleton" tabindex="0" aria-label="Scrollable screenshot">
+<div class="phone-mockup relative mx-auto aspect-[9/16] w-full max-w-[260px] overflow-hidden">
+  <div class="phone-mockup__screen overflow-x-hidden overflow-y-auto overscroll-contain bg-skeleton" tabindex="0" aria-label="Scrollable screenshot">
     <img
       src={cldUrl(content, { width: 540 })}
       srcset={cldSrcSet(content, {}, [270, 540, 810])}
@@ -19,7 +24,7 @@ const { content, frame, alt = "Mobile view" } = Astro.props;
       alt={alt}
       loading="lazy"
       decoding="async"
-      class="block h-auto w-full"
+      class="block h-auto w-full max-w-full"
       style={`aspect-ratio:${assetRatio(content, "9 / 40")}`}
     />
   </div>
@@ -38,8 +43,20 @@ const { content, frame, alt = "Mobile view" } = Astro.props;
 </div>
 
 <style>
+  .phone-mockup {
+    isolation: isolate;
+  }
   .phone-mockup__screen {
+    position: absolute;
+    top: 5%;
+    left: 5%;
+    z-index: 1;
+    width: 90%;
+    height: 90%;
+    border-radius: 28px;
+    contain: strict;
     scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
   }
   .phone-mockup__screen::-webkit-scrollbar {
     display: none;
