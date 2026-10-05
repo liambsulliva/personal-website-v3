@@ -13,7 +13,7 @@ const caseStudies = await getProjects("design");
 const pieces = await getPieces("design");
 const sections = [
   { key: "graphic-design", label: "Graphic Design", columns: 3 },
-  { key: "layouts", label: "Layouts", columns: 2 },
+  { key: "layouts", label: "Layouts", columns: 2, media: "wide" },
   { key: "design-club", label: "Design Club", columns: 3 },
 ] as const;
 ---
@@ -53,6 +53,7 @@ const sections = [
                   href={data.href}
                   image={data.image}
                   external={data.external}
+                  media={"media" in section ? section.media : undefined}
                 />
               ))}
             </div>

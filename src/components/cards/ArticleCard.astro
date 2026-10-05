@@ -1,5 +1,9 @@
 ---
-/** Figma ArticleCard (14:183): 192px media, title + external icon, meta. */
+/**
+ * Figma ArticleCard (14:183): 192px media, title + external icon, meta.
+ * `wide` media trades the 192px strip for a full-width 16:9 crop (Layouts),
+ * so more of each page's height shows.
+ */
 import CldImage from "../media/CldImage.astro";
 import Icon from "../icons/Icon.astro";
 
@@ -12,9 +16,11 @@ interface Props {
   /** Third-party feed image (e.g. WordPress), already sized */
   imageUrl?: string;
   external?: boolean;
+  media?: "strip" | "wide";
 }
 
-const { title, meta, href, image, imageUrl, external = true } = Astro.props;
+const { title, meta, href, image, imageUrl, external = true, media = "strip" } = Astro.props;
+const wide = media === "wide";
 ---
 
 <a
@@ -23,7 +29,7 @@ const { title, meta, href, image, imageUrl, external = true } = Astro.props;
   style="--hover-base:var(--surface)"
   {...external ? { target: "_blank", rel: "noopener noreferrer" } : {}}
 >
-  <div class="relative h-[192px] w-full shrink-0 bg-skeleton" data-name="media">
+  <div class:list={["relative w-full shrink-0 bg-skeleton", wide ? "aspect-video" : "h-[192px]"]} data-name="media">
     {image && <CldImage id={image} alt="" aspect="16:9" fill sizes="(min-width: 1024px) 660px, 100vw" />}
     {!image && imageUrl && <img src={imageUrl} alt="" loading="lazy" decoding="async" class="absolute inset-0 h-full w-full object-cover" />}
   </div>
