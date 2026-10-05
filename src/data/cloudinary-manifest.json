@@ -19,6 +19,10 @@
     "width": 256,
     "height": 256
   },
+  "site/me/portrait": {
+    "width": 3024,
+    "height": 4032
+  },
   "site/pieces/design/design-club/clubmeeting1": {
     "width": 2042,
     "height": 1142
@@ -75,6 +79,10 @@
     "width": 2940,
     "height": 1428
   },
+  "site/projects/compression-wars/cover": {
+    "width": 3200,
+    "height": 1800
+  },
   "site/projects/herl-app/book-back": {
     "width": 2048,
     "height": 1424
@@ -86,6 +94,10 @@
   "site/projects/herl-app/cover": {
     "width": 2560,
     "height": 1442
+  },
+  "site/projects/how-expensive-is-fruit/cover": {
+    "width": 3200,
+    "height": 1800
   },
   "site/projects/kingdra-app/cover": {
     "width": 2560,

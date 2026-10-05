@@ -1,10 +1,12 @@
 // Read-only Cloudinary Admin/Search access for SSR pages and the public API
 // routes. Photography lives at the cloud root (tag-driven); site imagery
-// lives under folder site/ and is always excluded from photo queries.
+// lives under folder site/ and is always excluded from photo queries, as is
+// the demo pack Cloudinary seeds into the console (tagged "samples").
 
 export const PUBLIC_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=86400";
 
-export const PHOTO_SCOPE = "NOT folder:site/*";
+// Cloudinary's parser rejects chained NOTs; keep exclusions in one group.
+export const PHOTO_SCOPE = "NOT (folder:site/* OR tags=samples)";
 
 export const getCloudinaryCredentials = () => {
   const cloudName = import.meta.env.CLOUDINARY_CLOUD_NAME;
@@ -87,25 +89,41 @@ export async function searchPhotos(body: {
   };
 }
 
-/** Tags for the chip row. `featured` is an editorial flag, not a filter. */
+/**
+ * Tags for the chip row, read off the photos in PHOTO_SCOPE so a chip never
+ * filters to an empty grid (the cloud-wide tag list includes tags that only
+ * live on excluded assets). `featured` is an editorial flag, not a filter.
+ */
 export async function listPhotoTags(): Promise<string[]> {
   const credentials = getCloudinaryCredentials();
   if (!credentials) return [];
 
-  const tags: string[] = [];
+  const tags = new Set<string>();
   let cursor: string | undefined;
   do {
-    const params = new URLSearchParams({ max_results: "500" });
-    if (cursor) params.set("next_cursor", cursor);
     const response = await fetch(
-      `https://api.cloudinary.com/v1_1/${credentials.cloudName}/tags/image?${params}`,
-      { headers: { Authorization: authHeader(credentials.apiKey, credentials.apiSecret) } },
+      `https://api.cloudinary.com/v1_1/${credentials.cloudName}/resources/search`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: authHeader(credentials.apiKey, credentials.apiSecret),
+        },
+        body: JSON.stringify({
+          expression: scopePhotoExpression(photoExpression()),
+          fields: ["tags"],
+          max_results: 500,
+          ...(cursor ? { next_cursor: cursor } : {}),
+        }),
+      },
     );
     if (!response.ok) break;
-    const data: { tags?: string[]; next_cursor?: string | null } = await response.json();
-    tags.push(...(data.tags ?? []));
-    cursor = data.next_cursor || undefined;
+    const data: { resources?: Array<{ tags?: string[] }>; next_cursor?: string } =
+      await response.json();
+    data.resources?.forEach((resource) => resource.tags?.forEach((tag) => tags.add(tag)));
+    cursor = data.next_cursor;
   } while (cursor);
 
-  return tags.filter((tag) => tag !== "featured").sort();
+  tags.delete("featured");
+  return [...tags].sort();
 }
