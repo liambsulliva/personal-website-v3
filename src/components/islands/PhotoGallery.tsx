@@ -42,9 +42,10 @@ const PAGE_SIZE = 20;
 const LIGHTBOX_MIN_ZOOM_HEADROOM = 2;
 
 // v2: the album's `sizes` describe the *container*; the album derives each
-// column's size from it. Content is inset 64px (desktop) / 24px (mobile).
+// column's size from it. Content is inset 64px (desktop) / 24px (mobile) and
+// clamped to 1144px by SubpageLayout's 1272px <main>.
 const ALBUM_SIZES = {
-  size: "calc(100vw - 128px)",
+  size: "min(calc(100vw - 128px), 1144px)",
   sizes: [{ viewport: "(max-width: 767px)", size: "calc(100vw - 48px)" }],
 };
 

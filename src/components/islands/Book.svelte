@@ -9,7 +9,6 @@
 
   let isHovering = false;
   export let isFlipped = false;
-  export let page = 0;
 
   let tiltX = 9;
   let tiltY = -9;
@@ -86,7 +85,7 @@
     <div bind:this={pages[i]} class="page" style="z-index: {totalPages - i};">
       {#if i + 1 === 3 || i + 1 === 5 || i + 1 === 9 || i + 1 === 12 || i + 1 === 22 || i + 1 === 33}
         <div style="position: relative; z-index: 1000;">
-          <Bookmark targetPage={i + 1} bind:page {isFlipped} />
+          <Bookmark targetPage={i + 1} {isFlipped} />
         </div>
       {/if}
     </div>
@@ -99,7 +98,6 @@
     position: relative;
     margin: 5vmin auto;
     margin-bottom: 4rem;
-    cursor: pointer;
     transition: transform 0.5s ease-out;
     max-width: 75vw;
     height: 52.5vmin;

@@ -41,7 +41,7 @@ const {
 const options: CldOptions = aspect && !bare ? { aspect, crop: "fill", gravity } : { crop: "limit" };
 const ratio = aspect ? aspect.replace(":", " / ") : assetRatio(id);
 const style = [
-  bare ? "" : `background-image:url("${cldPlaceholder(id, options)}")`,
+  bare ? "" : `--lqip:url("${cldPlaceholder(id, options)}")`,
   fill ? "" : `aspect-ratio:${ratio}`,
 ].join(";");
 ---
@@ -67,6 +67,10 @@ const style = [
     display: block;
     overflow: hidden;
     background-color: var(--skeleton);
+    /* The LQIP rides in a custom property so the :has() rule below can drop
+       it (an inline background-image would outrank it and keep tiling behind
+       transparent art). */
+    background-image: var(--lqip, none);
     background-size: cover;
     background-position: center;
   }

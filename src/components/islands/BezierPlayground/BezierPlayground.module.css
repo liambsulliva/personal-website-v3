@@ -1,6 +1,34 @@
 /* Figma BezierPlayground (51:1551): surface chrome, p16, gap 12. The inner
-   editor keeps its dark code-editor palette in both themes. */
+   editor follows the site theme: GitHub Light syntax colors in light mode,
+   VS Code Dark+ in dark (matching the Shiki code blocks). */
 .root {
+  --bz-editor: #f6f8fa;
+  --bz-fg: #1f2328;
+  --bz-keyword: #cf222e;
+  --bz-function: #8250df;
+  --bz-number: #0550ae;
+  --bz-comment: #6e7781;
+  --bz-input-bg: #ffffff;
+  --bz-input-border: #d0d7de;
+  --bz-focus: #0969da;
+  --bz-panel: #ffffff;
+  --bz-panel-border: #d0d7de;
+  --bz-stage-from: #ffffff;
+  --bz-stage-to: #f0f2f4;
+  --bz-grid: #e6e9ec;
+  --bz-plot-border: #d0d7de;
+  --bz-label: #6e7781;
+  --bz-handle: #8c959f;
+  --bz-p1: #0969da;
+  --bz-p2: #8250df;
+  --bz-endpoint: #1a7f37;
+  --bz-curve: #bf8700;
+  --bz-button-bg: #f6f8fa;
+  --bz-button-hover: #eaeef2;
+  --bz-button-border: #d0d7de;
+  --bz-button-fg: #1f2328;
+  --bz-shadow: rgba(0, 0, 0, 0.18);
+
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -9,6 +37,35 @@
   overflow: hidden;
   background-color: var(--surface);
   border: 1px solid var(--border);
+}
+
+:global(:root.dark) .root {
+  --bz-editor: #1e1e1e;
+  --bz-fg: #d4d4d4;
+  --bz-keyword: #c586c0;
+  --bz-function: #dcdcaa;
+  --bz-number: #b5cea8;
+  --bz-comment: #6a9955;
+  --bz-input-bg: #252526;
+  --bz-input-border: #3c3c3c;
+  --bz-focus: #6b9fff;
+  --bz-panel: #181818;
+  --bz-panel-border: #333;
+  --bz-stage-from: #222;
+  --bz-stage-to: #181818;
+  --bz-grid: #2d2d2d;
+  --bz-plot-border: #3c3c3c;
+  --bz-label: #6e7681;
+  --bz-handle: #555;
+  --bz-p1: #4a9eff;
+  --bz-p2: #c586c0;
+  --bz-endpoint: #6a9955;
+  --bz-curve: #dcdcaa;
+  --bz-button-bg: #2a2a2a;
+  --bz-button-hover: #333;
+  --bz-button-border: #444;
+  --bz-button-fg: #e0e0e0;
+  --bz-shadow: rgba(0, 0, 0, 0.45);
 }
 
 .header {
@@ -33,16 +90,16 @@
 .editor {
   border-radius: var(--radius-md);
   overflow: hidden;
-  background-color: #1e1e1e;
+  background-color: var(--bz-editor);
 }
 
 .codeArea {
   padding: 1rem;
-  background-color: #1e1e1e;
+  background-color: var(--bz-editor);
   font-family: var(--font-mono);
   font-size: 0.875rem;
   line-height: 1.6;
-  color: #d4d4d4;
+  color: var(--bz-fg);
   overflow-x: auto;
 }
 
@@ -56,23 +113,23 @@
 }
 
 .keyword {
-  color: #c586c0;
+  color: var(--bz-keyword);
 }
 
 .functionName {
-  color: #dcdcaa;
+  color: var(--bz-function);
 }
 
 .number {
-  color: #b5cea8;
+  color: var(--bz-number);
 }
 
 .punct {
-  color: #d4d4d4;
+  color: var(--bz-fg);
 }
 
 .dim {
-  color: #6a9955;
+  color: var(--bz-comment);
 }
 
 .input {
@@ -82,16 +139,16 @@
   font-family: inherit;
   font-size: inherit;
   line-height: 1.4;
-  color: #b5cea8;
-  background: #252526;
-  border: 1px solid #3c3c3c;
+  color: var(--bz-number);
+  background: var(--bz-input-bg);
+  border: 1px solid var(--bz-input-border);
   border-radius: 4px;
 }
 
 .input:focus {
-  outline: 2px solid #6b9fff;
+  outline: 2px solid var(--bz-focus);
   outline-offset: 1px;
-  border-color: #6b9fff;
+  border-color: var(--bz-focus);
 }
 
 .input::-webkit-outer-spin-button,
@@ -110,7 +167,7 @@
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 1rem;
   padding: 0 1rem 1rem;
-  background-color: #1e1e1e;
+  background-color: var(--bz-editor);
 }
 
 @media (max-width: 640px) {
@@ -121,15 +178,15 @@
 
 .graphWrap {
   border-radius: 6px;
-  border: 1px solid #333;
-  background: #181818;
+  border: 1px solid var(--bz-panel-border);
+  background: var(--bz-panel);
   padding: 0.5rem;
 }
 
 .graphCaption {
   font-family: var(--font-sans);
   font-size: 0.7rem;
-  color: #888;
+  color: var(--bz-label);
   margin: 0 0 0.35rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -152,7 +209,7 @@
 .previewLabel {
   font-family: var(--font-sans);
   font-size: 0.7rem;
-  color: #888;
+  color: var(--bz-label);
   margin: 0;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -162,8 +219,8 @@
   flex: 1;
   min-height: 140px;
   border-radius: 6px;
-  border: 1px solid #333;
-  background: linear-gradient(180deg, #222 0%, #181818 100%);
+  border: 1px solid var(--bz-panel-border);
+  background: linear-gradient(180deg, var(--bz-stage-from) 0%, var(--bz-stage-to) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -185,7 +242,7 @@
   object-fit: contain;
   transform-origin: bottom left;
   will-change: transform;
-  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.45));
+  filter: drop-shadow(0 4px 12px var(--bz-shadow));
   user-select: none;
   pointer-events: none;
 }
@@ -203,27 +260,56 @@
   font-weight: 500;
   padding: 0.4rem 0.85rem;
   border-radius: 6px;
-  border: 1px solid #444;
-  background: #2a2a2a;
-  color: #e0e0e0;
+  border: 1px solid var(--bz-button-border);
+  background: var(--bz-button-bg);
+  color: var(--bz-button-fg);
   cursor: pointer;
 }
 
-.replay:hover {
-  background: #333;
-  border-color: #555;
+@media (hover: hover) {
+  .replay:hover {
+    background: var(--bz-button-hover);
+  }
 }
 
 .replay:focus-visible {
-  outline: 2px solid #6b9fff;
+  outline: 2px solid var(--bz-focus);
   outline-offset: 2px;
 }
 
 .hint {
   font-family: var(--font-sans);
   font-size: 0.75rem;
-  color: #6e7681;
+  color: var(--bz-label);
   margin: 0;
+}
+
+/* Graph SVG marks (classes, since presentation attributes can't take var()). */
+.gridLine {
+  stroke: var(--bz-grid);
+}
+.plotFrame {
+  stroke: var(--bz-plot-border);
+}
+.axisLabel {
+  fill: var(--bz-label);
+}
+.handleLine {
+  stroke: var(--bz-handle);
+}
+.p1 {
+  fill: var(--bz-p1);
+  stroke: var(--bz-editor);
+}
+.p2 {
+  fill: var(--bz-p2);
+  stroke: var(--bz-editor);
+}
+.endpoint {
+  fill: var(--bz-endpoint);
+}
+.curve {
+  stroke: var(--bz-curve);
 }
 
 .srOnly {

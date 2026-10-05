@@ -30,6 +30,7 @@ const projects = defineCollection({
     wing: z.enum(["engineering", "design"]),
     image: z.string(),
     hero: z.string().optional(), // write-up hero when different from image
+    heroFit: z.enum(["cover", "contain"]).default("cover"), // contain: transparent art, no crop
     badges: z.array(z.string()).max(3),
     languages: z
       .array(z.object({ name: z.string(), pct: z.number() }))

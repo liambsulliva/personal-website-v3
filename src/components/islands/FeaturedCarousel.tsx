@@ -6,7 +6,7 @@ import type { FeaturedSlide } from "../../lib/photos";
 // Figma FeaturedCarousel (25:518) with v2's progressive loading: every slide
 // shows its 480px placeholder; the active slide upgrades first, neighbours
 // only once the active one is sharp. Slides are SSR'd (no fetch on mount).
-const SLIDE_SIZES = "(min-width: 768px) calc(100vw - 128px), calc(100vw - 48px)";
+const SLIDE_SIZES = "(min-width: 768px) min(calc(100vw - 128px), 1144px), calc(100vw - 48px)";
 
 export default function FeaturedCarousel({ slides }: { slides: FeaturedSlide[] }) {
   const [current, setCurrent] = useState(0);

@@ -143,6 +143,10 @@
     "width": 1600,
     "height": 1600
   },
+  "site/projects/kingdra-case-study/hero-phone": {
+    "width": 1128,
+    "height": 1400
+  },
   "site/projects/kingdra-case-study/horizontal-slots-after": {
     "width": 754,
     "height": 840
@@ -246,6 +250,10 @@
   "site/projects/the-invisible-hand-of-ux/print-logo-raster": {
     "width": 720,
     "height": 540
+  },
+  "site/ui/iphone-frame": {
+    "width": 1080,
+    "height": 1920
   },
   "site/ui/iphone-mockup": {
     "width": 1080,

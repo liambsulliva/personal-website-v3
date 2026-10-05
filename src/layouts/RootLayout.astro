@@ -12,6 +12,8 @@ const DEFAULT_DESCRIPTION =
 const { title = "Liam Sullivan", description = DEFAULT_DESCRIPTION } =
   Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site);
+// Crawlers need an absolute share image; fall back to the request origin.
+const ogImage = new URL("/banner.jpg", Astro.site ?? Astro.url);
 ---
 
 <!doctype html>
@@ -28,13 +30,13 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
 
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    <meta property="og:image" content="/banner.jpg" />
+    <meta property="og:image" content={ogImage} />
     <meta property="og:type" content="website" />
     <meta property="og:url" content={canonical} />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
-    <meta name="twitter:image" content="/banner.jpg" />
+    <meta name="twitter:image" content={ogImage} />
     <meta name="generator" content={Astro.generator} />
 
     <!-- Theme + motion before first paint (no FOUC). -->
@@ -63,6 +65,12 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     <slot name="head" />
   </head>
   <body>
+    <a
+      href="#main"
+      class="sr-only rounded-sm bg-fg px-3 py-2 text-[14px] font-medium text-bg no-underline focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50"
+    >
+      Skip to content
+    </a>
     <slot />
     <script>
       import "../scripts/controls";

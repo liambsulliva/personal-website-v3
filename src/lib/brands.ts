@@ -15,11 +15,25 @@ export const BRANDS = {
   Docusaurus: { file: "docusaurus.svg", width: 32, height: 32 },
   Swift: { file: "swift.svg", width: 22, height: 22 },
   D3: { file: "d3.svg", width: 22, height: 22 },
+  Photoshop: { file: "photoshop.svg", width: 24, height: 24 },
+  CSS: { file: "css.svg", width: 24, height: 24 },
+  esbuild: { file: "esbuild.svg", width: 24, height: 24 },
 } as const;
 
 export type BrandKey = keyof typeof BRANDS;
 
 export const isBrand = (name: string): name is BrandKey => name in BRANDS;
+
+// Tool labels that borrow a parent brand's glyph.
+const BRAND_ALIASES: Record<string, BrandKey> = {
+  "OpenAI API": "OpenAI",
+  "react-tela": "React",
+  "CSS 3D": "CSS",
+};
+
+/** Glyph for a badge label (direct brand or alias), if any. */
+export const brandFor = (label: string): BrandKey | undefined =>
+  isBrand(label) ? label : BRAND_ALIASES[label];
 
 // GitHub linguist colors (Figma lang/* variables).
 export const LANGUAGE_COLORS: Record<string, string> = {

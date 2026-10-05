@@ -1,45 +1,31 @@
 ---
 /**
- * Figma SubpageHeader (21:448). Bar ("Liam Sullivan" + compact-nav), then a
- * centered 56px accent title row (py48). The Me variant omits the title row.
- * Below md the compact-nav collapses into the MobileMenu popover.
+ * Figma SubpageHeader (21:448): the bar ("Liam Sullivan" breadcrumb +
+ * compact-nav). The title row lives in <main> (PageTitle). Below md the
+ * compact-nav collapses into the MobileMenu popover.
  */
 import CompactNavIcon from "./CompactNavIcon.astro";
 import IconButton from "./IconButton.astro";
 import MobileMenu from "./MobileMenu.astro";
-import BackLink from "./BackLink.astro";
-import { SECTIONS, sectionByKey, type SectionKey } from "../../lib/sections";
+import Breadcrumb from "./Breadcrumb.astro";
+import { SECTIONS, type SectionKey } from "../../lib/sections";
 
 interface Props {
   section?: SectionKey;
-  /** Override the title text (defaults to the section label) */
-  title?: string;
-  /** Override the title color (defaults to the section accent) */
-  color?: string;
-  showTitle?: boolean;
-  /** Write-ups: kicker line set directly under the title */
-  subtitle?: string;
-  /** Write-ups: v2-style back link to the wing index */
-  back?: { href: string; label: string };
+  /** A PageTitle follows and brings its own top spacing */
+  titled?: boolean;
 }
 
-const { section, title, color, showTitle = section !== "me", subtitle, back } = Astro.props;
-const current = section ? sectionByKey(section) : undefined;
-const titleText = title ?? current?.label;
-const titleColor = color ?? current?.color ?? "var(--fg)";
+const { section, titled = false } = Astro.props;
 ---
 
-<header class="flex w-full flex-col items-start gap-6 px-6 pt-4 pb-6 md:gap-12 md:px-16 md:py-8" data-name="Header">
-  <div class="flex w-full items-center justify-between" data-name="bar">
-    <a href="/" class="name-wave squishy squishy-md text-[20px] leading-none font-semibold whitespace-nowrap text-fg no-underline" aria-label="Liam Sullivan, home">
-      {
-        [..."Liam Sullivan"].map((char, index) => (
-          <span class="name-wave__ch" style={`--i:${index}`} aria-hidden="true">
-            {char === " " ? "\u00a0" : char}
-          </span>
-        ))
-      }
-    </a>
+<header
+  class:list={["flex w-full flex-col items-start px-6 pt-4 md:px-16 md:pt-8", { "pb-6 md:pb-8": !titled }]}
+  data-name="Header"
+>
+  <div class="flex w-full items-center justify-between gap-4" data-name="bar">
+    <!-- Section pages mirror their URL; section-less pages (404) show the name alone. -->
+    <Breadcrumb path={section ? Astro.url.pathname : undefined} />
     <nav class="hidden items-start md:flex" aria-label="Sections" data-name="compact-nav">
       {
         SECTIONS.map((item) => (
@@ -54,81 +40,6 @@ const titleColor = color ?? current?.color ?? "var(--fg)";
       attrs={{ popovertarget: "mobile-menu" }}
     />
   </div>
-  {
-    showTitle && titleText && (
-      <div class="relative flex w-full flex-col items-center justify-center gap-3 md:py-12" data-name="title-row">
-        {back && (
-          <div class="mb-3 self-start md:absolute md:top-0 md:left-0 md:mb-0">
-            <BackLink href={back.href} ariaLabel={`Back to ${back.label}`} />
-          </div>
-        )}
-        <h1
-          class="m-0 text-center text-[40px] leading-[1.1] font-bold md:text-[56px]"
-          style={`color:${titleColor}`}
-        >
-          {titleText}
-        </h1>
-        {subtitle && <p class="m-0 text-center text-[16px] leading-[1.4] text-muted">{subtitle}</p>}
-      </div>
-    )
-  }
 </header>
 
 <MobileMenu />
-
-<style>
-  /* "Liam Sullivan": a hover/focus strum. Plays through even if the pointer leaves. */
-  .name-wave {
-    display: inline-flex;
-  }
-  .name-wave__ch {
-    display: inline-block;
-    will-change: transform;
-  }
-  .name-wave.is-waving .name-wave__ch {
-    animation: name-strum 360ms cubic-bezier(0.34, 1.4, 0.64, 1) calc(var(--i) * 24ms) both;
-  }
-  @keyframes name-strum {
-    0% {
-      transform: translateY(0);
-    }
-    30% {
-      transform: translateY(-7px);
-    }
-    62% {
-      transform: translateY(1.5px);
-    }
-    100% {
-      transform: translateY(0);
-    }
-  }
-</style>
-
-<script>
-  const reduced = () =>
-    document.documentElement.hasAttribute("data-reduced-motion");
-
-  const root = document.querySelector<HTMLAnchorElement>("a.name-wave");
-  if (root) {
-    const letters = [...root.querySelectorAll<HTMLElement>(".name-wave__ch")];
-    const last = letters.at(-1);
-
-    const play = () => {
-      if (reduced() || root.classList.contains("is-waving")) return;
-      root.classList.add("is-waving");
-    };
-
-    root.addEventListener("mouseenter", play);
-    root.addEventListener("focusin", () => {
-      if (root.matches(":focus-visible")) play();
-    });
-
-    last?.addEventListener("animationend", () => {
-      root.classList.remove("is-waving");
-    });
-
-    document.addEventListener("motionchange", () => {
-      if (reduced()) root.classList.remove("is-waving");
-    });
-  }
-</script>

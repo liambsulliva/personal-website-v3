@@ -40,7 +40,7 @@ const caseStudy = variant === "case-study";
 
 <article
   class:list={[
-    "project-card hover-surface press-card relative flex w-full flex-col items-start gap-3 overflow-clip rounded-card border border-border bg-card p-3 text-left no-underline md:flex-row md:gap-6",
+    "project-card hover-surface relative flex w-full flex-col items-start gap-3 overflow-clip rounded-card border border-border bg-card p-3 text-left no-underline md:flex-row md:gap-6",
     { "md:h-[271px]": caseStudy },
   ]}
 >
@@ -79,7 +79,7 @@ const caseStudy = variant === "case-study";
       <h3 class="m-0 text-[24px] leading-[1.2] font-bold text-fg">
         <a
           href={href}
-          class="project-card__link press-card__target text-fg no-underline"
+          class="project-card__link text-fg no-underline"
           {...external ? { target: "_blank", rel: "noopener noreferrer" } : {}}
         >{title}</a>
       </h3>

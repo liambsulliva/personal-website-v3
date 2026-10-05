@@ -4,7 +4,7 @@
  * Links to the tool's documentation when one is known.
  */
 import BrandGlyph from "../icons/BrandGlyph.astro";
-import { docsUrl, isBrand } from "../../lib/brands";
+import { brandFor, docsUrl } from "../../lib/brands";
 
 interface Props {
   label: string;
@@ -13,7 +13,7 @@ interface Props {
 }
 
 const { label, href = docsUrl(label) } = Astro.props;
-const brand = isBrand(label) ? label : undefined;
+const brand = brandFor(label);
 const Tag = href ? "a" : "span";
 const linkAttrs = href
   ? { href, target: "_blank", rel: "noopener noreferrer", "aria-label": `${label} documentation` }

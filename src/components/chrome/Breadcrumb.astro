@@ -1,0 +1,132 @@
+---
+/**
+ * Header bar trail: "Liam Sullivan" (home, with the hover strum) followed by
+ * the page's URL path, styled like the slug itself: "/engineering/kingdra-app".
+ * Every segment links to its level; the last one is the current page, so
+ * clicking it reloads.
+ */
+interface Props {
+  /** URL pathname to mirror; omit for the name alone */
+  path?: string;
+}
+
+const { path = "" } = Astro.props;
+const segments = path
+  .split("/")
+  .filter(Boolean)
+  .map((segment, index, all) => ({
+    label: decodeURIComponent(segment).toLowerCase(),
+    href: `/${all.slice(0, index + 1).join("/")}`,
+    current: index === all.length - 1,
+  }));
+---
+
+<nav class="min-w-0" aria-label="Breadcrumb">
+  <!-- Inline items on a block list so a long path ellipsizes as one line on phones.
+       truncate clips on every side, so py-3/-my-3 leaves room for the name's
+       7px strum without moving the layout. -->
+  <ol class="-my-3 block min-w-0 list-none truncate px-0 py-3 leading-none whitespace-nowrap">
+    <li class="inline">
+      <a href="/" class="name-wave squishy squishy-md align-baseline text-[20px] font-semibold text-fg no-underline" aria-label="Liam Sullivan, home">
+        {
+          [..."Liam Sullivan"].map((char, index) => (
+            <span class="name-wave__ch" style={`--i:${index}`} aria-hidden="true">
+              {char === " " ? "\u00a0" : char}
+            </span>
+          ))
+        }
+      </a>
+    </li>
+    {
+      segments.map((segment, index) => (
+        <li class:list={["inline font-mono text-[13px] md:text-[14px]", { "ml-2": index === 0 }]}>
+          <span class="breadcrumb__slash" aria-hidden="true">/</span>
+          <a
+            href={segment.href}
+            class:list={["breadcrumb__link no-underline", { "breadcrumb__link--current": segment.current }]}
+            aria-current={segment.current ? "page" : undefined}
+          >
+            {segment.label}
+          </a>
+        </li>
+      ))
+    }
+  </ol>
+</nav>
+
+<style>
+  /* Slug look: muted slashes and parent segments, the current page in fg. */
+  .breadcrumb__slash {
+    color: var(--fg-muted);
+    opacity: 0.6;
+  }
+  .breadcrumb__link {
+    color: var(--fg-muted);
+    transition: color var(--motion-fast) var(--ease-out);
+  }
+  .breadcrumb__link--current {
+    color: var(--fg);
+  }
+  @media (hover: hover) {
+    .breadcrumb__link:hover {
+      color: var(--fg);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+  }
+
+  /* "Liam Sullivan": a hover/focus strum. Plays through even if the pointer leaves. */
+  .name-wave {
+    display: inline-flex;
+  }
+  .name-wave__ch {
+    display: inline-block;
+    will-change: transform;
+  }
+  .name-wave.is-waving .name-wave__ch {
+    animation: name-strum 360ms cubic-bezier(0.34, 1.4, 0.64, 1) calc(var(--i) * 24ms) both;
+  }
+  @keyframes name-strum {
+    0% {
+      transform: translateY(0);
+    }
+    30% {
+      transform: translateY(-7px);
+    }
+    62% {
+      transform: translateY(1.5px);
+    }
+    100% {
+      transform: translateY(0);
+    }
+  }
+</style>
+
+<script>
+  const reduced = () =>
+    document.documentElement.hasAttribute("data-reduced-motion");
+
+  const root = document.querySelector<HTMLAnchorElement>("a.name-wave");
+  if (root) {
+    const letters = [...root.querySelectorAll<HTMLElement>(".name-wave__ch")];
+    const last = letters.at(-1);
+
+    const play = () => {
+      if (reduced() || root.classList.contains("is-waving")) return;
+      root.classList.add("is-waving");
+    };
+
+    root.addEventListener("mouseenter", play);
+    root.addEventListener("focusin", () => {
+      if (root.matches(":focus-visible")) play();
+    });
+
+    last?.addEventListener("animationend", () => {
+      root.classList.remove("is-waving");
+    });
+
+    document.addEventListener("motionchange", () => {
+      if (reduced()) root.classList.remove("is-waving");
+    });
+  }
+</script>

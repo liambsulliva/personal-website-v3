@@ -39,6 +39,11 @@ export default defineConfig({
         "react-dom",
         "react-dom/client",
         "react/jsx-runtime",
+        // Dev JSX compiles to jsx-dev-runtime; if Vite discovers it (or the
+        // island client) at runtime it re-bundles mid-session and pages end up
+        // with two React copies ("Cannot read properties of null (useRef)").
+        "react/jsx-dev-runtime",
+        "@astrojs/react/client.js",
         "react-photo-album",
         "yet-another-react-lightbox",
         "yet-another-react-lightbox/plugins/zoom",

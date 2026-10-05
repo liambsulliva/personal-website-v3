@@ -1,7 +1,8 @@
 ---
-/** Shared chrome for every public subpage: SubpageHeader + slot + SubpageFooter. */
+/** Shared chrome for every public subpage: SubpageHeader, PageTitle + slot in <main>, SubpageFooter. */
 import RootLayout from "./RootLayout.astro";
 import SubpageHeader from "../components/chrome/SubpageHeader.astro";
+import PageTitle from "../components/chrome/PageTitle.astro";
 import SubpageFooter from "../components/chrome/SubpageFooter.astro";
 import type { SectionKey } from "../lib/sections";
 
@@ -18,13 +19,17 @@ interface Props {
 }
 
 const { title, description, section, heading, headingColor, showHeading, subheading, back } = Astro.props;
+// The Me variant omits the title row; so do pages with nothing to title.
+const titled = (showHeading ?? section !== "me") && Boolean(heading ?? section);
 ---
 
 <RootLayout title={title} description={description}>
   <slot name="head" slot="head" />
   <div class="flex min-h-dvh flex-col">
-    <SubpageHeader section={section} title={heading} color={headingColor} showTitle={showHeading} subtitle={subheading} back={back} />
-    <main class="flex w-full flex-[1_0_auto] flex-col">
+    <SubpageHeader section={section} titled={titled} />
+    <!-- Content is clamped to the /me row (400 + 64 + 680 + 2 × 64 gutters); chrome stays full-bleed. -->
+    <main id="main" tabindex="-1" class="mx-auto flex w-full max-w-[1272px] flex-[1_0_auto] flex-col outline-none">
+      {titled && <PageTitle section={section} title={heading} color={headingColor} subtitle={subheading} back={back} />}
       <slot />
     </main>
     <SubpageFooter />

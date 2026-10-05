@@ -1,5 +1,5 @@
 ---
-/** Figma TimelineRow (35:370) / TimelineRow/Mobile (37:1341). No hover. */
+/** Figma TimelineRow (35:370) / TimelineRow/Mobile (37:1341). Ghost highlight on hover. */
 import { cldUrl } from "../../lib/cloudinary";
 
 interface Props {
@@ -18,7 +18,7 @@ const { company, role, dates, href, monogram, logo } = Astro.props;
   href={href}
   target="_blank"
   rel="noopener noreferrer"
-  class="timeline-row squishy squishy-tile -mx-3 -my-2 flex w-[calc(100%+24px)] items-start gap-3 rounded-card px-3 py-2 no-underline md:items-center md:gap-4"
+  class="timeline-row relative isolate -mx-3 -my-2 flex w-[calc(100%+24px)] items-start gap-3 rounded-card px-3 py-2 no-underline md:items-center md:gap-4"
   data-name="TimelineRow"
   aria-label={`${company} (opens in a new tab)`}
 >
@@ -55,15 +55,27 @@ const { company, role, dates, href, monogram, logo } = Astro.props;
 </a>
 
 <style>
-  /* Ghost highlight: no borders, a faint rounded rectangle on hover. */
-  .timeline-row {
-    transition:
-      background-color var(--motion-fast) var(--ease-out),
-      transform 460ms cubic-bezier(0.34, 2.1, 0.5, 1);
+  /* Ghost highlight: a faint rounded tint that fades in on hover. It's an
+     opacity fade on a pseudo-element rather than a background-color
+     transition, since Safari doesn't animate color-mix() backgrounds over
+     the @property-registered theme colors (it snaps or skips the tint). */
+  .timeline-row::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background-color: var(--fg);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--motion-fast) var(--ease-out);
   }
   @media (hover: hover) {
-    .timeline-row:hover {
-      background-color: color-mix(in srgb, var(--fg) 5%, transparent);
+    .timeline-row:hover::before {
+      opacity: 0.05;
     }
+  }
+  .timeline-row:focus-visible::before {
+    opacity: 0.05;
   }
 </style>

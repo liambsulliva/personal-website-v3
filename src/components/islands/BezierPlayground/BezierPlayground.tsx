@@ -196,9 +196,9 @@ export default function BezierPlayground() {
                 y={PAD}
               >
                 <path
+                  className={styles.gridLine}
                   d={`M ${PLOT / 4} 0 L 0 0 0 ${PLOT / 4}`}
                   fill="none"
-                  stroke="#2d2d2d"
                   strokeWidth="0.5"
                 />
               </pattern>
@@ -208,23 +208,23 @@ export default function BezierPlayground() {
               y={PAD}
               width={PLOT}
               height={PLOT}
+              className={styles.plotFrame}
               fill={`url(#${safeDomId}-grid)`}
-              stroke="#3c3c3c"
               strokeWidth="1"
             />
             <text
+              className={styles.axisLabel}
               x={PAD + 2}
               y={PAD + PLOT + 11}
-              fill="#6e7681"
               fontSize="8"
               fontFamily="system-ui, sans-serif"
             >
               0
             </text>
             <text
+              className={styles.axisLabel}
               x={PAD + PLOT - 4}
               y={PAD - 4}
-              fill="#6e7681"
               fontSize="8"
               fontFamily="system-ui, sans-serif"
               textAnchor="end"
@@ -232,32 +232,20 @@ export default function BezierPlayground() {
               1
             </text>
             <path
+              className={styles.handleLine}
               d={handleLine}
               fill="none"
-              stroke="#555"
               strokeWidth="1"
               strokeDasharray="4 3"
             />
-            <circle
-              cx={p1.x}
-              cy={p1.y}
-              r="3.5"
-              fill="#4a9eff"
-              stroke="#1e1e1e"
-            />
-            <circle
-              cx={p2.x}
-              cy={p2.y}
-              r="3.5"
-              fill="#c586c0"
-              stroke="#1e1e1e"
-            />
-            <circle cx={p0.x} cy={p0.y} r="3" fill="#6a9955" />
-            <circle cx={p3.x} cy={p3.y} r="3" fill="#6a9955" />
+            <circle className={styles.p1} cx={p1.x} cy={p1.y} r="3.5" />
+            <circle className={styles.p2} cx={p2.x} cy={p2.y} r="3.5" />
+            <circle className={styles.endpoint} cx={p0.x} cy={p0.y} r="3" />
+            <circle className={styles.endpoint} cx={p3.x} cy={p3.y} r="3" />
             <path
+              className={styles.curve}
               d={curvePath}
               fill="none"
-              stroke="#dcdcaa"
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"

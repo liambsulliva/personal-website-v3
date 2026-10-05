@@ -1,13 +1,12 @@
 <script lang="ts">
+  // Decorative year tab on the HERL cover. The portfolio book is a cover
+  // model only (no open state or page turns, unlike the HERL app itself), so
+  // the tabs label milestones rather than act as buttons.
   let {
     targetPage,
-    page = $bindable(),
-    isOpen = false,
     isFlipped = false,
   }: {
     targetPage: number;
-    page: number;
-    isOpen?: boolean;
     isFlipped?: boolean;
   } = $props();
 
@@ -25,36 +24,13 @@
   const index = $derived(bookmarkPages.indexOf(targetPage.toString()));
   const top = $derived(`${(index * 45) / totalBookmarks}vmin`);
   const label = $derived(bookmarkTitles[targetPage] || `Page ${targetPage}`);
-
-  function handleClick() {
-    if (!isOpen) {
-      const event = new CustomEvent("openToPage", {
-        detail: { targetPage },
-        bubbles: true,
-      });
-      document.dispatchEvent(event);
-    } else {
-      page = targetPage;
-    }
-  }
 </script>
 
-<button
-  class="bookmark squishy squishy-md"
-  class:active={page === targetPage}
-  class:flipped={isFlipped}
-  class:opened={isOpen}
-  onclick={(event) => {
-    event.stopPropagation();
-    handleClick();
-  }}
-  style="top: {top}"
-  aria-label="Jump to {label}"
->
+<div class="bookmark" class:flipped={isFlipped} style="top: {top}" aria-hidden="true">
   <div class="bookmark-tab">
     <span class="bookmark-label">{label}</span>
   </div>
-</button>
+</div>
 
 <style>
   .bookmark {
@@ -63,40 +39,14 @@
     width: 2.5rem;
     height: 4.5rem;
     background: #252525;
-    border: none;
-    cursor: pointer;
     transform-origin: left center;
     border-radius: 0 0.25rem 0.25rem 0;
     z-index: 1000;
   }
 
-  .bookmark.opened {
-    width: 3.5rem;
-    height: 6rem;
-    right: -3.5rem;
-    font-size: 1.5rem;
-    transition:
-      width 0.35s ease-in-out,
-      height 0.35s ease-in-out,
-      right 0.35s ease-in-out,
-      font-size 0.35s ease-in-out;
-  }
-
   .bookmark.flipped {
     right: 3rem;
-    transition:
-      width 0.35s ease-in-out,
-      height 0.35s ease-in-out,
-      right 0.35s ease-in-out 0.45s,
-      font-size 0.35s ease-in-out;
-  }
-
-  .bookmark:hover {
-    background: #383838;
-  }
-
-  .bookmark.opened:hover {
-    background: #383838;
+    transition: right 0.35s ease-in-out 0.45s;
   }
 
   .bookmark-tab {

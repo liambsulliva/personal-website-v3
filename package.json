@@ -11,7 +11,8 @@
     "build": "astro check && astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "cloudinary:seed": "node scripts/cloudinary-seed.mjs"
+    "cloudinary:seed": "node scripts/cloudinary-seed.mjs",
+    "photos:tags": "node scripts/photo-tags.mjs"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.10",

@@ -37,9 +37,9 @@ const hasButtons = Boolean(data.github || data.demo);
   title={`${data.title} - Liam Sullivan`}
   description={data.description}
   section={data.wing}
+  back={{ href: `/${data.wing}`, label: wing.label }}
   heading={data.title}
   subheading={data.subtitle}
-  back={{ href: `/${data.wing}`, label: wing.label }}
 >
   <div class="writeup flex w-full flex-col items-center gap-8 px-6 pt-8 pb-16 md:px-16" style={`--wing:${wing.color}`}>
     <div class="w-full max-w-[900px]" data-name="hero">
@@ -54,6 +54,7 @@ const hasButtons = Boolean(data.github || data.demo);
             sizes="(min-width: 1028px) 900px, 100vw"
             loading="eager"
             fetchpriority="high"
+            bare={data.heroFit === "contain"}
             class="rounded-card"
           />
         )

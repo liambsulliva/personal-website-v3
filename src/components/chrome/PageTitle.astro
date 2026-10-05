@@ -1,0 +1,55 @@
+---
+/**
+ * Figma SubpageHeader title row (21:448): centered 56px accent title, with a
+ * subtitle on write-ups. Rendered as the first thing in <main> so the page's
+ * h1 sits in the main landmark. Spacing is shared by every titled page: the
+ * old bottom spacing rides on top, and half of it stays below so content sits
+ * close under the title. Write-ups get the BackLink as an eyebrow just above
+ * the title, flush with the left edge of the 900px hero column below it. Its
+ * gap to the title matches the subtitle → hero gap (44px / md 56px: this row's
+ * pb-3 / md:pb-6 plus the write-up body's pt-8). Phones have no room above the
+ * title for that, so write-ups there take 32px more (Back sits 16px under the bar).
+ */
+import BackLink from "./BackLink.astro";
+import { sectionByKey, type SectionKey } from "../../lib/sections";
+
+interface Props {
+  section?: SectionKey;
+  /** Override the title text (defaults to the section label) */
+  title?: string;
+  /** Override the title color (defaults to the section accent) */
+  color?: string;
+  /** Write-ups: kicker line set directly under the title */
+  subtitle?: string;
+  /** Write-ups: eyebrow back link to the wing index */
+  back?: { href: string; label: string };
+}
+
+const { section, title, color, subtitle, back } = Astro.props;
+const current = section ? sectionByKey(section) : undefined;
+const titleText = title ?? current?.label;
+const titleColor = color ?? current?.color ?? "var(--fg)";
+---
+
+{
+  titleText && (
+    <div
+      class="mt-6 flex w-full flex-col items-center justify-center gap-3 px-6 pt-6 pb-3 md:mt-12 md:px-16 md:pt-24 md:pb-6"
+      data-name="title-row"
+    >
+      <div class:list={["w-full", { "pt-8 md:pt-0": back }]}>
+        <div class="relative">
+          {back && (
+            <div class="absolute inset-x-0 bottom-full mx-auto mb-11 max-w-[900px] md:mb-14">
+              <BackLink href={back.href} ariaLabel={`Back to ${back.label}`} />
+            </div>
+          )}
+          <h1 class="m-0 text-center text-[40px] leading-[1.1] font-bold md:text-[56px]" style={`color:${titleColor}`}>
+            {titleText}
+          </h1>
+        </div>
+      </div>
+      {subtitle && <p class="m-0 text-center text-[16px] leading-[1.4] text-muted">{subtitle}</p>}
+    </div>
+  )
+}

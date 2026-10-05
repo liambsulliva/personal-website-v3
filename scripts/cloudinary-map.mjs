@@ -73,6 +73,10 @@ export const IMAGE_MAP = [
   ),
 
   { id: "site/ui/iphone-mockup", src: "src/images/ui/blank-iphone-mockup.png" },
+  // Cutouts on transparent fill (assets/ui, assets/kingdra-case-study): the
+  // v2 mockup baked in a #0f0f0f backdrop, and the hero carried extra padding.
+  { id: "site/ui/iphone-frame", src: "assets/ui/iphone-frame.png", local: true },
+  { id: "site/projects/kingdra-case-study/hero-phone", src: "assets/kingdra-case-study/hero-phone.png", local: true },
 
   // ── Pieces ──────────────────────────────────────────────────
   piece("design", "graphic-design", "from-pop-to-personal", "public/images/editorial/graphic-design/From-Pop-to-Personal.png"),

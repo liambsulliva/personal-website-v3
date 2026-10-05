@@ -1,9 +1,19 @@
 import { useEffect, useState } from "react";
 
 // v2 Loader (EOS three-dots) on site tokens; shows an offline hint instead of
-// spinning forever when the connection drops.
+// spinning forever when the connection drops. The pulse is SVG SMIL, which the
+// global zap CSS can't reach, so zap is read here and the dots render still.
+const isReduced = () => document.documentElement.hasAttribute("data-reduced-motion");
+
 export default function Loader({ size = 64, showOfflineMessage = true }: { size?: number; showOfflineMessage?: boolean }) {
   const [offline, setOffline] = useState(false);
+  const [reduced, setReduced] = useState(() => typeof document !== "undefined" && isReduced());
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => setReduced(isReduced()));
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-reduced-motion"] });
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const online = () => setOffline(false);
@@ -28,16 +38,18 @@ export default function Loader({ size = 64, showOfflineMessage = true }: { size?
             { cx: 12, begin: "0.33" },
             { cx: 6, begin: "0" },
           ].map(({ cx, begin }) => (
-            <circle key={cx} cx={cx} cy={12} r={0} fill="currentColor">
-              <animate
-                attributeName="r"
-                begin={begin}
-                calcMode="spline"
-                dur="1.5s"
-                keySplines="0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8"
-                repeatCount="indefinite"
-                values="0;2;0;0"
-              />
+            <circle key={cx} cx={cx} cy={12} r={reduced ? 2 : 0} fill="currentColor">
+              {!reduced && (
+                <animate
+                  attributeName="r"
+                  begin={begin}
+                  calcMode="spline"
+                  dur="1.5s"
+                  keySplines="0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8"
+                  repeatCount="indefinite"
+                  values="0;2;0;0"
+                />
+              )}
             </circle>
           ))}
         </svg>
