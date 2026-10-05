@@ -1,6 +1,6 @@
 // Lobby hero type-in. Same contract as before — forward only, once per
 // session, SSR text when motion is off — but the motion is v2's
-// DescriptionTyper: one character at a time at a steady delay, with that
+// DescriptionTyper: one character at a time, pausing at each line, with that
 // component's blinking "|" cursor. Icons still pop when their word lands.
 // The delete/shuffle loop stays out; these three lines are the finished copy.
 
@@ -9,10 +9,11 @@ const hero = document.querySelector<HTMLElement>("[data-hero]");
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// DescriptionTyper's typeDelay. Line breaks hold a little longer so the three
-// sentences read as beats; the cursor itself blinks on the v2 0.75s step.
-const TYPE_DELAY = 100;
-const LINE_DELAY = 420;
+// Characters go quicker than v2's 100ms typeDelay; each line break then holds
+// long enough for the cursor to blink at the end of the line (v2 0.75s step),
+// so the three sentences land as separate beats.
+const TYPE_DELAY = 25;
+const LINE_DELAY = 633;
 
 async function run(hero: HTMLElement): Promise<void> {
   root.dataset.typerStarted = "";
