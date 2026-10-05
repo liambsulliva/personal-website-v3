@@ -3,6 +3,7 @@ company: Human Engineering Research Laboratories
 role: Front End Project Intern
 dates: Sep 2024 – 2026
 monogram: H
-order: 1
+order: 2
 logo: site/career/herl
 href: https://herl.pitt.edu
+badges: [Svelte, Node.js]

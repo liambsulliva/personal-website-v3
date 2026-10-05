@@ -50,7 +50,7 @@ export const IMAGE_MAP = [
 
   p("bridge-app", "cover", "src/images/projects/bridgeapp.jpg"),
 
-  p("claudia-cooks", "cover"),
+  { id: "site/projects/claudia-cooks/cover", src: "assets/claudia-cooks/cover.webp", local: true },
   p("how-expensive-is-fruit", "cover"),
   p("compression-wars", "cover"),
 

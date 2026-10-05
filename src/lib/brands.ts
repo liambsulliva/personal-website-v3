@@ -26,6 +26,17 @@ const brands = {
   Photoshop: { file: "photoshop.svg", width: 24, height: 24 },
   CSS: { file: "css.svg", width: 24, height: 24 },
   esbuild: { file: "esbuild.svg", width: 24, height: 24 },
+  Clojure: { file: "clojure.svg", width: 24, height: 24 },
+  "Node.js": { file: "nodejs.svg", width: 24, height: 24 },
+  Asana: { file: "asana.svg", width: 24, height: 24 },
+  Elementor: { file: "elementor.svg", width: 24, height: 24 },
+  WordPress: { file: "wordpress.svg", width: 24, height: 24 },
+  Confluence: { file: "confluence.svg", width: 24, height: 24 },
+  Jira: { file: "jira.svg", width: 24, height: 24 },
+  "Adobe Experience Manager": { file: "aem.svg", width: 24, height: 24 },
+  // Clarizen is now Planview AdaptiveWork; clarizen.com serves Planview's mark.
+  Clarizen: { file: "clarizen.png", width: 24, height: 24 },
+  Scrunch: { file: "scrunch.svg", width: 24, height: 24, invertOnDark: true },
 } as const satisfies Record<string, BrandGlyph>;
 
 export type BrandKey = keyof typeof brands;
@@ -38,6 +49,7 @@ const BRAND_ALIASES: Record<string, BrandKey> = {
   "OpenAI API": "OpenAI",
   "react-tela": "React",
   "CSS 3D": "CSS",
+  "WordPress Elementor": "Elementor",
 };
 
 /** Glyph for a badge label (direct brand or alias), if any. */
@@ -78,6 +90,13 @@ const DOCS: Record<string, string> = {
   docusaurus: "https://docusaurus.io/docs",
   swift: "https://www.swift.org/documentation/",
   d3: "https://d3js.org/getting-started",
+  clojure: "https://clojure.org/guides/getting_started",
+  asana: "https://help.asana.com/",
+  wordpresselementor: "https://elementor.com/help/",
+  wordpress: "https://wordpress.org/documentation/",
+  confluence: "https://support.atlassian.com/confluence-cloud/",
+  jira: "https://support.atlassian.com/jira-software-cloud/",
+  adobeexperiencemanager: "https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service",
 };
 
 export const docsUrl = (tool: string) => DOCS[tool.toLowerCase().replace(/[.\s-]/g, "")];

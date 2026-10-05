@@ -1,0 +1,10 @@
+kind: experience
+company: University of Pittsburgh
+role: Research Assistant
+dates: Jan 2025 – Dec 2025
+monogram: Pitt
+order: 1
+logo: site/career/pitt
+whiteLogoOnDark: true
+href: https://www.pitt.edu
+badges: [React, Clojure]

@@ -16,6 +16,7 @@ const career = defineCollection({
     whiteLogoOnDark: z.boolean().default(false),
     href: z.string().url(),
     order: z.number().default(0),
+    badges: z.array(z.string()).default([]), // tools used on the job
   }),
 });
 

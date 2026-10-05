@@ -1,5 +1,10 @@
 ---
-/** Figma TimelineRow (35:370) / TimelineRow/Mobile (37:1341). Ghost highlight on hover. */
+/**
+ * Figma TimelineRow (35:370) / TimelineRow/Mobile (37:1341). Ghost highlight on hover.
+ * The company link is stretched over the whole row so the tool badges can be
+ * their own (documentation) links without nesting anchors.
+ */
+import Badge from "./Badge.astro";
 import { cldUrl } from "../../lib/cloudinary";
 
 interface Props {
@@ -10,18 +15,15 @@ interface Props {
   monogram?: string;
   logo?: string;
   whiteLogoOnDark?: boolean;
+  badges?: string[];
 }
 
-const { company, role, dates, href, monogram, logo, whiteLogoOnDark = false } = Astro.props;
+const { company, role, dates, href, monogram, logo, whiteLogoOnDark = false, badges = [] } = Astro.props;
 ---
 
-<a
-  href={href}
-  target="_blank"
-  rel="noopener noreferrer"
+<div
   class="timeline-row relative isolate -mx-3 -my-2 flex w-[calc(100%+24px)] items-start gap-3 rounded-card px-3 py-2 no-underline md:items-center md:gap-4"
   data-name="TimelineRow"
-  aria-label={`${company} (opens in a new tab)`}
 >
   <div
     class:list={[
@@ -48,12 +50,27 @@ const { company, role, dates, href, monogram, logo, whiteLogoOnDark = false } = 
     }
   </div>
   <div class="flex min-w-px flex-[1_0_0] flex-col items-start gap-[2px] overflow-clip leading-[1.3]" data-name="text">
-    <p class="m-0 text-[20px] font-semibold text-fg">{company}</p>
+    <p class="m-0 text-[20px] font-semibold text-fg">
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="timeline-row__link text-fg no-underline"
+        aria-label={`${company} (opens in a new tab)`}
+      >{company}</a>
+    </p>
     <p class="m-0 text-[18px] text-muted">{role}</p>
     <p class="m-0 text-[15px] text-muted md:hidden">{dates}</p>
+    {
+      badges.length > 0 && (
+        <div class="mt-2 flex flex-wrap items-start gap-2" data-name="badges">
+          {badges.map((badge) => <Badge label={badge} />)}
+        </div>
+      )
+    }
   </div>
   <p class="m-0 hidden text-right text-[18px] leading-[1.3] whitespace-nowrap text-muted md:block">{dates}</p>
-</a>
+</div>
 
 <style>
   /* Ghost highlight: a faint rounded tint that fades in on hover. It's an
@@ -76,8 +93,23 @@ const { company, role, dates, href, monogram, logo, whiteLogoOnDark = false } = 
       opacity: 0.05;
     }
   }
-  .timeline-row:focus-visible::before {
+  .timeline-row:has(.timeline-row__link:focus-visible)::before {
     opacity: 0.05;
+  }
+  /* Stretched link: the whole row is the hit area; badges sit above it. */
+  .timeline-row__link::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+  }
+  .timeline-row__link:focus-visible {
+    outline: none;
+  }
+  .timeline-row:has(.timeline-row__link:focus-visible) {
+    outline: 2px solid var(--accent-career);
+    outline-offset: 2px;
   }
   :global(html.dark) .timeline-row__logo--white {
     filter: brightness(0) invert(1);
