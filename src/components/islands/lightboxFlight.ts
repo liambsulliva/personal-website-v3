@@ -87,6 +87,10 @@ const GLIDE = springValues(1);
 const DAMPINGS = [0.59, 0.63, 0.68, 0.74, 0.8, 0.88, 1];
 const SPRINGS = DAMPINGS.map(springValues);
 
+/** CSS easing for a spring with `damping` (1 = critically damped glide), for
+ *  CSS transitions that should overshoot the way the flights do. */
+export const springEasing = (damping: number) => toLinear(springValues(damping));
+
 /** How far `box` pokes outside the viewport, in px (0 when fully on screen). */
 function offscreen(box: Box) {
   return Math.max(0, -box.left, -box.top, box.left + box.width - window.innerWidth, box.top + box.height - window.innerHeight);
@@ -108,6 +112,12 @@ function springFor(from: Box, to: Box) {
       }),
     ) ?? GLIDE
   );
+}
+
+/** The two curves of a `from` → `to` flight as CSS easings: `glide` for the
+ *  center, `size` for the (elastic, on-screen-safe) size spring. */
+export function flightEasings(from: Box, to: Box, { elastic = true } = {}) {
+  return { glide: toLinear(GLIDE), size: toLinear(elastic ? springFor(from, to) : GLIDE) };
 }
 
 /** Flies `flyer` (laid out at `layout`) from covering `from` to covering `to`.

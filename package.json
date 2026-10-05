@@ -15,7 +15,8 @@
     "photos:tags": "node scripts/photo-tags.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:build": "npm run build && vitest run"
+    "test:build": "npm run build && vitest run",
+    "photos:albums": "node scripts/photo-albums.mjs"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.10",

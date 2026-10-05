@@ -273,6 +273,7 @@ label[for] {
      36px hits → 0.95 (5%)
      ~70px pills → 0.965 (3.5%)
      ~120px nav type → 0.97 (3%)
+     ~232px album stacks → 0.96 (4%, Figma AlbumStack 190:586 Pressed)
      ~300px tiles → 0.982 (1.8%)
      ~700px lightbox photo → 0.989 (1.1%)
    Cards and timeline rows don't press (§15: lighten/darken only).
@@ -292,6 +293,9 @@ label[for] {
 }
 .squishy-tile {
   --press-scale: 0.982;
+}
+.squishy-stack {
+  --press-scale: 0.96;
 }
 .squishy-xl {
   --press-scale: 0.989;
@@ -361,4 +365,79 @@ label[for] {
 [dir="rtl"] .yarl__navigation_prev:not(:disabled):active,
 [dir="rtl"] .yarl__navigation_next:not(:disabled):active {
   transform: translateY(-50%) rotate(180deg) scale(0.95);
+}
+
+/* Album stacks (islands/AlbumStack.tsx, Figma AlbumStack 190:586).
+   Each [data-album-card] is a bare positioned box that carries the rest/fan
+   transform and the open-state opacity; PhotoGallery's explode flight measures
+   it and overrides opacity/visibility inline. The print (photo, border,
+   shadow) lives on the child, which also owns the close settle scale, so that
+   scale never shows up in the measured rect.
+   --stack-spring / --stack-spring-out are springEasing() curves set inline on
+   .album-stack. Motion=Off: the global [data-reduced-motion] rule drops every
+   transition here, so the fan and settle jump straight to their end state. */
+/* The back cards pivot on their bottom-right corner and turn clockwise, so
+   they fan out past the top card's right edge (and never past its left). */
+.album-card[data-album-card="2"] {
+  --card-rest: rotate(6deg);
+  --card-fan: rotate(14deg);
+}
+.album-card[data-album-card="1"] {
+  --card-rest: rotate(3deg);
+  --card-fan: rotate(7deg);
+}
+.album-card[data-album-card="0"] {
+  --card-rest: translate(0, 0);
+  --card-fan: translate(0, -6px);
+}
+.album-card {
+  transform: var(--card-rest);
+  transform-origin: 100% 100%;
+  /* Hover-out settles on the calmer spring; opacity is the close fade-in. */
+  transition:
+    transform 520ms var(--stack-spring-out, var(--ease-out)),
+    opacity 300ms var(--ease-out);
+}
+.album-card__print {
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.1),
+    0 6px 16px rgb(0 0 0 / 0.08);
+  transition: scale 300ms var(--stack-spring, var(--ease-out));
+}
+
+/* Fan: the elastic spring on the way in. Never while open. */
+.album-stack:not([aria-pressed="true"]):focus-visible .album-card {
+  transform: var(--card-fan);
+  transition-timing-function: var(--stack-spring, var(--ease-out)), var(--ease-out);
+}
+@media (hover: hover) {
+  .album-stack:not([aria-pressed="true"]):hover .album-card {
+    transform: var(--card-fan);
+    transition-timing-function: var(--stack-spring, var(--ease-out)), var(--ease-out);
+  }
+}
+
+/* State=Open: the cards have flown into the gallery. Entering is instant (the
+   flight already hid them, and their rects must be at rest the moment the
+   state flips); leaving runs the base transitions above: fade in, and the
+   print springs .96 → 1. */
+.album-stack[aria-pressed="true"] .album-card {
+  opacity: 0;
+  transition: none;
+}
+.album-stack[aria-pressed="true"] .album-card__print {
+  scale: 0.96;
+  transition: none;
+}
+
+/* Album row: side-scrolls with snap, scrollbar hidden like .tag-menu. */
+.album-track {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.album-track::-webkit-scrollbar {
+  display: none;
+}
+.album-track > * {
+  scroll-snap-align: start;
 }

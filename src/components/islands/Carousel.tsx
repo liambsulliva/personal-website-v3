@@ -51,7 +51,7 @@ const clampIndex = (index: number, itemCount: number) => {
 };
 
 // Figma FeaturedCarousel (25:518) controls: 40px bg circle, 1px border, 20px chevron.
-const CarouselNavigationButton: React.FC<{
+export const CarouselNavigationButton: React.FC<{
   direction: "prev" | "next";
   onSelect: () => void;
   disabled?: boolean;

@@ -5,7 +5,8 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 type Props = {
   tags: string[];
-  selected: string;
+  /** "" = All; null = none (an album fills the gallery). */
+  selected: string | null;
   onSelect: (tag: string) => void;
 };
 

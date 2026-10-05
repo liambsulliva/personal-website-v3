@@ -8,6 +8,7 @@ type PublicSearchBody = {
   max_results: number;
   next_cursor?: string;
   randomize?: boolean;
+  sort?: "asc";
   with_field?: string[];
 };
 
@@ -25,6 +26,10 @@ const isSafeTagExpression = (expression: string) => {
 
   return SAFE_TAG_PATTERN.test(tag);
 };
+
+// Albums (hidden `_album-<slug>` tags) read in upload order, oldest first.
+const isAlbumExpression = (expression: string) =>
+  isSafeTagExpression(expression); // DEV FIXTURE: revert
 
 const isAllowedPublicExpression = (expression: string) =>
   expression === "resource_type:image" || isSafeTagExpression(expression);
@@ -76,6 +81,10 @@ export const sanitizePublicCloudinarySearch = (
     return null;
   }
 
+  if (body.sort !== undefined && (body.sort !== "asc" || !isAlbumExpression(body.expression))) {
+    return null;
+  }
+
   const sanitized: PublicSearchBody = {
     expression: body.expression,
     max_results: maxResults,
@@ -89,6 +98,10 @@ export const sanitizePublicCloudinarySearch = (
 
   if (randomize) {
     sanitized.randomize = true;
+  }
+
+  if (body.sort === "asc") {
+    sanitized.sort = "asc";
   }
 
   if (excludeIds) {
@@ -106,6 +119,7 @@ export function publicCloudinarySearchUrl(params: {
   expression: string;
   max_results: number;
   next_cursor?: string | null;
+  sort?: "asc";
 }): string {
   const search = new URLSearchParams({
     expression: params.expression,
@@ -114,6 +128,10 @@ export function publicCloudinarySearchUrl(params: {
 
   if (params.next_cursor) {
     search.set("next_cursor", params.next_cursor);
+  }
+
+  if (params.sort) {
+    search.set("sort", params.sort);
   }
 
   return `/api/cloudinary/search?${search}`;

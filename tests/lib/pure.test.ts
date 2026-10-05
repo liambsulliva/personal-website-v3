@@ -7,7 +7,7 @@ import {
 } from "../../src/lib/cloudinarySearchPolicy";
 import { cldTransform, cldSrcSet } from "../../src/lib/cloudinary";
 import { BRANDS, brandFor, docsUrl } from "../../src/lib/brands";
-import { toFeaturedSlide, toGalleryPhoto } from "../../src/lib/photos";
+import { toGalleryPhoto } from "../../src/lib/photos";
 import { SECTIONS, SOCIALS, VERSIONS } from "../../src/lib/sections";
 
 describe("tocFromBody", () => {
@@ -73,6 +73,36 @@ describe("public Cloudinary search policy", () => {
     expect(sanitizePublicCloudinarySearch(null)).toBeNull();
   });
 
+  it("allows oldest-first order only for album tags", () => {
+    expect(
+      sanitizePublicCloudinarySearch({
+        expression: "resource_type:image AND tags=_album-2026-nala-0425",
+        max_results: 50,
+        sort: "asc",
+      }),
+    ).toEqual({
+      expression: "resource_type:image AND tags=_album-2026-nala-0425",
+      max_results: 50,
+      sort: "asc",
+    });
+    for (const [expression, sort] of [
+      ["resource_type:image AND tags=football", "asc"],
+      ["resource_type:image", "asc"],
+      ["resource_type:image AND tags=_album-2026-nala-0425", "desc"],
+    ]) {
+      expect(
+        sanitizePublicCloudinarySearch({ expression, max_results: 5, sort }),
+      ).toBeNull();
+    }
+    expect(
+      publicCloudinarySearchUrl({
+        expression: "resource_type:image AND tags=_album-x",
+        max_results: 50,
+        sort: "asc",
+      }),
+    ).toContain("&sort=asc");
+  });
+
   it("clamps max_results to 1..50", () => {
     expect(
       sanitizePublicCloudinarySearch({
@@ -136,11 +166,6 @@ describe("photo shaping", () => {
       Math.max(...photo.lightboxSrcSet.map((source) => source.width)),
     ).toBe(1000);
     expect(photo.previewSrcSet).toContain(" 1000w");
-  });
-
-  it("crops featured slides to the 1312×560 frame", () => {
-    const slide = toFeaturedSlide({ ...resource, width: 4000, height: 3000 });
-    expect(slide.placeholderSrc).toContain("c_fill,g_auto,w_480,h_205");
   });
 });
 

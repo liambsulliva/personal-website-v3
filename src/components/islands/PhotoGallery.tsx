@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import PhotoAlbum from "react-photo-album";
 import Lightbox from "yet-another-react-lightbox";
 import type { RenderSlideProps, SlideImage } from "yet-another-react-lightbox";
@@ -7,7 +8,9 @@ import "yet-another-react-lightbox/styles.css";
 import ProgressiveImage from "./ProgressiveImage";
 import TagMenu from "./TagMenu";
 import Loader from "./Loader";
+import AlbumCarousel from "./AlbumCarousel";
 import { toGalleryPhoto, type GalleryPhoto, type PhotoResource } from "../../lib/photos";
+import { albumExpression, type AlbumCard } from "../../lib/albums";
 import { publicCloudinarySearchUrl } from "../../lib/cloudinarySearchPolicy";
 import { toSrcSet } from "../../lib/cloudinaryImage";
 import {
@@ -33,12 +36,29 @@ import {
   pressPulse,
   sameBox,
   whenFrame,
+  type Box,
 } from "./lightboxFlight";
+import {
+  MAX_FLYERS,
+  STAGGER_MS,
+  cardOf,
+  clearOut,
+  createCardFlyer,
+  fadeIn,
+  flyCard,
+  mark as albumMark,
+  redirect,
+  sleep,
+  stackPulse,
+  type Card,
+} from "./albumFlight";
 
-// Figma Chip (14:198) row + GalleryTile masonry (25:544). The first page and
-// tag list arrive SSR'd; fetching only happens for the next page or a new tag.
+// Figma AlbumCarousel (190:3925) + Chip (14:198) row + GalleryTile masonry
+// (25:544). The album stacks, first page and tag list arrive SSR'd; fetching
+// only happens for the next page, a new tag or an opened album.
 
 const PAGE_SIZE = 20;
+const ALBUM_PAGE_SIZE = 50; // the public search route's max
 const LIGHTBOX_MIN_ZOOM_HEADROOM = 2;
 
 // v2: the album's `sizes` describe the *container*; the album derives each
@@ -91,10 +111,41 @@ function LightboxSlide({
 }
 
 type Props = {
+  albums: AlbumCard[];
   tags: string[];
   initialPhotos: GalleryPhoto[];
   initialCursor: string | null;
 };
+
+// What fills the gallery: a tag ("" = All) or an album. Plain data, so it can
+// back a `?album=` URL later.
+type Source = { kind: "tag"; tag: string } | { kind: "album"; slug: string };
+// A chip or stack click. `restore`: the open stack's empty slot, back to the
+// tag the album replaced.
+type Request = Source | { kind: "restore" };
+type Page = { photos: GalleryPhoto[]; cursor: string | null };
+
+function searchUrl(source: Source, cursor: string | null) {
+  return source.kind === "album"
+    ? publicCloudinarySearchUrl({
+        expression: albumExpression(source.slug),
+        max_results: ALBUM_PAGE_SIZE,
+        next_cursor: cursor,
+        sort: "asc",
+      })
+    : publicCloudinarySearchUrl({
+        expression: source.tag ? `resource_type:image AND tags=${source.tag}` : "resource_type:image",
+        max_results: PAGE_SIZE,
+        next_cursor: cursor,
+      });
+}
+
+async function fetchPage(source: Source, cursor: string | null, signal?: AbortSignal): Promise<Page> {
+  const response = await fetch(searchUrl(source, cursor), { signal });
+  if (!response.ok) throw new Error(`Search responded with ${response.status}`);
+  const data: { resources?: PhotoResource[]; next_cursor?: string } = await response.json();
+  return { photos: (data.resources ?? []).map(toGalleryPhoto), cursor: data.next_cursor ?? null };
+}
 
 const isReducedMotion = () =>
   typeof document !== "undefined" && document.documentElement.hasAttribute("data-reduced-motion");
@@ -121,8 +172,33 @@ type Flight = {
   animations: Animation[];
 };
 
-export default function PhotoGallery({ tags, initialPhotos, initialCursor }: Props) {
-  const [tag, setTag] = useState("");
+// Album stack ↔ gallery transition. One runs at a time (a serial queue; a
+// request that arrives mid-run replaces the one waiting, latest wins), each
+// phase starting on the previous one's measured end.
+//   explode:  press (stack pulse; the album's first page is already loading)
+//             → clear (gallery fades back) → swap (album fills the gallery)
+//             → fly (each on-screen tile's card leaves the stack, staggered,
+//             the stack turning into its dashed slot) → land (tile shown,
+//             flyer removed)
+//   collapse: fly back (on-screen tiles into the stack, or squashed out the
+//             viewport edge toward it; the gallery fades back meanwhile)
+//             → settle (cards back in the stack) → fill (the next tag or album)
+// Closing mid-explode reverses the cards from wherever they are.
+type AlbumPhase = "press" | "clear" | "fetch" | "fly" | "collapse" | "fill";
+type AlbumTransition = { phase: AlbumPhase; slug: string | null; reversed: boolean };
+/** A card between the stack and gallery tile `index`. */
+type CardFlight = { index: number; tile: HTMLElement | null; flyer: HTMLElement; animations: Animation[]; landed: boolean };
+
+/** The stack card a tile's photo flies from / back to: previews are the
+ *  album's first three photos, the rest leave from the top card. */
+const stackCardFor = (cards: HTMLElement[], photoIndex: number) => cards[photoIndex] ?? cards[0];
+
+export default function PhotoGallery({ albums, tags, initialPhotos, initialCursor }: Props) {
+  const [source, setSource] = useState<Source>({ kind: "tag", tag: "" });
+  // The selected chip: "" = All, null = none (an album fills the gallery).
+  const [chip, setChip] = useState<string | null>("");
+  const [openSlug, setOpenSlug] = useState<string | null>(null);
+  const [transitioning, setTransitioning] = useState(false);
   const [photos, setPhotos] = useState(initialPhotos);
   const [cursor, setCursor] = useState<string | null>(initialCursor);
   const [loading, setLoading] = useState(false);
@@ -134,31 +210,39 @@ export default function PhotoGallery({ tags, initialPhotos, initialCursor }: Pro
   const [backdrop, setBackdrop] = useState(true);
   const requestRef = useRef<AbortController | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const galleryRef = useRef<HTMLDivElement>(null);
+  const albumRef = useRef<HTMLDivElement>(null);
   const flightRef = useRef<Flight | null>(null);
   const viewIndexRef = useRef(-1);
   const zoomRef = useRef(1);
+  // Album transitions read these mid-run, between renders.
+  const sourceRef = useRef(source);
+  const openSlugRef = useRef(openSlug);
+  const photosRef = useRef(photos);
+  const cursorRef = useRef(cursor);
+  const queueRef = useRef<{ running: boolean; pending: Request | null }>({ running: false, pending: null });
+  const transitionRef = useRef<AlbumTransition | null>(null);
+  const cardsRef = useRef<CardFlight[]>([]);
+  const clearRef = useRef<Animation | null>(null); // the gallery is faded back while set
+  // The tag page an album replaced, so its empty slot restores it unfetched.
+  const snapshotRef = useRef<{ tag: string } & Page | null>(null);
 
-  const loadPage = useCallback(async (nextTag: string, nextCursor: string | null) => {
+  useEffect(() => {
+    photosRef.current = photos;
+    cursorRef.current = cursor;
+  }, [photos, cursor]);
+
+  const loadPage = useCallback(async (nextSource: Source, nextCursor: string | null) => {
     requestRef.current?.abort();
     const controller = new AbortController();
     requestRef.current = controller;
     setLoading(true);
     setError(false);
     try {
-      const response = await fetch(
-        publicCloudinarySearchUrl({
-          expression: nextTag ? `resource_type:image AND tags=${nextTag}` : "resource_type:image",
-          max_results: PAGE_SIZE,
-          next_cursor: nextCursor,
-        }),
-        { signal: controller.signal },
-      );
-      if (!response.ok) throw new Error(`Search responded with ${response.status}`);
-      const data: { resources?: PhotoResource[]; next_cursor?: string } = await response.json();
-      const page = (data.resources ?? []).map(toGalleryPhoto);
-      setPhotos((previous) => (nextCursor ? [...previous, ...page] : page));
-      setCursor(data.next_cursor ?? null);
+      const page = await fetchPage(nextSource, nextCursor, controller.signal);
+      setPhotos((previous) => (nextCursor ? [...previous, ...page.photos] : page.photos));
+      setCursor(page.cursor);
     } catch (err) {
       if (controller.signal.aborted) return;
       console.error("PhotoGallery: failed to load photos", err);
@@ -171,27 +255,330 @@ export default function PhotoGallery({ tags, initialPhotos, initialCursor }: Pro
     }
   }, []);
 
-  // Infinite scroll: only ever fetches the *next* page.
+  // Infinite scroll: only ever fetches the *next* page, and never mid-transition.
   useEffect(() => {
     const sentinel = sentinelRef.current;
-    if (!sentinel || loading || error || cursor === null) return;
+    if (!sentinel || loading || error || transitioning || cursor === null) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) loadPage(tag, cursor);
+        if (entry.isIntersecting) loadPage(source, cursor);
       },
       { rootMargin: "800px 0px" },
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [loading, error, cursor, tag, loadPage]);
+  }, [loading, error, transitioning, cursor, source, loadPage]);
 
-  const selectTag = (next: string) => {
-    if (next === tag) return;
-    setTag(next);
-    setPhotos([]);
-    setCursor(null);
-    loadPage(next, null);
+  // ── Album transitions ─────────────────────────────────────────
+  /** Sets the gallery's source and contents in one synchronous commit, so
+   *  the new tiles can be measured on the next line. */
+  const showSource = (next: Source, page: Page | null, extra?: () => void) => {
+    sourceRef.current = next;
+    flushSync(() => {
+      setSource(next);
+      if (page) {
+        setPhotos(page.photos);
+        setCursor(page.cursor);
+      }
+      extra?.();
+    });
   };
+
+  const setOpen = (slug: string | null) => {
+    openSlugRef.current = slug;
+    flushSync(() => setOpenSlug(slug));
+  };
+
+  const stackCards = (slug: string) => {
+    const stack = rootRef.current?.querySelector<HTMLElement>(`[data-album-stack="${CSS.escape(slug)}"]`) ?? null;
+    const cards = stack ? [...stack.querySelectorAll<HTMLElement>("[data-album-card]")] : [];
+    return { stack, cards: cards.sort((a, b) => Number(a.dataset.albumCard) - Number(b.dataset.albumCard)) };
+  };
+
+  /** Gallery tiles in photo order, with their rects. */
+  const tiles = () =>
+    [...(galleryRef.current?.querySelectorAll<HTMLElement>("[data-photo-index]") ?? [])]
+      .map((tile) => ({ tile, index: Number(tile.dataset.photoIndex), box: boxOf(tile) }))
+      .sort((a, b) => a.index - b.index);
+
+  const clearGallery = async () => {
+    const gallery = albumRef.current;
+    if (!gallery || clearRef.current || isReducedMotion()) return;
+    const clear = clearOut(gallery);
+    clearRef.current = clear;
+    await clear.finished.catch(() => {});
+  };
+
+  /** Brings a cleared gallery back: instantly when cards are about to land in
+   *  it, else with a fade. */
+  const revealGallery = async ({ fade = true } = {}) => {
+    const clear = clearRef.current;
+    if (!clear) return;
+    clear.cancel();
+    clearRef.current = null;
+    if (fade && albumRef.current) await fadeIn(albumRef.current).finished.catch(() => {});
+  };
+
+  const landCard = (card: CardFlight) => {
+    card.landed = true;
+    card.flyer.remove();
+    if (card.tile) card.tile.style.opacity = "";
+  };
+
+  const explode = async (slug: string) => {
+    const transition: AlbumTransition = { phase: "press", slug, reversed: false };
+    transitionRef.current = transition;
+    const reduced = isReducedMotion();
+    const current = sourceRef.current;
+    if (current.kind === "tag") snapshotRef.current = { tag: current.tag, photos: photosRef.current, cursor: cursorRef.current };
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    const pending = fetchPage({ kind: "album", slug }, null, controller.signal);
+    pending.catch(() => {});
+
+    // Press: acknowledge the click while the album loads.
+    albumMark("E1-press");
+    const { stack } = stackCards(slug);
+    if (stack && !reduced) {
+      stack.style.transition = "none"; // the pulse replaces the CSS :active spring
+      await stackPulse(stack).finished.catch(() => {});
+      stack.style.transition = "";
+    }
+    if (transition.reversed) return controller.abort();
+
+    // Clear: the current gallery steps back.
+    transition.phase = "clear";
+    albumMark("E2-clear");
+    await clearGallery();
+    if (transition.reversed) return controller.abort();
+
+    transition.phase = "fetch";
+    setLoading(true);
+    let page: Page;
+    try {
+      page = await pending;
+      await Promise.all(page.photos.slice(0, MAX_FLYERS).map((photo) => decodeWithin(photo.src, 300)));
+    } catch (err) {
+      console.error("PhotoGallery: failed to load album", err);
+      showSource({ kind: "album", slug }, { photos: [], cursor: null }, () => {
+        setChip(null);
+        setLoading(false);
+        setError(true);
+      });
+      setOpen(slug);
+      await revealGallery();
+      return;
+    }
+    if (transition.reversed) return setLoading(false);
+
+    // Swap: the album fills the (still invisible) gallery.
+    albumMark("E3-swap");
+    showSource({ kind: "album", slug }, page, () => {
+      setChip(null);
+      setLoading(false);
+      setError(false);
+    });
+    if (reduced) {
+      setOpen(slug);
+      return;
+    }
+    await afterPaint(); // masonry settles on its measured width
+    if (transition.reversed) return;
+
+    // Fly: measured with the gallery back at full size, in one task, so the
+    // tiles never paint before their cards cover them.
+    transition.phase = "fly";
+    albumMark("E4-fly");
+    void revealGallery({ fade: false });
+    const all = tiles();
+    const onScreen = all.filter(({ box }) => inViewport(box)).slice(0, MAX_FLYERS);
+    // Below the fold: the preview cards still leave, out the bottom edge.
+    const flights = onScreen.length ? onScreen : all.slice(0, 3);
+    const targets = new Set(flights.map(({ index }) => index));
+    flights.forEach(({ tile }) => (tile.style.opacity = "0"));
+    all.filter(({ index, box }) => !targets.has(index) && inViewport(box)).forEach(({ tile }) => fadeIn(tile));
+
+    const { cards } = stackCards(slug);
+    cardsRef.current = [];
+    const landings: Promise<void>[] = [];
+    for (const [i, { tile, index: photoIndex, box }] of flights.entries()) {
+      if (transition.reversed) break;
+      const card = stackCardFor(cards, photoIndex);
+      const from: Card = card ? cardOf(card) : { ...box, angle: 0 };
+      const to: Card = inViewport(box) ? { ...box, angle: 0 } : { ...exitToward(box, from), angle: 0 };
+      const flyer = createCardFlyer(page.photos[photoIndex].src, to);
+      const flight: CardFlight = { index: photoIndex, tile: inViewport(box) ? tile : null, flyer, animations: flyCard(flyer, from, to), landed: false };
+      if (!flight.tile) tile.style.opacity = "";
+      cardsRef.current.push(flight);
+      // Each card leaves the stack the frame its flyer appears; the stack
+      // becomes its dashed slot once the last preview card is gone.
+      if (card && photoIndex < 3) card.style.opacity = "0";
+      if (i === Math.min(flights.length, 3) - 1) {
+        setOpen(slug);
+        cards.forEach((element) => (element.style.opacity = ""));
+      }
+      const animations = flight.animations;
+      landings.push(
+        allFinished(animations).then(async () => {
+          if (flight.animations !== animations || flight.landed) return; // redirected by a collapse
+          await loadedWithin(flight.tile?.querySelector("img") ?? null, 300);
+          if (flight.animations === animations && !flight.landed) landCard(flight);
+        }),
+      );
+      await sleep(STAGGER_MS);
+    }
+    if (!openSlugRef.current) {
+      setOpen(slug);
+      cards.forEach((element) => (element.style.opacity = ""));
+    }
+    if (transition.reversed) return; // the collapse takes over the cards in flight
+    await Promise.all(landings);
+    albumMark("E5-land");
+    cardsRef.current = [];
+  };
+
+  const collapse = async (slug: string) => {
+    const transition: AlbumTransition = { phase: "collapse", slug, reversed: false };
+    transitionRef.current = transition;
+    albumMark("C1-collapse");
+    if (isReducedMotion()) {
+      cardsRef.current.forEach(landCard);
+      cardsRef.current = [];
+      setOpen(null);
+      return;
+    }
+    const { cards } = stackCards(slug);
+    const top = cards[0] ? cardOf(cards[0]) : null;
+    const homeFor = (photoIndex: number, from: Box): Card => {
+      const card = stackCardFor(cards, photoIndex);
+      if (top && card && inViewport(top)) return cardOf(card);
+      // The stack is scrolled away: squash out the edge toward it.
+      return { ...exitToward(top, from), angle: 0 };
+    };
+
+    // Cards still on their way out turn around where they are; landed tiles
+    // on screen fly back from their own rects, last one first.
+    const inflight = cardsRef.current.filter((card) => !card.landed);
+    const flying = new Set(inflight.map((card) => card.index));
+    const returning = tiles()
+      .filter(({ index, box }) => !flying.has(index) && inViewport(box))
+      .slice(0, Math.max(0, MAX_FLYERS - inflight.length))
+      .reverse();
+    const flights: CardFlight[] = [];
+    for (const card of inflight) {
+      card.animations = redirect(card.flyer, card.animations, homeFor(card.index, boxOf(card.flyer)));
+      flights.push(card);
+    }
+    void clearGallery();
+    for (const { tile, index: photoIndex, box } of returning) {
+      const from: Card = { ...box, angle: 0 };
+      const to = homeFor(photoIndex, box);
+      const flyer = createCardFlyer(bestLoadedSrc(tile) ?? photosRef.current[photoIndex]?.src ?? "", to);
+      tile.style.opacity = "0";
+      flights.push({ index: photoIndex, tile, flyer, animations: flyCard(flyer, from, to), landed: false });
+      await sleep(STAGGER_MS);
+    }
+    await allFinished(flights.flatMap((card) => card.animations));
+    // Settle: the cards are home; the stack takes over from the flyers. The
+    // cards turn opaque in the same frame the flyers go (no fade, or the
+    // dashed slot would show through); only the print's settle spring runs.
+    albumMark("C2-settle");
+    cards.forEach((card) => (card.style.transition = "none"));
+    setOpen(null);
+    flights.forEach((card) => {
+      card.flyer.remove();
+      if (card.tile) card.tile.style.opacity = "";
+    });
+    cardsRef.current = [];
+    await afterPaint();
+    cards.forEach((card) => (card.style.transition = ""));
+  };
+
+  /** Fills the gallery with tag `tag`. From an album (gallery cleared), the
+   *  page fades in; tag → tag keeps the original instant swap + loader. */
+  const fill = async (tag: string) => {
+    transitionRef.current = { phase: "fill", slug: null, reversed: false };
+    albumMark("C3-fill");
+    const current = sourceRef.current;
+    const cleared = clearRef.current !== null;
+    setChip(tag);
+    if (current.kind === "tag" && current.tag === tag) {
+      await revealGallery(); // an explode reversed before its swap
+      return;
+    }
+    const snapshot = current.kind === "album" && snapshotRef.current?.tag === tag ? snapshotRef.current : null;
+    if (!cleared && !snapshot) {
+      showSource({ kind: "tag", tag }, { photos: [], cursor: null });
+      await loadPage({ kind: "tag", tag }, null);
+      return;
+    }
+    let page: Page | null = snapshot;
+    if (!page) {
+      requestRef.current?.abort();
+      setLoading(true);
+      setError(false);
+      try {
+        page = await fetchPage({ kind: "tag", tag }, null);
+      } catch (err) {
+        console.error("PhotoGallery: failed to load photos", err);
+        showSource({ kind: "tag", tag }, { photos: [], cursor: null }, () => {
+          setLoading(false);
+          setError(true);
+        });
+        await revealGallery();
+        return;
+      }
+    }
+    showSource({ kind: "tag", tag }, page, () => {
+      setLoading(false);
+      setError(false);
+    });
+    await revealGallery();
+  };
+
+  const run = async (next: Request) => {
+    // Never over a lightbox flight (e.g. a chip clicked as the photo shrinks home).
+    await whenFrame(() => flightRef.current === null, 2000);
+    const open = openSlugRef.current;
+    if (next.kind === "album" && next.slug === open) return;
+    if (open) await collapse(open);
+    if (next.kind === "album") await explode(next.slug);
+    else await fill(next.kind === "tag" ? next.tag : (snapshotRef.current?.tag ?? ""));
+  };
+
+  const request = (next: Request) => {
+    const queue = queueRef.current;
+    if (queue.running) {
+      const transition = transitionRef.current;
+      // A second click on the album that's opening is a no-op.
+      if (next.kind === "album" && transition?.slug === next.slug && !transition.reversed) return;
+      // Anything else closes it: an explode in progress turns around.
+      if (transition && transition.phase !== "collapse" && transition.phase !== "fill") transition.reversed = true;
+      queue.pending = next;
+      return;
+    }
+    queue.running = true;
+    setTransitioning(true);
+    void (async () => {
+      let next_: Request | null = next;
+      while (next_) {
+        try {
+          await run(next_);
+        } catch (err) {
+          console.error("PhotoGallery: album transition failed", err);
+        }
+        next_ = queue.pending;
+        queue.pending = null;
+      }
+      transitionRef.current = null;
+      queue.running = false;
+      setTransitioning(false);
+    })();
+  };
+
+  const selectTag = (next: string) => request({ kind: "tag", tag: next });
+  const selectAlbum = (album: AlbumCard) =>
+    request(album.slug === openSlugRef.current ? { kind: "restore" } : { kind: "album", slug: album.slug });
 
   const slides = useMemo(
     () =>
@@ -237,7 +624,7 @@ export default function PhotoGallery({ tags, initialPhotos, initialCursor }: Pro
   };
 
   const openPhoto = async (tile: HTMLElement, photoIndex: number) => {
-    if (flightRef.current) return;
+    if (flightRef.current || queueRef.current.running) return; // one transition at a time
     if (isReducedMotion()) {
       show(photoIndex);
       return;
@@ -410,10 +797,14 @@ export default function PhotoGallery({ tags, initialPhotos, initialCursor }: Pro
   const reduced = isReducedMotion();
 
   return (
-    <div className="flex w-full min-w-0 flex-col gap-8">
-      <TagMenu tags={tags} selected={tag} onSelect={selectTag} />
+    <div ref={rootRef} className="flex w-full min-w-0 flex-col gap-8">
+      {albums.length > 0 && <AlbumCarousel albums={albums} openSlug={openSlug} onSelect={selectAlbum} />}
+
+      <TagMenu tags={tags} selected={chip} onSelect={selectTag} />
 
       <div ref={galleryRef} className="w-full min-w-0" data-name="Gallery" aria-busy={loading}>
+        {/* What an album transition fades back and brings forward. */}
+        <div ref={albumRef} className="w-full min-w-0 origin-top">
         {photos.length > 0 ? (
           <PhotoAlbum
             layout="masonry"
@@ -438,6 +829,7 @@ export default function PhotoGallery({ tags, initialPhotos, initialCursor }: Pro
         ) : !loading && !error ? (
           <p className="m-0 py-12 text-center text-[16px] text-muted">No photos found.</p>
         ) : null}
+        </div>
         <div ref={sentinelRef} aria-hidden />
         {loading && <Loader />}
         {error && (
@@ -445,7 +837,7 @@ export default function PhotoGallery({ tags, initialPhotos, initialCursor }: Pro
             <p className="m-0 text-[16px] text-muted">Couldn't load photos.</p>
             <button
               type="button"
-              onClick={() => loadPage(tag, cursor)}
+              onClick={() => loadPage(source, cursor)}
               className="chip squishy squishy-md rounded-pill border border-border bg-control px-4 py-2 text-[16px] leading-[1.5] text-fg"
             >
               Try again
