@@ -13,8 +13,7 @@ interface Props {
 }
 
 const { brand, scale = 2 / 3 } = Astro.props;
-const glyph: { file: string; width: number; height: number; invertOnDark?: boolean } = BRANDS[brand];
-const { file, width, height, invertOnDark = false } = glyph;
+const { file, width, height, invertOnDark = false } = BRANDS[brand];
 ---
 
 <img

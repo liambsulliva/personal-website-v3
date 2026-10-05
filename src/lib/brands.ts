@@ -1,6 +1,13 @@
 // Native artboard sizes of the Figma brand/* glyphs (public/brand).
 // invertOnDark: black marks that vanish on the dark field (see BrandGlyph).
-export const BRANDS = {
+type BrandGlyph = {
+  file: string;
+  width: number;
+  height: number;
+  invertOnDark?: boolean;
+};
+
+const brands = {
   React: { file: "react.svg", width: 32, height: 32 },
   TypeScript: { file: "typescript.svg", width: 32, height: 32 },
   "Next.js": { file: "nextjs.svg", width: 32, height: 32, invertOnDark: true },
@@ -19,9 +26,10 @@ export const BRANDS = {
   Photoshop: { file: "photoshop.svg", width: 24, height: 24 },
   CSS: { file: "css.svg", width: 24, height: 24 },
   esbuild: { file: "esbuild.svg", width: 24, height: 24 },
-} as const;
+} as const satisfies Record<string, BrandGlyph>;
 
-export type BrandKey = keyof typeof BRANDS;
+export type BrandKey = keyof typeof brands;
+export const BRANDS: Record<BrandKey, BrandGlyph> = brands;
 
 export const isBrand = (name: string): name is BrandKey => name in BRANDS;
 
