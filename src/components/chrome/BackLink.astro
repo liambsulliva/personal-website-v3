@@ -1,0 +1,42 @@
+---
+/** v2 BackLink restyled to v3 tokens: muted 14px bold, arrow nudges left on hover. */
+interface Props {
+  href: string;
+  label?: string;
+  ariaLabel?: string;
+}
+
+const { href, label = "Back", ariaLabel } = Astro.props;
+---
+
+<a href={href} class="back-link squishy squishy-md relative inline-flex items-center pl-[1.15rem] text-[14px] leading-[1.4] font-bold no-underline" aria-label={ariaLabel}>
+  <span class="back-link__icon absolute top-1/2 left-0" aria-hidden="true">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+      <path
+        fill="currentColor"
+        d="M7.78 2.97a.75.75 0 0 0-1.06 0L2.47 7.22a.75.75 0 0 0 0 1.06l4.25 4.25a.75.75 0 0 0 1.042-.018a.75.75 0 0 0 .018-1.042L4.81 8.5h7.44a.75.75 0 0 0 0-1.5H4.81l2.97-2.97a.75.75 0 0 0 0-1.06"
+      ></path>
+    </svg>
+  </span>
+  {label}
+</a>
+
+<style>
+  .back-link {
+    color: var(--fg-muted);
+    transition: color 300ms ease;
+  }
+  .back-link__icon {
+    display: flex;
+    transform: translateY(-50%);
+    transition: transform 300ms ease;
+  }
+  @media (hover: hover) {
+    .back-link:hover {
+      color: var(--fg);
+    }
+    .back-link:hover .back-link__icon {
+      transform: translate(-0.25rem, -50%);
+    }
+  }
+</style>

@@ -1,0 +1,71 @@
+---
+/** Switch write-up phase list (ported from v2 Timeline.astro; not Career). */
+interface Phase {
+  date?: string;
+  label: string;
+  title: string;
+  commitCount?: string;
+  whatIBuilt: string;
+  consequence: string;
+  whyItMattered: string;
+  subjects?: string[];
+}
+interface Props {
+  phases: Phase[];
+}
+const { phases } = Astro.props;
+---
+
+<ol class="phase-timeline relative m-0 flex w-full list-none flex-col gap-6 p-0">
+  {
+    phases.map((phase, index) => (
+      <li class="relative grid grid-cols-[40px_minmax(0,1fr)] gap-4">
+        <span
+          class="relative z-10 flex size-10 items-center justify-center rounded-full border border-border bg-bg text-[13px] leading-none font-semibold text-wing"
+          aria-hidden="true"
+        >
+          {String(index + 1).padStart(2, "0")}
+        </span>
+        <article class="flex min-w-0 flex-col gap-3 rounded-card border border-border bg-card p-6">
+          {(phase.date || phase.commitCount) && (
+            <div class="flex flex-wrap gap-x-4 gap-y-1 text-[13px] leading-[1.3] font-medium text-muted">
+              {phase.date && <span>{phase.date}</span>}
+              {phase.commitCount && <span>{phase.commitCount}</span>}
+            </div>
+          )}
+          <p class="editorial-node__step m-0">{phase.label}</p>
+          <h4 class="writeup-h4 m-0">{phase.title}</h4>
+          <p class="writeup-small m-0">
+            <strong class="text-fg">What I built.</strong> {phase.whatIBuilt}
+          </p>
+          {phase.subjects && phase.subjects.length > 0 && (
+            <div class="flex flex-wrap gap-2" role="group" aria-label={`${phase.label} commit subjects`}>
+              {phase.subjects.map((subject) => (
+                <code class="writeup-chip">{subject}</code>
+              ))}
+            </div>
+          )}
+          <div class="grid gap-2 border-t border-border pt-3 md:grid-cols-[minmax(150px,0.8fr)_minmax(220px,1.2fr)] md:gap-4">
+            <div class="flex flex-col gap-1">
+              <span class="editorial-node__step">Why it mattered</span>
+              <strong class="text-[16px] leading-[1.3] font-semibold text-fg">{phase.consequence}</strong>
+            </div>
+            <p class="writeup-small m-0" set:html={phase.whyItMattered} />
+          </div>
+        </article>
+      </li>
+    ))
+  }
+</ol>
+
+<style>
+  .phase-timeline::before {
+    content: "";
+    position: absolute;
+    top: 20px;
+    bottom: 20px;
+    left: 19.5px;
+    width: 1px;
+    background: var(--border);
+  }
+</style>

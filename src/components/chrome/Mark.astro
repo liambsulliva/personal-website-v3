@@ -1,0 +1,48 @@
+---
+/**
+ * Inline accent chip from Figma /me (mark/*): semibold accent word(s) with a
+ * 16px glyph in a padded slot. Links to the v2 reference.
+ */
+import Icon from "../icons/Icon.astro";
+
+interface Props {
+  href: string;
+  color: string;
+  icon?: string;
+  image?: string;
+}
+
+const { href, color, icon, image } = Astro.props;
+---
+
+<style>
+  /* Keep the 26px line pitch: the chip box never exceeds the line box. */
+  .mark {
+    height: 26px;
+    line-height: 26px;
+    vertical-align: top;
+  }
+  @media (hover: hover) {
+    .mark:hover .mark__text {
+      text-decoration: underline;
+      text-decoration-thickness: from-font;
+      text-underline-position: from-font;
+    }
+  }
+</style>
+
+<a href={href} target="_blank" rel="noopener noreferrer" class="mark squishy squishy-md inline-flex items-center gap-1 align-baseline font-semibold whitespace-nowrap no-underline" style={`color:${color}`}
+  ><span class="mark__text"><slot /></span>{
+    icon && (
+      <span class="inline-flex p-[2px]" aria-hidden="true">
+        <Icon name={icon} size={16} />
+      </span>
+    )
+  }{
+    image && (
+      <span class="inline-flex p-[2px]" aria-hidden="true">
+        <img src={image} alt="" width="16" height="16" class="size-4 object-contain" />
+      </span>
+    )
+  }</a
+>

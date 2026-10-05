@@ -1,0 +1,35 @@
+---
+/** IconButton cycling light → dark → system. Glyph = current setting. */
+import IconButton from "./IconButton.astro";
+import Icon from "../icons/Icon.astro";
+---
+
+<IconButton label="Change theme" action="theme">
+  <Fragment slot="icon">
+    <Icon name="sun" class="theme-glyph" data-for="light" />
+    <Icon name="moon" class="theme-glyph" data-for="dark" />
+    <Icon name="sun-moon" class="theme-glyph" data-for="system" />
+  </Fragment>
+  <Fragment slot="label">
+    <span class="theme-label" data-for="light">Light</span>
+    <span class="theme-label" data-for="dark">Dark</span>
+    <span class="theme-label" data-for="system">System</span>
+  </Fragment>
+</IconButton>
+
+<style is:global>
+  .theme-glyph,
+  .theme-label {
+    display: none;
+  }
+  :root:not([data-theme="dark"]):not([data-theme="system"]) .theme-glyph[data-for="light"],
+  :root[data-theme="dark"] .theme-glyph[data-for="dark"],
+  :root[data-theme="system"] .theme-glyph[data-for="system"] {
+    display: block;
+  }
+  :root:not([data-theme="dark"]):not([data-theme="system"]) .theme-label[data-for="light"],
+  :root[data-theme="dark"] .theme-label[data-for="dark"],
+  :root[data-theme="system"] .theme-label[data-for="system"] {
+    display: inline;
+  }
+</style>

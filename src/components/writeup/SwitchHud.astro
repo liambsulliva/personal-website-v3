@@ -1,0 +1,56 @@
+---
+/** Switch React Menu browser preview: lazy iframe + keyboard HUD (was Svelte). */
+interface Props {
+  src?: string;
+  title?: string;
+}
+
+const { src = "/switch-menu/index.html", title = "Switch React Menu browser preview" } = Astro.props;
+
+const controls = [
+  { keys: ["←", "→"], label: "Navigate" },
+  { keys: ["Q", "E"], label: "Page (L / R)" },
+  { keys: ["Enter", "Z"], label: "Select (A)" },
+  { keys: ["X"], label: "Back (B)" },
+];
+---
+
+<div class="switch-hud relative aspect-video w-full overflow-hidden rounded-card border border-border bg-black">
+  <iframe src={src} title={title} loading="lazy" allow="fullscreen" class="block h-full w-full border-0"></iframe>
+  <div class="switch-hud__bar pointer-events-none absolute inset-x-0 bottom-0 flex flex-col gap-2 px-4 pt-10 pb-3 select-none" aria-label="Keyboard controls">
+    <ul class="m-0 flex list-none flex-wrap justify-center gap-x-5 gap-y-2 p-0">
+      {
+        controls.map((control) => (
+          <li class="flex items-center gap-2 text-[12px] leading-none text-white/80">
+            <span class="inline-flex items-center gap-1">
+              {control.keys.map((key) => (
+                <kbd class="switch-hud__key">{key}</kbd>
+              ))}
+            </span>
+            <span class="text-white/60">{control.label}</span>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</div>
+
+<style>
+  .switch-hud__bar {
+    background: linear-gradient(to top, rgb(0 0 0 / 0.92) 0%, rgb(0 0 0 / 0.72) 55%, transparent 100%);
+  }
+  .switch-hud__key {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.35rem;
+    padding: 0.2rem 0.4rem;
+    border: 1px solid rgb(255 255 255 / 0.18);
+    border-radius: var(--radius-sm);
+    background: rgb(255 255 255 / 0.08);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    color: rgb(255 255 255 / 0.95);
+  }
+</style>

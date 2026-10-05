@@ -1,0 +1,71 @@
+---
+import "../styles/global.css";
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const DEFAULT_DESCRIPTION =
+  "Developer, designer, photographer, and a few other things picked up along the way.";
+
+const { title = "Liam Sullivan", description = DEFAULT_DESCRIPTION } =
+  Astro.props;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="author" content="Liam Sullivan" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content="/banner.jpg" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content="/banner.jpg" />
+    <meta name="generator" content={Astro.generator} />
+
+    <!-- Theme + motion before first paint (no FOUC). -->
+    <script is:inline>
+      (() => {
+        const root = document.documentElement;
+        root.classList.add("js");
+        let theme = "light";
+        let motion = null;
+        try {
+          theme = localStorage.getItem("theme") || "light";
+          motion = localStorage.getItem("motion");
+        } catch {}
+        const systemDark = matchMedia("(prefers-color-scheme: dark)").matches;
+        root.dataset.theme = theme;
+        root.classList.toggle(
+          "dark",
+          theme === "dark" || (theme === "system" && systemDark),
+        );
+        const reduced = motion
+          ? motion === "reduced"
+          : matchMedia("(prefers-reduced-motion: reduce)").matches;
+        if (reduced) root.setAttribute("data-reduced-motion", "");
+      })();
+    </script>
+    <slot name="head" />
+  </head>
+  <body>
+    <slot />
+    <script>
+      import "../scripts/controls";
+    </script>
+  </body>
+</html>

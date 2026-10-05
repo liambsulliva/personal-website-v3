@@ -1,0 +1,37 @@
+---
+/** Figma ArticleCard (14:183): 192px media, title + external icon, meta. */
+import CldImage from "../media/CldImage.astro";
+import Icon from "../icons/Icon.astro";
+
+interface Props {
+  title: string;
+  meta: string;
+  href: string;
+  /** Cloudinary public_id */
+  image?: string;
+  /** Third-party feed image (e.g. WordPress), already sized */
+  imageUrl?: string;
+  external?: boolean;
+}
+
+const { title, meta, href, image, imageUrl, external = true } = Astro.props;
+---
+
+<a
+  href={href}
+  class="article-card hover-surface press-card flex w-full min-w-0 flex-col items-start overflow-clip rounded-card border border-border bg-surface no-underline"
+  style="--hover-base:var(--surface)"
+  {...external ? { target: "_blank", rel: "noopener noreferrer" } : {}}
+>
+  <div class="relative h-[192px] w-full shrink-0 bg-skeleton" data-name="media">
+    {image && <CldImage id={image} alt="" aspect="16:9" fill sizes="(min-width: 1024px) 660px, 100vw" />}
+    {!image && imageUrl && <img src={imageUrl} alt="" loading="lazy" decoding="async" class="absolute inset-0 h-full w-full object-cover" />}
+  </div>
+  <div class="flex w-full flex-col items-start gap-2 overflow-clip p-5" data-name="content">
+    <div class="flex w-full items-center gap-2 overflow-clip" data-name="title-row">
+      <p class="m-0 min-w-px flex-[1_0_0] truncate text-[16px] leading-[1.5] text-fg">{title}</p>
+      <Icon name="external-link" size={16} class="text-fg" />
+    </div>
+    <p class="m-0 text-[16px] leading-[1.5] whitespace-nowrap text-muted">{meta}</p>
+  </div>
+</a>

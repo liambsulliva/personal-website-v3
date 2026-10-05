@@ -1,0 +1,45 @@
+---
+/**
+ * /photography (Figma Subpage / Photography 25:464). SSR: 5 `featured`
+ * slides, the tag list, and the first masonry page. Islands hydrate on
+ * visibility for controls, lightbox and next-page pagination only.
+ */
+import SubpageLayout from "../layouts/SubpageLayout.astro";
+import FeaturedCarousel from "../components/islands/FeaturedCarousel.tsx";
+import PhotoGallery from "../components/islands/PhotoGallery.tsx";
+import { listPhotoTags, photoExpression, PUBLIC_CACHE_CONTROL, searchPhotos } from "../lib/cloudinaryServer";
+import { toFeaturedSlide, toGalleryPhoto } from "../lib/photos";
+
+export const prerender = false;
+
+Astro.response.headers.set("Cache-Control", PUBLIC_CACHE_CONTROL);
+
+const [featured, firstPage, tags] = await Promise.all([
+  searchPhotos({ expression: photoExpression("featured"), max_results: 5 }),
+  searchPhotos({ expression: photoExpression(), max_results: 20 }),
+  listPhotoTags(),
+]);
+
+const slides = featured.data.resources.map(toFeaturedSlide);
+const photos = firstPage.data.resources.map(toGalleryPhoto);
+---
+
+<SubpageLayout title="Photography - Liam Sullivan" section="photography">
+  {slides[0] && <link rel="preload" as="image" slot="head" href={slides[0].placeholderSrc} fetchpriority="high" />}
+  <div class="flex w-full min-w-0 flex-col items-stretch gap-8 overflow-x-clip px-6 py-6 md:px-16 md:py-12" data-name="Content">
+    <section class="flex w-full flex-col items-start gap-3" aria-labelledby="photography-featured">
+      <h2 id="photography-featured" class="m-0 text-[32px] leading-[1.2] font-medium text-muted md:text-[40px]">Featured</h2>
+      <div class="w-full">
+        {
+          slides.length > 0 ? (
+            <FeaturedCarousel client:visible slides={slides} />
+          ) : (
+            <div class="aspect-[4/3] w-full rounded-md bg-skeleton md:aspect-auto md:h-[560px]" />
+          )
+        }
+      </div>
+    </section>
+
+    <PhotoGallery client:visible tags={tags} initialPhotos={photos} initialCursor={firstPage.data.next_cursor ?? null} />
+  </div>
+</SubpageLayout>

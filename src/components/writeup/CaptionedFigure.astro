@@ -1,0 +1,15 @@
+---
+/** Figma figure slot (51:1493): media (radius/card) + 14/1.4 muted caption, gap 8. */
+interface Props {
+  caption?: string;
+  class?: string;
+}
+const { caption, class: className } = Astro.props;
+---
+
+<figure class:list={["writeup-figure flex w-full min-w-0 flex-col gap-2", className]}>
+  <div class="writeup-figure__media min-w-0">
+    <slot />
+  </div>
+  {caption && <figcaption class="writeup-caption">{caption}</figcaption>}
+</figure>

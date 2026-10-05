@@ -1,0 +1,42 @@
+---
+import { getCollection, render } from "astro:content";
+import WriteupLayout from "../../layouts/WriteupLayout.astro";
+import { mdxComponents } from "../../components/writeup/index";
+import { hasWriteup } from "../../lib/content";
+import { tocFromBody } from "../../lib/toc";
+import { cldUrl } from "../../lib/cloudinary";
+import Book from "../../components/islands/Book.svelte";
+import SwitchHud from "../../components/writeup/SwitchHud.astro";
+
+export async function getStaticPaths() {
+  const projects = await getCollection("projects", (p) => p.data.wing === "engineering");
+  return projects.filter(hasWriteup).map((entry) => ({ params: { slug: entry.id }, props: { entry } }));
+}
+
+const { entry } = Astro.props;
+const { Content } = await render(entry);
+const toc = tocFromBody(entry.body);
+const islandHero = entry.id === "herl-app" || entry.id === "switch-react-menu";
+---
+
+<WriteupLayout entry={entry} toc={toc} islandHero={islandHero}>
+  {
+    entry.id === "herl-app" && (
+      <Fragment slot="hero">
+        <Book
+          client:visible
+          frontSrc={cldUrl("site/projects/herl-app/book-front", { width: 1200 })}
+          backSrc={cldUrl("site/projects/herl-app/book-back", { width: 1200 })}
+        />
+      </Fragment>
+    )
+  }
+  {
+    entry.id === "switch-react-menu" && (
+      <Fragment slot="hero">
+        <SwitchHud />
+      </Fragment>
+    )
+  }
+  <Content components={mdxComponents} />
+</WriteupLayout>

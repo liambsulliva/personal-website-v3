@@ -1,0 +1,242 @@
+{
+  "site/career/herl": {
+    "width": 857,
+    "height": 630
+  },
+  "site/career/hse": {
+    "width": 512,
+    "height": 512
+  },
+  "site/career/pitt": {
+    "width": 500,
+    "height": 283
+  },
+  "site/career/pnc": {
+    "width": 300,
+    "height": 300
+  },
+  "site/career/the-pitt-news": {
+    "width": 256,
+    "height": 256
+  },
+  "site/pieces/design/design-club/clubmeeting1": {
+    "width": 2042,
+    "height": 1142
+  },
+  "site/pieces/design/design-club/clubmeeting2": {
+    "width": 2042,
+    "height": 1142
+  },
+  "site/pieces/design/design-club/clubmeeting3": {
+    "width": 2050,
+    "height": 1156
+  },
+  "site/pieces/design/design-club/clubmeeting4": {
+    "width": 2038,
+    "height": 1126
+  },
+  "site/pieces/design/design-club/clubmeeting5": {
+    "width": 2060,
+    "height": 1148
+  },
+  "site/pieces/design/design-club/clubmeeting6": {
+    "width": 2048,
+    "height": 1136
+  },
+  "site/pieces/design/graphic-design/do-you-not-get-the-concept": {
+    "width": 1080,
+    "height": 1080
+  },
+  "site/pieces/design/graphic-design/from-pop-to-personal": {
+    "width": 1024,
+    "height": 1024
+  },
+  "site/pieces/design/graphic-design/mock-pitt-post": {
+    "width": 1141,
+    "height": 611
+  },
+  "site/pieces/design/layouts/beer-and-wine-edition": {
+    "width": 632,
+    "height": 673
+  },
+  "site/pieces/design/layouts/march-madness-edition": {
+    "width": 632,
+    "height": 668
+  },
+  "site/pieces/design/layouts/portrait-tutorial": {
+    "width": 1141,
+    "height": 611
+  },
+  "site/pieces/design/layouts/wii-manual": {
+    "width": 1141,
+    "height": 611
+  },
+  "site/projects/bridge-app/cover": {
+    "width": 2940,
+    "height": 1428
+  },
+  "site/projects/herl-app/book-back": {
+    "width": 2048,
+    "height": 1424
+  },
+  "site/projects/herl-app/book-front": {
+    "width": 2048,
+    "height": 1424
+  },
+  "site/projects/herl-app/cover": {
+    "width": 2560,
+    "height": 1442
+  },
+  "site/projects/kingdra-app/cover": {
+    "width": 2560,
+    "height": 1442
+  },
+  "site/projects/kingdra-app/grid-based-selection": {
+    "width": 2938,
+    "height": 1442
+  },
+  "site/projects/kingdra-app/teambuilder-old": {
+    "width": 2938,
+    "height": 1442
+  },
+  "site/projects/kingdra-case-study/cover": {
+    "width": 2560,
+    "height": 1600
+  },
+  "site/projects/kingdra-case-study/flow-1": {
+    "width": 1179,
+    "height": 2556
+  },
+  "site/projects/kingdra-case-study/flow-2": {
+    "width": 1179,
+    "height": 2556
+  },
+  "site/projects/kingdra-case-study/flow-3": {
+    "width": 1179,
+    "height": 2556
+  },
+  "site/projects/kingdra-case-study/flow-4": {
+    "width": 1179,
+    "height": 2556
+  },
+  "site/projects/kingdra-case-study/hamburger-after": {
+    "width": 736,
+    "height": 450
+  },
+  "site/projects/kingdra-case-study/hamburger-before": {
+    "width": 468,
+    "height": 250
+  },
+  "site/projects/kingdra-case-study/hero": {
+    "width": 1600,
+    "height": 1600
+  },
+  "site/projects/kingdra-case-study/horizontal-slots-after": {
+    "width": 754,
+    "height": 840
+  },
+  "site/projects/kingdra-case-study/horizontal-slots-before": {
+    "width": 754,
+    "height": 600
+  },
+  "site/projects/kingdra-case-study/iconbar": {
+    "width": 620,
+    "height": 1348
+  },
+  "site/projects/kingdra-case-study/margins-after": {
+    "width": 736,
+    "height": 630
+  },
+  "site/projects/kingdra-case-study/margins-before": {
+    "width": 850,
+    "height": 760
+  },
+  "site/projects/kingdra-case-study/menubar": {
+    "width": 522,
+    "height": 1130
+  },
+  "site/projects/kingdra-case-study/mobile-view": {
+    "width": 1242,
+    "height": 40275
+  },
+  "site/projects/kingdra-case-study/modal-after": {
+    "width": 754,
+    "height": 500
+  },
+  "site/projects/kingdra-case-study/modal-before": {
+    "width": 854,
+    "height": 832
+  },
+  "site/projects/kingdra-case-study/pwa-after": {
+    "width": 1179,
+    "height": 700
+  },
+  "site/projects/kingdra-case-study/pwa-before": {
+    "width": 1179,
+    "height": 900
+  },
+  "site/projects/kingdra-case-study/tabs-after": {
+    "width": 688,
+    "height": 400
+  },
+  "site/projects/kingdra-case-study/tabs-before": {
+    "width": 688,
+    "height": 498
+  },
+  "site/projects/switch-react-menu/cover": {
+    "width": 1280,
+    "height": 720
+  },
+  "site/projects/switch-react-menu/rich-details": {
+    "width": 3335,
+    "height": 1419
+  },
+  "site/projects/the-invisible-hand-of-ux/banner-color": {
+    "width": 5000,
+    "height": 750
+  },
+  "site/projects/the-invisible-hand-of-ux/banner-raster": {
+    "width": 1050,
+    "height": 591
+  },
+  "site/projects/the-invisible-hand-of-ux/cover": {
+    "width": 2560,
+    "height": 1442
+  },
+  "site/projects/the-invisible-hand-of-ux/cross-linked-terms": {
+    "width": 1280,
+    "height": 727
+  },
+  "site/projects/the-invisible-hand-of-ux/landing-gif": {
+    "width": 1280,
+    "height": 620
+  },
+  "site/projects/the-invisible-hand-of-ux/landing-grid": {
+    "width": 3024,
+    "height": 1346
+  },
+  "site/projects/the-invisible-hand-of-ux/landing-sections": {
+    "width": 3020,
+    "height": 1468
+  },
+  "site/projects/the-invisible-hand-of-ux/landing-separate-1": {
+    "width": 3020,
+    "height": 1478
+  },
+  "site/projects/the-invisible-hand-of-ux/landing-separate-2": {
+    "width": 3020,
+    "height": 1478
+  },
+  "site/projects/the-invisible-hand-of-ux/mode-tooltip": {
+    "width": 300,
+    "height": 206
+  },
+  "site/projects/the-invisible-hand-of-ux/print-logo-raster": {
+    "width": 720,
+    "height": 540
+  },
+  "site/ui/iphone-mockup": {
+    "width": 1080,
+    "height": 1920
+  }
+}

@@ -1,0 +1,284 @@
+---
+/**
+ * Figma Logomark (6:140) hosting VersionOption (86:857).
+ * Collapsed: "v3." pill. Expanded: v3 / v2 / v1 rail, growing upward from the
+ * pill's bottom-left. <details> works without JS; with motion on, the
+ * version labels spring up out of the top of the pill.
+ */
+import { VERSIONS } from "../../lib/sections";
+---
+
+<div class="logomark-anchor relative h-[54px] w-[58px] shrink-0">
+  <details class="logomark absolute bottom-0 left-0 z-30" data-logomark>
+    <summary
+      class="logomark__summary logomark__row flex cursor-pointer list-none items-start"
+      aria-label="Site versions"
+    >
+      <span class="logomark__rail" aria-hidden="true">
+        <span class="logomark__line"></span>
+        <span class="logomark__dot logomark__dot--current"></span>
+        <span class="logomark__line logomark__line--on"></span>
+      </span>
+      <span class="flex items-start overflow-clip py-[6px]">
+        <span class="text-[18px] leading-6 font-semibold whitespace-nowrap text-fg">
+          v3.
+        </span>
+      </span>
+    </summary>
+    <span class="logomark__bg" aria-hidden="true"></span>
+    {VERSIONS.slice(1).map((version, index, rest) => (
+      <a class="version-option logomark__row" href={version.href}>
+        <span class="logomark__rail" aria-hidden="true">
+          <span class="logomark__line logomark__line--on" />
+          <span class="logomark__dot" />
+          <span
+            class:list={[
+              "logomark__line",
+              { "logomark__line--on": index < rest.length - 1 },
+            ]}
+          />
+        </span>
+        <span class="flex items-start overflow-clip py-[6px]">
+          <span class="text-[18px] leading-6 font-normal whitespace-nowrap text-muted">
+            {version.label}
+          </span>
+        </span>
+      </a>
+    ))}
+  </details>
+</div>
+
+<style>
+  .logomark {
+    transform-origin: 0 100%;
+  }
+
+  /* Collapsed pill: 58×54, px16 py8, radius/pill, 1px border. */
+  .logomark:not([open]) {
+    width: 58px;
+  }
+  .logomark:not([open]) .logomark__summary {
+    width: 58px;
+    padding: 8px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    background: var(--control);
+  }
+  .logomark:not([open]) .logomark__rail,
+  .logomark:not([open]) .logomark__bg {
+    display: none;
+  }
+  .logomark__summary::-webkit-details-marker {
+    display: none;
+  }
+
+  /* Expanded panel: 104 wide, p4. The surface is its own layer so the labels
+     can spring past it while it opens. */
+  .logomark[open] {
+    display: flex;
+    flex-direction: column;
+    width: 104px;
+    padding: 4px;
+  }
+  .logomark__bg {
+    position: absolute;
+    inset: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--bg);
+    transform-origin: 0 100%;
+  }
+
+  /* VersionOption row: pl10 pr14 gap10, radius/md. */
+  .logomark__row {
+    position: relative;
+    z-index: 1;
+  }
+  .logomark[open] .logomark__summary,
+  .version-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 0 14px 0 10px;
+    border-radius: var(--radius-md);
+    background: var(--bg);
+    text-decoration: none;
+  }
+
+  /* Hover lighten/darken (pill and rows); press squash like v2's active:scale-95. */
+  .logomark__summary,
+  .version-option {
+    transition:
+      background-color var(--motion-fast) var(--ease-out),
+      transform 460ms cubic-bezier(0.34, 2.1, 0.5, 1);
+  }
+  @media (hover: hover) {
+    .logomark:not([open]) .logomark__summary:hover {
+      background: color-mix(in srgb, var(--control) 90%, var(--fg));
+    }
+    .logomark[open] .logomark__summary:hover,
+    .version-option:hover {
+      background: var(--control-hover);
+    }
+  }
+  .logomark__summary:active,
+  .version-option:active {
+    transform: scale(0.95);
+    transition-duration: var(--motion-fast), 90ms;
+    transition-timing-function: var(--ease-out), ease-out;
+  }
+
+  .logomark__rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    align-self: stretch;
+    width: 10px;
+    flex-shrink: 0;
+    overflow: clip;
+  }
+  .logomark__line {
+    flex: 1 0 0;
+    min-height: 1px;
+    width: 2px;
+  }
+  .logomark__line--on {
+    background: var(--rail);
+    opacity: 0.4;
+  }
+  .logomark__dot {
+    width: 8px;
+    height: 8px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    border: 1.5px solid var(--fg-muted);
+    background: var(--bg);
+  }
+  .logomark__dot--current {
+    border: 0;
+    background: var(--fg);
+  }
+</style>
+
+<script>
+  // Spring pop-out. The labels pop up out of the top of the pill (staggered
+  // bottom → top) while the panel springs open behind them. All motion is
+  // started in the same task that toggles `open`, so nothing paints between
+  // the state change and the first animation frame.
+  const ROW = 36; // VersionOption height
+  const PILL_TOP = 64; // panel height 118 − pill height 54
+  // Opening uses a softer start so the labels ease out of the pill instead of snapping.
+  const SPRING_OPEN =
+    "linear(0, 0.06 6%, 0.24 14%, 0.55 24%, 0.86 34%, 1.06 43%, 1.1 50%, 1.05 60%, 0.99 72%, 0.997 84%, 1)";
+  const PILL_SETTLE = "linear(0, 0.6 18%, 1.06 38%, 0.98 62%, 1)";
+
+  const reduced = () =>
+    document.documentElement.hasAttribute("data-reduced-motion");
+  const rowsOf = (details: HTMLDetailsElement) => [
+    ...details.querySelectorAll<HTMLElement>(".logomark__row"),
+  ];
+  const bgOf = (details: HTMLDetailsElement) =>
+    details.querySelector<HTMLElement>(".logomark__bg");
+
+  /** How far a row's slot sits above the pill's top edge. */
+  const riseOf = (index: number) => Math.max(0, PILL_TOP - 4 - index * ROW);
+
+  function open(details: HTMLDetailsElement) {
+    details.open = true;
+    if (reduced()) return;
+    const rows = rowsOf(details);
+    bgOf(details)?.animate(
+      [
+        { transform: "scale(0.56, 0.46)", borderRadius: "15px" },
+        { transform: "scale(1, 1)", borderRadius: "12px" },
+      ],
+      { duration: 240, easing: SPRING_OPEN },
+    );
+    rows.forEach((row, index) => {
+      const order = rows.length - 1 - index; // bottom row pops first
+      row.animate(
+        [
+          {
+            transform: `translateY(${riseOf(index)}px) scale(0.6)`,
+            opacity: 0,
+          },
+          { opacity: 1, offset: 0.25 },
+          { transform: "translateY(0) scale(1)", opacity: 1 },
+        ],
+        { duration: 230, delay: order * 30, easing: SPRING_OPEN, fill: "backwards" },
+      );
+    });
+  }
+
+  function close(details: HTMLDetailsElement) {
+    if (!details.open) return;
+    if (reduced()) {
+      details.open = false;
+      return;
+    }
+    const rows = rowsOf(details);
+    const bg = bgOf(details);
+    const ease = "cubic-bezier(0.55, 0, 0.85, 0.35)";
+    bg?.animate(
+      [
+        { transform: "scale(1, 1)", borderRadius: "12px" },
+        { transform: "scale(0.56, 0.46)", borderRadius: "15px" },
+      ],
+      { duration: 120, easing: ease, fill: "forwards" },
+    );
+    const runs = rows.map((row, index) =>
+      row.animate(
+        [
+          { transform: "translateY(0) scale(1)", opacity: 1 },
+          {
+            transform: `translateY(${riseOf(index)}px) scale(0.6)`,
+            opacity: 0,
+          },
+        ],
+        { duration: 110, delay: index * 10, easing: ease, fill: "forwards" },
+      ),
+    );
+    Promise.all(runs.map((run) => run.finished)).then(() => {
+      details.open = false;
+      [bg, ...rows].forEach((el) =>
+        el?.getAnimations().forEach((animation) => animation.cancel()),
+      );
+      details.animate(
+        [{ transform: "scale(1.06, 1.1)" }, { transform: "scale(1)" }],
+        {
+          duration: 90,
+          easing: PILL_SETTLE,
+        },
+      );
+    });
+  }
+
+  document
+    .querySelectorAll<HTMLDetailsElement>("details[data-logomark]")
+    .forEach((details) => {
+      details.querySelector("summary")?.addEventListener("click", (event) => {
+        event.preventDefault();
+        if (details.open) close(details);
+        else open(details);
+      });
+    });
+
+  // Light-dismiss: outside click / Escape run the same close.
+  document.addEventListener("click", (event) => {
+    document
+      .querySelectorAll<HTMLDetailsElement>("details[data-logomark][open]")
+      .forEach((details) => {
+        if (!details.contains(event.target as Node)) close(details);
+      });
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    document
+      .querySelectorAll<HTMLDetailsElement>("details[data-logomark][open]")
+      .forEach((details) => {
+        close(details);
+        details.querySelector("summary")?.focus();
+      });
+  });
+</script>

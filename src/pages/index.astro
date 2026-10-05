@@ -1,0 +1,81 @@
+---
+/**
+ * Lobby (Figma Desktop Index 16:173 / Mobile Index 18:324).
+ * Nav only: hero, controls, stair-step NavLinks, socials, Logomark, Timer.
+ */
+import RootLayout from "../layouts/RootLayout.astro";
+import LobbyHero from "../components/chrome/LobbyHero.astro";
+import Controls from "../components/chrome/Controls.astro";
+import Socials from "../components/chrome/Socials.astro";
+import NavLink from "../components/chrome/NavLink.astro";
+import Logomark from "../components/chrome/Logomark.astro";
+import Timer from "../components/chrome/Timer.tsx";
+import { SECTIONS } from "../lib/sections";
+---
+
+<RootLayout title="Liam Sullivan">
+  <script is:inline slot="head">
+    (() => {
+      const root = document.documentElement;
+      if (root.hasAttribute("data-reduced-motion")) return;
+      try {
+        if (sessionStorage.getItem("lobby-typed")) return;
+      } catch {
+        return;
+      }
+      root.classList.add("typing");
+      // Never leave the hero hidden if the typer script fails to start.
+      setTimeout(() => {
+        if (!("typerStarted" in root.dataset)) root.classList.remove("typing");
+      }, 2500);
+    })();
+  </script>
+
+  <main
+    class="flex min-h-dvh w-full flex-col items-start gap-6 px-6 pt-4 pb-8 md:gap-8 md:px-16 md:py-12"
+  >
+    <div class="flex w-full flex-col-reverse gap-6 md:flex-row md:items-start md:justify-between md:gap-0" data-name="Top">
+      <LobbyHero />
+      <div class="flex justify-end">
+        <Controls />
+      </div>
+    </div>
+
+    <div
+      class="flex min-h-px w-full flex-[1_0_0] items-center justify-end md:items-end"
+      data-name="Middle"
+    >
+      <nav
+        class="lobby-nav flex flex-col items-end justify-center gap-3"
+        aria-label="Sections"
+        data-name="Nav"
+      >
+        {SECTIONS.map((section) => <NavLink section={section} />)}
+        <Socials />
+      </nav>
+    </div>
+
+    <div class="flex w-full items-end justify-between" data-name="Bottom">
+      <Logomark />
+      <Timer client:idle />
+    </div>
+  </main>
+</RootLayout>
+
+<script>
+  import "../scripts/typer";
+</script>
+
+<style>
+  /* Desktop lobby unit: 1 Figma px × --lobby-u. Solved so the baseline of
+     "museum." meets the cap-top of "Me" (hero is top-anchored, nav is
+     bottom-anchored, so the unit follows the viewport height). */
+  @media (min-width: 768px) {
+    main {
+      --lobby-u: clamp(0.6px, calc((100dvh - 215.6px) / 636.4), 1.1px);
+    }
+    .lobby-nav {
+      gap: calc(18 * var(--lobby-u));
+    }
+  }
+</style>

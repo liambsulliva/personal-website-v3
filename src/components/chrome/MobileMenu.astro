@@ -1,0 +1,90 @@
+---
+/**
+ * Figma MobileMenu (33:1236). Native popover — opens from the subpage header
+ * menu button, no JS. Me is included for parity with the lobby.
+ */
+import Icon from "../icons/Icon.astro";
+import Controls from "./Controls.astro";
+import Socials from "./Socials.astro";
+import Logomark from "./Logomark.astro";
+import Timer from "./Timer.tsx";
+import { SECTIONS } from "../../lib/sections";
+
+---
+
+<div id="mobile-menu" popover class="mobile-menu" aria-label="Site menu">
+  <div class="flex h-full w-full flex-col items-start gap-6 bg-bg px-6 pt-4 pb-8">
+    <div class="flex w-full items-center justify-between overflow-clip" data-name="bar">
+      <a href="/" class="squishy squishy-md text-[20px] leading-none font-semibold whitespace-nowrap text-fg no-underline">
+        Liam.
+      </a>
+      <button
+        type="button"
+        class="squishy flex size-9 shrink-0 items-center justify-center overflow-clip rounded-[18px] text-fg"
+        popovertarget="mobile-menu"
+        popovertargetaction="hide"
+        aria-label="Close menu"
+      >
+        <Icon name="close" />
+      </button>
+    </div>
+
+    <nav
+      class="flex min-h-px w-full flex-[1_0_0] flex-col items-end justify-center gap-3 pr-1"
+      aria-label="Sections"
+    >
+      {
+        SECTIONS.map((section) => (
+          <a
+            href={section.href}
+            class="mobile-menu__link squishy squishy-lg flex shrink-0 items-center py-1 no-underline"
+            style={`color:${section.color};gap:${section.menu.gap}px`}
+          >
+            <span
+              class="leading-none font-semibold whitespace-nowrap"
+              style={`font-size:${section.menu.size}px`}
+            >
+              {section.label}
+            </span>
+            <Icon name={section.icon} />
+          </a>
+        ))
+      }
+    </nav>
+
+    <div class="h-px w-full shrink-0 bg-border" data-name="divider"></div>
+
+    <div class="flex w-full items-center justify-between" data-name="utility">
+      <Controls />
+      <Socials />
+    </div>
+
+    <div class="flex w-full items-center justify-between" data-name="Bottom">
+      <Logomark />
+      <Timer client:idle />
+    </div>
+  </div>
+</div>
+
+<style>
+  .mobile-menu {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100dvh;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: var(--bg);
+    color: var(--fg);
+  }
+  @media (hover: hover) {
+    .mobile-menu__link:hover span {
+      text-decoration: underline;
+      text-decoration-thickness: from-font;
+      text-underline-position: from-font;
+    }
+  }
+</style>

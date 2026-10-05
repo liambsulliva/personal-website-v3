@@ -1,0 +1,23 @@
+---
+/**
+ * Monochrome Figma glyph (public/icons/*.svg) masked over currentColor so it
+ * follows theme + accent tokens without editing the asset.
+ */
+import type { HTMLAttributes } from "astro/types";
+
+interface Props extends HTMLAttributes<"span"> {
+  name: string;
+  size?: number | string;
+  class?: string;
+  style?: string;
+}
+
+const { name, size = 24, class: className, style = "", ...rest } = Astro.props;
+const dimension = typeof size === "number" ? `${size}px` : size;
+---
+
+<span
+  class:list={["glyph", className]}
+  style={`--glyph:url(/icons/${name}.svg);width:${dimension};height:${dimension};${style}`}
+  aria-hidden="true"
+  {...rest}></span>

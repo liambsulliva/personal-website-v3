@@ -1,0 +1,101 @@
+---
+/**
+ * Progressive Cloudinary image. Paints surface/skeleton, then a ~1KB blurred
+ * LQIP, then the responsive srcset fades in (instant under zap). Unseeded or
+ * missing assets fall back to the Figma skeleton.
+ */
+import { assetRatio, cldPlaceholder, cldSrcSet, cldUrl, type CldOptions } from "../../lib/cloudinary";
+
+interface Props {
+  id: string;
+  alt: string;
+  /** Fixed slot ratio ("16:9"). Omit for the asset's natural ratio. */
+  aspect?: string;
+  sizes?: string;
+  loading?: "lazy" | "eager";
+  fetchpriority?: "high" | "low" | "auto";
+  gravity?: CldOptions["gravity"];
+  class?: string;
+  /** Fill the parent instead of reserving an aspect ratio */
+  fill?: boolean;
+  /**
+   * Transparent artwork (mockups): no crop, contain-fit, and no skeleton or
+   * blurred placeholder behind it.
+   */
+  bare?: boolean;
+}
+
+const {
+  id,
+  alt,
+  aspect,
+  sizes = "100vw",
+  loading = "lazy",
+  fetchpriority,
+  gravity = "auto",
+  class: className,
+  fill = false,
+  bare = false,
+} = Astro.props;
+
+const options: CldOptions = aspect && !bare ? { aspect, crop: "fill", gravity } : { crop: "limit" };
+const ratio = aspect ? aspect.replace(":", " / ") : assetRatio(id);
+const style = [
+  bare ? "" : `background-image:url("${cldPlaceholder(id, options)}")`,
+  fill ? "" : `aspect-ratio:${ratio}`,
+].join(";");
+---
+
+<span class:list={["cld", { "cld--fill": fill, "cld--bare": bare }, className]} style={style}>
+  <img
+    src={cldUrl(id, { ...options, width: 960 })}
+    srcset={cldSrcSet(id, options)}
+    sizes={sizes}
+    alt={alt}
+    loading={loading}
+    decoding="async"
+    fetchpriority={fetchpriority}
+    data-cld-img
+    onload="this.dataset.loaded=''"
+    onerror="this.dataset.error=''"
+  />
+</span>
+
+<style is:global>
+  .cld {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    background-color: var(--skeleton);
+    background-size: cover;
+    background-position: center;
+  }
+  .cld--fill {
+    position: absolute;
+    inset: 0;
+  }
+  .cld > img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: opacity var(--motion-medium) var(--ease-out);
+  }
+  :root.js .cld > img:not([data-loaded]) {
+    opacity: 0;
+  }
+  .cld > img[data-error] {
+    display: none;
+  }
+  /* Once loaded, drop the skeleton + LQIP so transparent art never sits on a blur. */
+  .cld:has(> img[data-loaded]) {
+    background: none;
+  }
+  .cld--bare {
+    background: none;
+  }
+  .cld--bare > img {
+    object-fit: contain;
+  }
+</style>

@@ -1,0 +1,22 @@
+---
+interface Props {
+  stats: { value: string; label: string }[];
+  note?: string;
+  ariaLabel?: string;
+}
+const { stats, note, ariaLabel = "Project summary" } = Astro.props;
+---
+
+<div class="flex w-full flex-col gap-2">
+  <div class="grid w-full grid-cols-1 gap-3 sm:grid-cols-3" role="group" aria-label={ariaLabel}>
+    {
+      stats.map((stat) => (
+        <article class="flex flex-col gap-1 rounded-card border border-border bg-card p-6">
+          <strong class="text-[40px] leading-[1.1] font-bold tracking-[-1px] text-wing">{stat.value}</strong>
+          <span class="text-[14px] leading-[1.4] text-muted">{stat.label}</span>
+        </article>
+      ))
+    }
+  </div>
+  {note && <p class="writeup-caption m-0">{note}</p>}
+</div>

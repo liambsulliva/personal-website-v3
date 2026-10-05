@@ -1,0 +1,14 @@
+---
+/** Figma Callout (50:380): 220px rules, accent label, 22px medium body, py32. */
+interface Props {
+  label: string;
+}
+const { label } = Astro.props;
+---
+
+<aside class="callout flex w-full flex-col items-center gap-4 py-8">
+  <span class="h-px w-[220px] shrink-0 bg-border" aria-hidden="true"></span>
+  <p class="callout__label">{label}</p>
+  <p class="callout__body"><slot /></p>
+  <span class="h-px w-[220px] shrink-0 bg-border" aria-hidden="true"></span>
+</aside>

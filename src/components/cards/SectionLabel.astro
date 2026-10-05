@@ -1,0 +1,9 @@
+---
+/** Gallery section label (Design/Writing): heading/card 24/1.2 bold. */
+interface Props {
+  id?: string;
+}
+const { id } = Astro.props;
+---
+
+<h2 id={id} class="m-0 text-[24px] leading-[1.2] font-bold whitespace-nowrap text-fg"><slot /></h2>

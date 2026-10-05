@@ -1,0 +1,24 @@
+---
+/**
+ * Full-color brand glyph from Figma (public/brand/*.svg). Badges render the
+ * glyph at 2/3 of its native size inside a 32px slot (Figma Badge 14:143).
+ */
+import { BRANDS, type BrandKey } from "../../lib/brands";
+
+interface Props {
+  brand: BrandKey;
+  scale?: number;
+}
+
+const { brand, scale = 2 / 3 } = Astro.props;
+const { file, width, height } = BRANDS[brand];
+---
+
+<img
+  src={`/brand/${file}`}
+  alt=""
+  width={+(width * scale).toFixed(3)}
+  height={+(height * scale).toFixed(3)}
+  class="block shrink-0"
+  style={`width:${(width * scale).toFixed(3)}px;height:${(height * scale).toFixed(3)}px`}
+/>

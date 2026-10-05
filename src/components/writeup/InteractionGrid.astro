@@ -1,0 +1,27 @@
+---
+interface Props {
+  items: { number: string; title: string; keys?: string[]; subject: string; detail: string }[];
+}
+const { items } = Astro.props;
+---
+
+<div class="grid w-full gap-3 md:grid-cols-3">
+  {
+    items.map((idea) => (
+      <article class="flex flex-col gap-3 rounded-card border border-border bg-card p-6">
+        <span class="editorial-node__step">{idea.number}</span>
+        <h4 class="m-0 text-[20px] leading-[1.2] font-bold text-fg">{idea.title}</h4>
+        {idea.keys && idea.keys.length > 0 && (
+          <div class="flex flex-wrap gap-1" role="group" aria-label={`${idea.title} controls`}>
+            {idea.keys.map((key) => (
+              <kbd class="writeup-chip">{key}</kbd>
+            ))}
+          </div>
+        )}
+        <p class="writeup-small m-0">
+          <strong class="text-fg">{idea.subject}</strong> {idea.detail}
+        </p>
+      </article>
+    ))
+  }
+</div>

@@ -1,0 +1,64 @@
+---
+/**
+ * /design (Figma Subpage / Design 53:3354): UX case-study row, then
+ * Graphic Design (3-up), Layouts (2-up), Design Club (3-up) ArticleCards.
+ */
+import SubpageLayout from "../../layouts/SubpageLayout.astro";
+import ProjectCard from "../../components/cards/ProjectCard.astro";
+import ArticleCard from "../../components/cards/ArticleCard.astro";
+import SectionLabel from "../../components/cards/SectionLabel.astro";
+import { getPieces, getProjects, hasWriteup, pieceMeta, projectHref } from "../../lib/content";
+
+const caseStudies = await getProjects("design");
+const pieces = await getPieces("design");
+const sections = [
+  { key: "graphic-design", label: "Graphic Design", columns: 3 },
+  { key: "layouts", label: "Layouts", columns: 2 },
+  { key: "design-club", label: "Design Club", columns: 3 },
+] as const;
+---
+
+<SubpageLayout title="Design - Liam Sullivan" section="design">
+  <div class="flex w-full flex-col items-start gap-12 overflow-clip px-6 py-6 md:px-16 md:py-12" data-name="DesignBody">
+    {
+      caseStudies.length > 0 && (
+        <section class="flex w-full flex-col items-start gap-3" aria-labelledby="design-ux">
+          <SectionLabel id="design-ux">UX</SectionLabel>
+          {caseStudies.map((project) => (
+            <ProjectCard
+              variant="case-study"
+              title={project.data.title}
+              description={project.data.description}
+              image={project.data.image}
+              href={projectHref(project)}
+              external={!hasWriteup(project)}
+              loading="eager"
+            />
+          ))}
+        </section>
+      )
+    }
+    {
+      sections.map((section) => {
+        const items = pieces.filter((piece) => piece.data.section === section.key);
+        if (items.length === 0) return null;
+        return (
+          <section class="flex w-full flex-col items-start gap-3" aria-labelledby={`design-${section.key}`}>
+            <SectionLabel id={`design-${section.key}`}>{section.label}</SectionLabel>
+            <div class:list={["grid w-full grid-cols-1 gap-x-6 gap-y-3", section.columns === 3 ? "sm:grid-cols-2 lg:grid-cols-3" : "sm:grid-cols-2"]}>
+              {items.map(({ data }) => (
+                <ArticleCard
+                  title={data.title}
+                  meta={pieceMeta(data.kind, data.date)}
+                  href={data.href}
+                  image={data.image}
+                  external={data.external}
+                />
+              ))}
+            </div>
+          </section>
+        );
+      })
+    }
+  </div>
+</SubpageLayout>

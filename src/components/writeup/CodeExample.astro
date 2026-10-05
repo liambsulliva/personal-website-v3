@@ -1,0 +1,17 @@
+---
+interface Props {
+  label: string;
+  title: string;
+  lede: string;
+}
+const { label, title, lede } = Astro.props;
+---
+
+<article class="flex min-w-0 flex-col gap-3">
+  <div class="flex flex-col gap-1">
+    <span class="editorial-node__step">{label}</span>
+    <h4 class="writeup-h4 m-0">{title}</h4>
+  </div>
+  <p class="writeup-small m-0">{lede}</p>
+  <div class="writeup-flow min-w-0"><slot /></div>
+</article>

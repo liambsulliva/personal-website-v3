@@ -1,0 +1,17 @@
+---
+import IconButton from "./IconButton.astro";
+import { SOCIALS } from "../../lib/sections";
+---
+
+<div class="flex items-start" data-name="Socials">
+  {
+    SOCIALS.map((social) => (
+      <IconButton
+        icon={social.icon}
+        label={social.label}
+        href={social.href}
+        external
+      />
+    ))
+  }
+</div>

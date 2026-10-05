@@ -1,0 +1,35 @@
+---
+/** Figma Writing / FeaturedArticle (68:3004). */
+import CldImage from "../media/CldImage.astro";
+import Icon from "../icons/Icon.astro";
+
+interface Props {
+  title: string;
+  description?: string;
+  meta: string;
+  href: string;
+  image?: string;
+}
+
+const { title, description, meta, href, image } = Astro.props;
+---
+
+<a
+  href={href}
+  target="_blank"
+  rel="noopener noreferrer"
+  class="hover-surface press-card press-card-xl flex w-full flex-col items-start gap-3 overflow-clip rounded-card border border-border bg-surface p-3 no-underline md:flex-row md:gap-6"
+  style="--hover-base:var(--surface)"
+>
+  <div class="relative aspect-[640/336] w-full shrink-0 overflow-clip rounded-md bg-skeleton md:h-[336px] md:w-[640px] md:max-w-[50%] md:aspect-auto" data-name="media">
+    {image && <CldImage id={image} alt="" aspect="40:21" fill sizes="(min-width: 768px) 640px, 100vw" loading="eager" />}
+  </div>
+  <div class="flex min-w-px flex-[1_0_0] flex-col items-start justify-center gap-3 self-stretch overflow-clip py-4 pr-3 pl-1" data-name="content">
+    <div class="flex w-full items-center gap-2 overflow-clip" data-name="title-row">
+      <h3 class="m-0 min-w-px flex-[1_0_0] text-[24px] leading-[normal] font-bold text-fg md:text-[32px]">{title}</h3>
+      <Icon name="external-link" size={16} class="text-fg" />
+    </div>
+    {description && <p class="m-0 w-full text-[16px] leading-[normal] text-muted">{description}</p>}
+    <p class="m-0 text-[14px] leading-[normal] whitespace-nowrap text-muted">{meta}</p>
+  </div>
+</a>

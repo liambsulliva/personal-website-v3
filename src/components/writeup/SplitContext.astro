@@ -1,0 +1,8 @@
+---
+/** Prose column with a sticky aside (phone mockup) on desktop. */
+---
+
+<div class="flex w-full flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
+  <div class="writeup-flow min-w-0 flex-1"><slot /></div>
+  <div class="w-full shrink-0 lg:sticky lg:top-8 lg:w-[260px]"><slot name="aside" /></div>
+</div>

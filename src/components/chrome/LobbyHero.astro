@@ -1,0 +1,222 @@
+---
+/**
+ * Lobby hero (Figma 16:175 desktop / 19:467 mobile). The finished three lines
+ * are SSR'd for LCP, SEO and no-JS. scripts/typer.ts types them in once per
+ * session — v2 DescriptionTyper cadence (character steps, steady delay) with
+ * that component's blinking terminal cursor.
+ */
+import Icon from "../icons/Icon.astro";
+
+const words = (text: string) => text.split(" ");
+---
+
+<h1 class="hero relative m-0 font-medium text-fg" data-hero>
+  <span class="hero__line">
+    <span class="hero__group"
+      ><span data-tok>I'm</span>
+      <span class="hero__unit"
+        ><a href="/me" class="hero__liam-link squishy squishy-md"><span data-tok class="hero__liam">Liam</span></a><span data-tok data-join>.</span></span
+      ></span
+    >
+  </span>
+  <span class="hero__line hero__line--2">
+    <span class="hero__group"
+      ><span data-tok>A</span>
+      {
+        words("Business Systems Analyst").map((word) => (
+          <>
+            {" "}
+            <span data-tok class="hero__strong" data-anim-trigger="bsa" style="color:var(--accent-career)">
+              {word}
+            </span>
+          </>
+        ))
+      }</span
+    >
+    <span class="hero__pop" data-pop="Analyst" data-anim-trigger="bsa" style="color:var(--accent-career)">
+      <span class="hero__chair">
+        <Icon name="chart-column" class="hero__bsa" size="var(--bsa)" />
+      </span>
+    </span>
+    <span class="hero__group"
+      ><span data-tok>at</span>
+      <span data-tok class="hero__strong" data-anim-trigger="pnc" style="color:var(--accent-pnc)">PNC</span></span
+    >
+    <span class="hero__pop" data-pop="PNC" data-anim-trigger="pnc">
+      <span class="hero__ball">
+        <img src="/brand/pnc.png" alt="PNC" width="36" height="36" class="hero__pnc block object-cover" />
+      </span>
+    </span>
+  </span>
+  <span class="hero__line">
+    <span class="hero__group">
+      {
+        words("This is my virtual museum.").map((word, index) => (
+          <>
+            {index > 0 && " "}
+            <span data-tok>{word}</span>
+          </>
+        ))
+      }
+    </span>
+  </span>
+  <span class="hero__caret" aria-hidden="true" hidden>|</span>
+</h1>
+
+<style>
+  /* Mobile (Figma 19:467): one wrapping flow, 24/1.25 medium, gap 2px 6px. */
+  .hero {
+    --bsa: 22px;
+    --pnc: 22px;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: center;
+    align-items: center;
+    gap: 2px 6px;
+    font-size: 24px;
+    line-height: 1.25;
+  }
+  .hero__line,
+  .hero__group {
+    display: contents;
+  }
+  .hero__unit {
+    white-space: nowrap;
+  }
+  .hero__liam {
+    color: var(--accent-walnut);
+    text-decoration-line: none;
+    text-decoration-thickness: from-font;
+    text-underline-position: from-font;
+  }
+  .hero__unit [data-join] {
+    color: var(--accent-walnut);
+  }
+  /* "Liam" behaves like the Me NavLink (underline on hover/press). */
+  .hero__liam-link {
+    color: inherit;
+    text-decoration: none;
+  }
+  @media (hover: hover) {
+    .hero__liam-link:hover .hero__liam {
+      text-decoration-line: underline;
+    }
+  }
+  .hero__liam-link:focus-visible .hero__liam,
+  .hero__liam-link:active .hero__liam {
+    text-decoration-line: underline;
+  }
+  [data-anim-trigger] {
+    cursor: default;
+  }
+  .hero__pop {
+    display: flex;
+    flex-shrink: 0;
+  }
+  .hero__pnc {
+    width: var(--pnc);
+    height: var(--pnc);
+  }
+
+  /* Desktop (Figma 16:175): three lines, 40/1.2; line 2 is a 12px-gap row. */
+  @media (min-width: 768px) {
+    .hero {
+      --bsa: calc(28 * var(--lobby-u, 1px));
+      --pnc: calc(36 * var(--lobby-u, 1px));
+      flex-direction: column;
+      flex-wrap: nowrap;
+      align-items: flex-start;
+      gap: 0;
+      font-size: calc(40 * var(--lobby-u, 1px));
+      line-height: 1.2;
+    }
+    .hero__line {
+      display: block;
+      white-space: nowrap;
+    }
+    .hero__line--2 {
+      display: flex;
+      align-items: center;
+      gap: calc(12 * var(--lobby-u, 1px));
+    }
+    .hero__group {
+      display: inline;
+    }
+    .hero__strong,
+    .hero__liam {
+      font-weight: 600;
+    }
+    .hero__unit [data-join] {
+      color: inherit;
+    }
+  }
+
+  /* Type-in state (set before paint by the lobby head script).
+     Words stay in flow so the line boxes don't grow. Character spans are
+     created in script, so their reveal rule is global — scoped styles
+     would not match them. */
+  :global(html.typing) [data-hero] [data-tok]:not([data-shown]),
+  :global(html.typing) [data-hero] [data-pop]:not([data-shown]) {
+    visibility: hidden;
+  }
+  :global(html.typing [data-hero] [data-ch][data-shown]) {
+    visibility: visible;
+  }
+  [data-pop][data-shown] {
+    animation: hero-pop var(--motion-medium) var(--ease-out) both;
+  }
+  @keyframes hero-pop {
+    from {
+      opacity: 0;
+      transform: scale(0.6);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  :global(html:not(.typing)) [data-pop][data-shown] {
+    animation: none;
+  }
+
+  .hero__ball,
+  .hero__chair {
+    display: block;
+  }
+
+  /* v2 DescriptionTyper cursor: an inline pipe that hard-blinks. It sits in
+     the line (baseline, wraps with the word) but the negative margin keeps
+     the reserved SSR layout from shifting. #bbb matches v2 on the dark
+     field; darkened so the pipe still reads on paper. */
+  .hero__caret {
+    position: relative;
+    z-index: 1;
+    display: inline-block;
+    width: 1ch;
+    margin-right: -1ch;
+    padding: 0;
+    color: #5a5a5a;
+    font-weight: 400;
+    line-height: 1;
+    vertical-align: baseline;
+    text-align: left;
+    pointer-events: none;
+    user-select: none;
+    animation: caret-blink 0.75s step-end infinite;
+  }
+  :global(html.typing) [data-hero] .hero__caret {
+    visibility: visible;
+  }
+  :global(html.dark) .hero__caret {
+    color: #bbb;
+  }
+  @keyframes caret-blink {
+    from,
+    to {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0;
+    }
+  }
+</style>

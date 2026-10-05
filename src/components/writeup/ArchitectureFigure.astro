@@ -1,0 +1,88 @@
+---
+/** Switch write-up: shared React layer branching into Switch + browser runtimes. */
+---
+
+<figure
+  class="m-0 flex w-full flex-col items-stretch"
+  aria-label="Shared React and react-tela layer branching into Switch and browser runtimes"
+>
+  <div class="editorial-node">
+    <span class="editorial-node__step">00 - React</span>
+    <strong class="editorial-node__title">The React Framework</strong>
+    <p class="editorial-node__body">
+      The React framework was the foundation of this project. It allowed for me to declare how I
+      wanted the UI to look, without having much regard for what platform it was built for. This
+      platform agnostic approach allowed me to focus on the core features I wanted to build, without
+      worrying about the nitty gritty details.
+    </p>
+  </div>
+  <div class="architecture-connector" aria-hidden="true">
+    <span class="architecture-connector__drop"></span>
+    <span class="architecture-connector__rail"></span>
+    <span class="architecture-connector__leg architecture-connector__leg--left"></span>
+    <span class="architecture-connector__leg architecture-connector__leg--right"></span>
+  </div>
+  <div class="grid gap-3 md:grid-cols-2">
+    <div class="editorial-node">
+      <span class="editorial-node__step">01 - react-tela</span>
+      <strong class="editorial-node__title"><code>src/main.tsx</code></strong>
+      <p class="editorial-node__body">
+        This version of React allows the project to adapt its UI to paint to the Switch's screen
+        through the Canvas2D API, taking full advantage of the Switch’s rendering pipeline and
+        performance characteristics.
+      </p>
+    </div>
+    <div class="editorial-node">
+      <span class="editorial-node__step">02 - React-DOM</span>
+      <strong class="editorial-node__title"><code>src/browser/main.tsx</code></strong>
+      <p class="editorial-node__body">
+        The browser uses polyfilling to emulate Switch-like functionality, mapping gamepad inputs to
+        the keyboard and mouse inputs to touch. The browser view renders in a scaled 1280 x 720
+        window to match the Switch's aspect ratio.
+      </p>
+    </div>
+  </div>
+</figure>
+
+<style>
+  .architecture-connector {
+    position: relative;
+    height: 40px;
+  }
+  .architecture-connector span {
+    position: absolute;
+    background: var(--border);
+  }
+  .architecture-connector__drop {
+    left: 50%;
+    top: 0;
+    width: 1px;
+    height: 20px;
+  }
+  .architecture-connector__rail {
+    left: 25%;
+    right: 25%;
+    top: 20px;
+    height: 1px;
+  }
+  .architecture-connector__leg {
+    top: 20px;
+    width: 1px;
+    height: 20px;
+  }
+  .architecture-connector__leg--left {
+    left: 25%;
+  }
+  .architecture-connector__leg--right {
+    right: 25%;
+  }
+  @media (max-width: 767px) {
+    .architecture-connector__rail,
+    .architecture-connector__leg {
+      display: none;
+    }
+    .architecture-connector__drop {
+      height: 40px;
+    }
+  }
+</style>

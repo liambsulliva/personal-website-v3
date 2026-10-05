@@ -1,0 +1,50 @@
+---
+/**
+ * Figma Badge (14:143): pill, brand glyph in a 32px slot, 12px medium label.
+ * Links to the tool's documentation when one is known.
+ */
+import BrandGlyph from "../icons/BrandGlyph.astro";
+import { docsUrl, isBrand } from "../../lib/brands";
+
+interface Props {
+  label: string;
+  /** Override; defaults to the tool's documentation */
+  href?: string;
+}
+
+const { label, href = docsUrl(label) } = Astro.props;
+const brand = isBrand(label) ? label : undefined;
+const Tag = href ? "a" : "span";
+const linkAttrs = href
+  ? { href, target: "_blank", rel: "noopener noreferrer", "aria-label": `${label} documentation` }
+  : {};
+---
+
+<Tag
+  class:list={[
+    "badge relative z-10 flex min-h-[42px] shrink-0 items-center gap-2 rounded-pill border border-border px-2 py-1 no-underline",
+    { "px-3": !brand, "badge--link": href, squishy: Boolean(href), "squishy-md": Boolean(href) },
+  ]}
+  {...linkAttrs}
+>
+  {
+    brand && (
+      <span class="flex size-8 shrink-0 items-center justify-center">
+        <BrandGlyph brand={brand} />
+      </span>
+    )
+  }
+  <span class="text-[12px] leading-[1.3] font-medium whitespace-nowrap text-muted">{label}</span>
+</Tag>
+
+<style>
+  .badge--link {
+    background-color: transparent;
+    transition: background-color var(--motion-fast) var(--ease-out);
+  }
+  @media (hover: hover) {
+    .badge--link:hover {
+      background-color: color-mix(in srgb, var(--fg) 6%, transparent);
+    }
+  }
+</style>

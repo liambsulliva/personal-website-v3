@@ -1,0 +1,27 @@
+---
+/** /engineering (Figma Subpage / Engineering 24:329): one-column ProjectCards, gap 24. */
+import SubpageLayout from "../../layouts/SubpageLayout.astro";
+import ProjectCard from "../../components/cards/ProjectCard.astro";
+import { getProjects, hasWriteup, projectHref } from "../../lib/content";
+
+const projects = await getProjects("engineering");
+---
+
+<SubpageLayout title="Engineering - Liam Sullivan" section="engineering">
+  <div class="flex w-full flex-col items-start gap-6 overflow-clip px-6 py-6 md:px-16 md:py-12" data-name="Content">
+    {
+      projects.map((project, index) => (
+        <ProjectCard
+          title={project.data.title}
+          description={project.data.description}
+          image={project.data.image}
+          href={projectHref(project)}
+          external={!hasWriteup(project)}
+          badges={project.data.badges}
+          languages={project.data.languages}
+          loading={index < 2 ? "eager" : "lazy"}
+        />
+      ))
+    }
+  </div>
+</SubpageLayout>

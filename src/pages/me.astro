@@ -1,0 +1,78 @@
+---
+/**
+ * /me (Figma Subpage / Me 28:940). Static copy from v2 ui/Background.astro.
+ * Portrait is a Cloudinary slot (site/me/portrait).
+ */
+import SubpageLayout from "../layouts/SubpageLayout.astro";
+import CldImage from "../components/media/CldImage.astro";
+import Icon from "../components/icons/Icon.astro";
+import Mark from "../components/chrome/Mark.astro";
+---
+
+<SubpageLayout title="Me - Liam Sullivan" section="me">
+  <div
+    class="flex w-full flex-col items-center gap-8 overflow-clip px-6 py-6 md:flex-row md:items-start md:justify-center md:gap-16 md:px-16 md:py-12"
+    data-name="Content"
+  >
+    <div class="relative aspect-[4/5] w-full max-w-[400px] shrink-0 overflow-clip rounded-md bg-skeleton md:h-[500px] md:w-[400px]" data-name="portrait">
+      <CldImage id="site/me/portrait" alt="Liam Sullivan" aspect="4:5" gravity="face" fill sizes="(min-width: 768px) 400px, 100vw" loading="eager" fetchpriority="high" />
+    </div>
+
+    <div class="flex w-full max-w-[680px] min-w-0 flex-col items-start gap-6" data-name="Prose">
+      <div class="flex items-center gap-[14px]" data-name="heading">
+        <h1 class="m-0 text-[40px] leading-[1.1] font-bold text-walnut md:text-[56px]">Liam Sullivan</h1>
+        <span class="flex items-center p-[2px] text-walnut" aria-hidden="true">
+          <Icon name="user" class="me-heading-icon" />
+        </span>
+      </div>
+
+      <p class="me-prose">
+        When I was in middle school, I began shooting portrait photography with my uncle's old <Mark
+          href="https://en.wikipedia.org/wiki/Nikon_D200"
+          color="var(--accent-photography)"
+          icon="camera">Nikon D200</Mark
+        >. I loved the excuse it gave me to create, and I quickly became obsessed with the
+        intersection between technology and art.
+      </p>
+      <p class="me-prose">
+        Nowadays, I'm a recent graduate of the University of Pittsburgh with a degree in <Mark
+          href="https://www.sci.pitt.edu/academics/undergraduate-majors/computer-science"
+          color="var(--accent-engineering)"
+          icon="monitor">Computer Science</Mark
+        > and <Mark
+          href="https://www.sci.pitt.edu/academics/undergraduate-majors/digital-narrative-and-interactive-design"
+          color="var(--accent-design)"
+          icon="palette">Digital Narrative and Interactive Design (DNID)</Mark
+        >. I just recently took up a role as a <Mark
+          href="https://www.tealhq.com/career-paths/business-systems-analyst"
+          color="var(--accent-career)"
+          icon="chart-column">Business Systems Analyst</Mark
+        > at <Mark href="https://www.pnc.com" color="var(--accent-pnc)" image="/brand/pnc.png">PNC Bank</Mark>,
+        which has allowed me to translate business needs into technical solutions through an empathetic
+        lens. I have a passion for designing and building user experiences that feel delightful and
+        seamless, and I'm always looking for new projects to work on when I have the time... (never)
+      </p>
+      <p class="me-prose">
+        Ultimately, I want to create websites that I could see myself using every day.
+      </p>
+    </div>
+  </div>
+</SubpageLayout>
+
+<style>
+  /* The user glyph matches the heading: 24px on mobile, text-sized on desktop. */
+  @media (min-width: 768px) {
+    :global(.me-heading-icon) {
+      width: 48px !important;
+      height: 48px !important;
+    }
+  }
+  /* Figma p1–p3: 18px Geist, 18px line boxes wrapped with an 8px row gap. */
+  .me-prose {
+    margin: 0;
+    width: 100%;
+    font-size: 18px;
+    line-height: 26px;
+    color: var(--fg);
+  }
+</style>

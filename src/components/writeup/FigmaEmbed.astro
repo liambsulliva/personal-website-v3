@@ -1,0 +1,30 @@
+---
+/** Figma Embed Kit 2.0 iframe; theme follows the site at load (light default). */
+interface Props {
+  url: string;
+  title?: string;
+}
+
+const { url, title = "Figma embed" } = Astro.props;
+
+function embedSrc(rawUrl: string) {
+  const u = new URL(rawUrl);
+  if (!["www.figma.com", "figma.com", "embed.figma.com"].includes(u.hostname)) {
+    throw new Error(`FigmaEmbed: expected a figma.com URL, got "${u.hostname}"`);
+  }
+  u.hostname = "embed.figma.com";
+  u.searchParams.set("embed-host", "share");
+  u.searchParams.set("theme", "system");
+  return u.toString();
+}
+---
+
+<div class="relative aspect-video w-full overflow-hidden rounded-card border border-border bg-skeleton">
+  <iframe
+    src={embedSrc(url)}
+    title={title}
+    loading="lazy"
+    allowfullscreen
+    allow="clipboard-read; clipboard-write; fullscreen"
+    class="absolute inset-0 h-full w-full border-0"></iframe>
+</div>

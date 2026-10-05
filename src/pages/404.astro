@@ -1,0 +1,165 @@
+---
+/**
+ * 404 (Figma 104:3410) over the v2 focus dial. Zap / no-JS: static Figma
+ * layout, dial frozen in focus. Motion on: twist (pointer or keys) to blur.
+ */
+import SubpageLayout from "../layouts/SubpageLayout.astro";
+---
+
+<SubpageLayout title="Page Not Found - Liam Sullivan" showHeading={false}>
+  <div class="error-page flex w-full flex-[1_0_auto] items-center justify-center px-6 py-12" data-name="Content">
+    <section class="flex w-full max-w-[432px] flex-col items-center gap-7" aria-labelledby="error-title" data-name="error-content">
+      <div class="flex flex-col items-center gap-3" data-name="dial-area">
+        <button
+          class="focus-dial relative size-36 shrink-0 rounded-full border-0 bg-transparent p-0"
+          id="focusDial"
+          type="button"
+          role="slider"
+          aria-label="Page focus"
+          aria-valuemin="-150"
+          aria-valuemax="150"
+          aria-valuenow="0"
+          aria-valuetext="In focus"
+        >
+          <img src="/ui/dial-ticks.png" alt="" width="144" height="144" class="pointer-events-none absolute top-0 left-0 size-36 opacity-60" draggable="false" />
+          <span class="pointer-events-none absolute top-[18px] left-[18px] size-[108px]" aria-hidden="true">
+            <img src="/ui/dial-face.svg" alt="" class="absolute block max-w-none" style="inset:-14.81% -25.93% -37.04% -25.93%;width:151.86%;height:151.85%" draggable="false" />
+          </span>
+          <span class="dial-rotor pointer-events-none absolute inset-0" aria-hidden="true">
+            <img src="/ui/aperture.svg" alt="" width="64" height="64" class="absolute top-10 left-10 size-16" draggable="false" />
+            <img src="/ui/dial-dot.svg" alt="" width="6" height="6" class="absolute top-7 left-[69px] size-[6px]" draggable="false" />
+          </span>
+        </button>
+        <p class="dial-flavor m-0 text-[14px] leading-[normal] font-medium whitespace-nowrap text-muted">Twist me!</p>
+      </div>
+      <div class="error-copy flex w-full flex-col items-center gap-3 overflow-clip pt-2" data-name="error-copy">
+        <h1 id="error-title" class="m-0 text-[64px] leading-[0.9] font-bold tracking-[0.4px] whitespace-nowrap text-fg md:text-[80px]">Uh oh...</h1>
+        <p class="m-0 w-full text-center text-[18px] leading-[1.6] text-muted">
+          That page doesn't exist. Try <a href="/" class="text-fg underline decoration-from-font underline-offset-2">going home</a>?
+        </p>
+      </div>
+    </section>
+  </div>
+</SubpageLayout>
+
+<style>
+  .error-page {
+    --dial-rotation: 0deg;
+    --focus-blur: 0px;
+  }
+  .focus-dial {
+    cursor: grab;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .focus-dial.is-turning {
+    cursor: grabbing;
+  }
+  .dial-rotor {
+    transform: rotate(var(--dial-rotation));
+    transition: transform 70ms linear;
+  }
+  .focus-dial.is-turning .dial-rotor {
+    transition: none;
+  }
+  .error-copy {
+    filter: blur(var(--focus-blur));
+    transition: filter 80ms linear;
+  }
+  /* Zap / no-JS: the dial is decorative and stays in focus. */
+  :global(:root[data-reduced-motion]) .focus-dial,
+  :global(:root:not(.js)) .focus-dial {
+    cursor: default;
+  }
+  :global(:root[data-reduced-motion]) .dial-flavor,
+  :global(:root:not(.js)) .dial-flavor {
+    visibility: hidden;
+  }
+</style>
+
+<script>
+  const dial = document.querySelector<HTMLButtonElement>("#focusDial");
+  const page = document.querySelector<HTMLElement>(".error-page");
+  const root = document.documentElement;
+  const reduced = () => root.hasAttribute("data-reduced-motion");
+
+  if (dial && page) {
+    const maxRotation = 150;
+    const maxBlur = 13;
+    let rotation = 0;
+    let previousPointerAngle = 0;
+    let dragging = false;
+
+    const pointerAngle = (event: PointerEvent) => {
+      const bounds = dial.getBoundingClientRect();
+      const x = event.clientX - (bounds.left + bounds.width / 2);
+      const y = event.clientY - (bounds.top + bounds.height / 2);
+      return (Math.atan2(y, x) * 180) / Math.PI;
+    };
+
+    const normalizeAngle = (angle: number) => ((((angle + 180) % 360) + 360) % 360) - 180;
+
+    const updateFocus = (nextRotation: number) => {
+      rotation = Math.max(-maxRotation, Math.min(maxRotation, nextRotation));
+      if (Math.abs(rotation) < 3) rotation = 0;
+      const blur = (Math.abs(rotation) / maxRotation) * maxBlur;
+      page.style.setProperty("--dial-rotation", `${rotation}deg`);
+      page.style.setProperty("--focus-blur", `${blur.toFixed(2)}px`);
+      dial.setAttribute("aria-valuenow", String(Math.round(rotation)));
+      dial.setAttribute("aria-valuetext", blur < 0.3 ? "In focus" : "Out of focus");
+    };
+
+    document.addEventListener("motionchange", () => {
+      if (reduced()) updateFocus(0);
+    });
+
+    dial.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 || reduced()) return;
+      dragging = true;
+      previousPointerAngle = pointerAngle(event);
+      dial.setPointerCapture(event.pointerId);
+      dial.classList.add("is-turning");
+    });
+
+    dial.addEventListener("pointermove", (event) => {
+      if (!dragging) return;
+      const current = pointerAngle(event);
+      const delta = normalizeAngle(current - previousPointerAngle);
+      previousPointerAngle = current;
+      updateFocus(rotation + delta);
+    });
+
+    const finish = (event: PointerEvent) => {
+      if (!dragging) return;
+      dragging = false;
+      dial.classList.remove("is-turning");
+      if (dial.hasPointerCapture(event.pointerId)) dial.releasePointerCapture(event.pointerId);
+    };
+    dial.addEventListener("pointerup", finish);
+    dial.addEventListener("pointercancel", finish);
+
+    dial.addEventListener("keydown", (event) => {
+      if (reduced()) return;
+      const steps: Record<string, number> = {
+        ArrowLeft: -5,
+        ArrowDown: -5,
+        ArrowRight: 5,
+        ArrowUp: 5,
+        PageDown: -15,
+        PageUp: 15,
+      };
+      if (event.key === "Home") {
+        event.preventDefault();
+        updateFocus(0);
+        return;
+      }
+      const step = steps[event.key];
+      if (step !== undefined) {
+        event.preventDefault();
+        updateFocus(rotation + step);
+      }
+    });
+
+    dial.addEventListener("dblclick", () => updateFocus(0));
+  }
+</script>

@@ -1,0 +1,101 @@
+---
+/**
+ * Figma NavLink (4:118). Lobby stair-step link.
+ * Default → Hover/press (underline). Color only; press scale comes from `.squishy`.
+ * The glyph is larger than its slot and anchored top-left (Me: centered), as in Figma.
+ */
+import Icon from "../icons/Icon.astro";
+import type { Section } from "../../lib/sections";
+
+interface Props {
+  section: Section;
+}
+
+const { section } = Astro.props;
+const { desktop: d, mobile: m } = section.lobby;
+const vars = [
+  `color:${section.color}`,
+  `--size-m:${m.size}px`,
+  `--gap-m:${m.gap}px`,
+  `--slot-m:${m.slot}px`,
+  `--glyph-size-m:${m.glyph}px`,
+  `--size-d:${d.size}`,
+  `--gap-d:${d.gap}`,
+  `--slot-d:${d.slot}`,
+  `--glyph-size-d:${d.glyph}`,
+].join(";");
+---
+
+<a
+  href={section.href}
+  class="navlink squishy squishy-lg flex shrink-0 items-center"
+  style={vars}
+  data-centered={section.key === "me" ? "" : undefined}
+>
+  <span class="navlink__text font-semibold leading-none whitespace-nowrap">{section.label}</span>
+  <span class="navlink__slot relative shrink-0">
+    <Icon name={section.icon} size="var(--glyph-size)" class="navlink__glyph" />
+  </span>
+</a>
+
+<style>
+  .navlink {
+    --size: var(--size-m);
+    --gap: var(--gap-m);
+    --slot: var(--slot-m);
+    --glyph-size: var(--glyph-size-m);
+    gap: var(--gap);
+    text-decoration: none;
+  }
+  .navlink__text {
+    font-size: var(--size);
+    text-decoration-line: none;
+    text-decoration-thickness: from-font;
+    text-underline-position: from-font;
+  }
+  .navlink__slot {
+    width: var(--slot);
+    height: var(--slot);
+  }
+  .navlink :global(.navlink__glyph) {
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+  .navlink[data-centered] .navlink__slot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .navlink[data-centered] :global(.navlink__glyph) {
+    position: relative;
+  }
+  /* Me's glyph is centered in a wider slot, so it sits inset of the
+     left-anchored icons. Nudge the whole row right so the person shares
+     their right edge without shrinking. */
+  .navlink[data-centered] {
+    margin-right: -7px;
+  }
+
+  @media (min-width: 768px) {
+    .navlink {
+      --size: calc(var(--size-d) * var(--lobby-u, 1px));
+      --gap: calc(var(--gap-d) * var(--lobby-u, 1px));
+      --slot: calc(var(--slot-d) * var(--lobby-u, 1px));
+      --glyph-size: calc(var(--glyph-size-d) * var(--lobby-u, 1px));
+    }
+    .navlink[data-centered] {
+      margin-right: calc(-12 * var(--lobby-u, 1px));
+    }
+  }
+
+  @media (hover: hover) {
+    .navlink:hover .navlink__text {
+      text-decoration-line: underline;
+    }
+  }
+  .navlink:focus-visible .navlink__text,
+  .navlink:active .navlink__text {
+    text-decoration-line: underline;
+  }
+</style>

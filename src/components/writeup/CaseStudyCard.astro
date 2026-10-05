@@ -1,0 +1,37 @@
+---
+/**
+ * Figma CaseStudyCard: gray/50 surface, 1px border, radius/card, p24, gap12.
+ * 24px wing-accent icon, 24px bold title, 14/1.4 muted body.
+ */
+import * as Icons from "./icons/index";
+
+interface Props {
+  title: string;
+  icon?: keyof typeof Icons;
+  variant?: "default" | "row";
+}
+
+const { title, icon, variant = "default" } = Astro.props;
+const IconComponent = icon ? Icons[icon] : undefined;
+const row = variant === "row";
+---
+
+<article
+  class:list={[
+    "case-study-card flex h-full w-full min-w-0 gap-3 rounded-card border border-border bg-card p-6",
+    row ? "flex-col sm:flex-row sm:items-start sm:gap-6" : "flex-col items-start",
+  ]}
+>
+  {
+    IconComponent && (
+      <span class="case-study-card__icon size-6 shrink-0">
+        <IconComponent class="size-6" />
+      </span>
+    )
+  }
+  <div class="flex min-w-0 flex-col items-start gap-3">
+    <slot name="lead" />
+    <h3 class="case-study-card__title m-0 w-full text-[24px] leading-[1.2] font-bold text-fg" lang="en">{title}</h3>
+    <div class="case-study-card__body"><slot /></div>
+  </div>
+</article>

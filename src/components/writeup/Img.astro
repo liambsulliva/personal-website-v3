@@ -1,0 +1,16 @@
+---
+/** Natural-aspect Cloudinary image for write-ups (radius/card). */
+import CldImage from "../media/CldImage.astro";
+
+interface Props {
+  id: string;
+  alt: string;
+  sizes?: string;
+  loading?: "lazy" | "eager";
+  class?: string;
+}
+
+const { id, alt, sizes = "(min-width: 1024px) 760px, 100vw", loading, class: className } = Astro.props;
+---
+
+<CldImage id={id} alt={alt} sizes={sizes} loading={loading} class:list={["rounded-card", className]} />

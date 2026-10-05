@@ -1,0 +1,32 @@
+---
+/** Shared chrome for every public subpage: SubpageHeader + slot + SubpageFooter. */
+import RootLayout from "./RootLayout.astro";
+import SubpageHeader from "../components/chrome/SubpageHeader.astro";
+import SubpageFooter from "../components/chrome/SubpageFooter.astro";
+import type { SectionKey } from "../lib/sections";
+
+interface Props {
+  title: string;
+  description?: string;
+  section?: SectionKey;
+  /** Header title override (write-ups) */
+  heading?: string;
+  headingColor?: string;
+  showHeading?: boolean;
+  subheading?: string;
+  back?: { href: string; label: string };
+}
+
+const { title, description, section, heading, headingColor, showHeading, subheading, back } = Astro.props;
+---
+
+<RootLayout title={title} description={description}>
+  <slot name="head" slot="head" />
+  <div class="flex min-h-dvh flex-col">
+    <SubpageHeader section={section} title={heading} color={headingColor} showTitle={showHeading} subtitle={subheading} back={back} />
+    <main class="flex w-full flex-[1_0_auto] flex-col">
+      <slot />
+    </main>
+    <SubpageFooter />
+  </div>
+</RootLayout>

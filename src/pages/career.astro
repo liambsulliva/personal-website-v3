@@ -1,0 +1,38 @@
+---
+/** /career (Figma Subpage / Career 35:1252): 900px timeline, Experience + Education. */
+import { getCollection } from "astro:content";
+import SubpageLayout from "../layouts/SubpageLayout.astro";
+import TimelineRow from "../components/cards/TimelineRow.astro";
+
+const entries = (await getCollection("career")).sort((a, b) => a.data.order - b.data.order);
+const groups = [
+  { label: "Experience", rows: entries.filter((e) => e.data.kind === "experience") },
+  { label: "Education", rows: entries.filter((e) => e.data.kind === "education") },
+].filter((group) => group.rows.length > 0);
+---
+
+<SubpageLayout title="Career - Liam Sullivan" section="career">
+  <div class="flex w-full flex-col items-center overflow-clip px-6 py-6 md:px-16 md:py-12" data-name="Content">
+    <div class="flex w-full max-w-[900px] flex-col items-start gap-12" data-name="Timeline">
+      {
+        groups.map((group) => (
+          <section class="flex w-full flex-col items-start gap-6" aria-labelledby={`career-${group.label}`}>
+            <h2 id={`career-${group.label}`} class="m-0 text-[24px] leading-[1.2] font-bold text-fg">
+              {group.label}
+            </h2>
+            {group.rows.map(({ data }) => (
+              <TimelineRow
+                company={data.company}
+                role={data.role}
+                dates={data.dates}
+                href={data.href}
+                monogram={data.monogram}
+                logo={data.logo}
+              />
+            ))}
+          </section>
+        ))
+      }
+    </div>
+  </div>
+</SubpageLayout>

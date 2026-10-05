@@ -1,0 +1,40 @@
+---
+/** Figma LanguageBar (67:670): 8px segmented track + wrapping legend. */
+import { LANGUAGE_COLORS } from "../../lib/brands";
+
+interface Props {
+  languages: { name: string; pct: number }[];
+}
+
+const { languages } = Astro.props;
+const colorOf = (name: string) => LANGUAGE_COLORS[name] ?? "var(--fg-muted)";
+const format = (pct: number) => (pct >= 100 ? "100%" : `${pct.toFixed(1)}%`);
+---
+
+<div class="flex w-full flex-col items-start gap-2" data-name="LanguageBar">
+  <div
+    class="flex h-2 w-full items-center gap-[1.5px] overflow-clip rounded-[8px]"
+    role="img"
+    aria-label={languages.map((l) => `${l.name} ${format(l.pct)}`).join(", ")}
+  >
+    {
+      languages.map((language) => (
+        <span
+          class="h-full min-w-px"
+          style={`flex:${language.pct} 0 0;background:${colorOf(language.name)}`}
+        />
+      ))
+    }
+  </div>
+  <ul class="m-0 flex w-full list-none flex-wrap items-center gap-x-4 gap-y-[6px] p-0" aria-hidden="true">
+    {
+      languages.map((language) => (
+        <li class="flex items-center gap-[6px] text-[12px] leading-[normal] whitespace-nowrap">
+          <span class="size-2 shrink-0 rounded-full" style={`background:${colorOf(language.name)}`} />
+          <span class="font-medium text-fg">{language.name}</span>
+          <span class="text-muted">{format(language.pct)}</span>
+        </li>
+      ))
+    }
+  </ul>
+</div>

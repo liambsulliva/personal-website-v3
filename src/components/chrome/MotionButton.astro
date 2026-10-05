@@ -1,0 +1,25 @@
+---
+/** IconButton zap / zap-off. Zap-off = reduced JS + no decorative motion. */
+import IconButton from "./IconButton.astro";
+import Icon from "../icons/Icon.astro";
+---
+
+<IconButton label="Toggle motion" action="motion">
+  <Fragment slot="icon">
+    <Icon name="zap" class="motion-glyph" data-for="on" />
+    <Icon name="zap-off" class="motion-glyph" data-for="off" />
+  </Fragment>
+  <Fragment slot="label">
+    <span class="motion-label" data-for="on">Motion on</span>
+    <span class="motion-label" data-for="off">Motion off</span>
+  </Fragment>
+</IconButton>
+
+<style is:global>
+  :root[data-reduced-motion] .motion-glyph[data-for="on"],
+  :root:not([data-reduced-motion]) .motion-glyph[data-for="off"],
+  :root[data-reduced-motion] .motion-label[data-for="on"],
+  :root:not([data-reduced-motion]) .motion-label[data-for="off"] {
+    display: none;
+  }
+</style>

@@ -1,0 +1,13 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="glyph" clip-path="url(#clip0_0_4)">
+<path id="Vector" d="M10.513 4.856L13.12 2.17C13.1943 2.08428 13.2955 2.02636 13.407 2.00573C13.5185 1.98511 13.6337 2.00301 13.7337 2.0565C13.8337 2.11 13.9126 2.1959 13.9573 2.30011C14.0021 2.40432 14.0101 2.52065 13.98 2.63L12.603 6.947" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Vector_2" d="M15.656 10H20C20.1892 9.99935 20.3748 10.0524 20.535 10.153C20.6953 10.2536 20.8238 10.3976 20.9055 10.5683C20.9871 10.739 21.0187 10.9294 20.9965 11.1173C20.9743 11.3053 20.8992 11.483 20.78 11.63L17.753 14.75" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Vector_3" d="M4.956 10.056C4.43299 9.92923 3.88105 10.0154 3.42158 10.2956C2.96212 10.5758 2.63277 11.027 2.506 11.55C2.37923 12.073 2.46541 12.625 2.74559 13.0844C3.02577 13.5439 3.47699 13.8732 4 14H11L8.05 23.325C8.01992 23.4344 8.02791 23.5507 8.07266 23.6549C8.11741 23.7591 8.19626 23.845 8.29627 23.8985C8.39628 23.952 8.5115 23.9699 8.62302 23.9493C8.73454 23.9286 8.83574 23.8707 8.91 23.785L16.19 16.19" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Vector_4" d="M2 2L22 22" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<defs>
+<clipPath id="clip0_0_4">
+<rect width="24" height="24" fill="white"/>
+</clipPath>
+</defs>
+</svg>

@@ -1,0 +1,20 @@
+---
+/** Small figure beside a paragraph (e.g. a tooltip GIF). Stacks on mobile. */
+import Img from "./Img.astro";
+
+interface Props {
+  id: string;
+  alt: string;
+  caption?: string;
+  width?: number;
+}
+const { id, alt, caption, width = 192 } = Astro.props;
+---
+
+<div class="flex w-full flex-col gap-4 md:flex-row md:items-start md:gap-8">
+  <figure class="writeup-figure flex shrink-0 flex-col gap-2" style={`width:min(100%, ${width}px)`}>
+    <Img id={id} alt={alt} sizes={`${width}px`} />
+    {caption && <figcaption class="writeup-caption">{caption}</figcaption>}
+  </figure>
+  <div class="writeup-flow min-w-0 flex-1"><slot /></div>
+</div>

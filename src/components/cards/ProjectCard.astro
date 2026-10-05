@@ -1,0 +1,109 @@
+---
+/**
+ * Figma ProjectCard (14:150) + ProjectCard/Mobile (30:295).
+ * Desktop: 480px media left, content right. Mobile: media on top (178px).
+ * A project with a write-up links to it; otherwise outbound with external icon.
+ * The title link is stretched over the whole card so the badges can be their
+ * own (documentation) links without nesting anchors.
+ */
+import Badge from "./Badge.astro";
+import LanguageBar from "./LanguageBar.astro";
+import CldImage from "../media/CldImage.astro";
+import Icon from "../icons/Icon.astro";
+
+interface Props {
+  title: string;
+  description: string;
+  image: string;
+  href: string;
+  external?: boolean;
+  badges?: string[];
+  languages?: { name: string; pct: number }[];
+  /** Design "case study" row: no badges, content vertically centered, 271px tall */
+  variant?: "default" | "case-study";
+  loading?: "lazy" | "eager";
+}
+
+const {
+  title,
+  description,
+  image,
+  href,
+  external = false,
+  badges = [],
+  languages,
+  variant = "default",
+  loading = "lazy",
+} = Astro.props;
+const caseStudy = variant === "case-study";
+---
+
+<article
+  class:list={[
+    "project-card hover-surface press-card relative flex w-full flex-col items-start gap-3 overflow-clip rounded-card border border-border bg-card p-3 text-left no-underline md:flex-row md:gap-6",
+    { "md:h-[271px]": caseStudy },
+  ]}
+>
+  <div
+    class:list={[
+      "relative h-[178px] w-full shrink-0 md:h-auto md:min-h-[188px] md:w-[480px] md:self-stretch",
+      caseStudy ? "" : "overflow-clip rounded-md bg-skeleton",
+    ]}
+    data-name="media"
+  >
+    <CldImage
+      id={image}
+      alt=""
+      aspect="16:9"
+      fill
+      bare={caseStudy}
+      sizes="(min-width: 768px) 480px, 100vw"
+      loading={loading}
+    />
+  </div>
+  <div
+    class:list={[
+      "flex min-w-px flex-[1_0_0] flex-col items-start gap-3 overflow-clip md:py-2 md:self-stretch",
+      { "md:h-full md:justify-center": caseStudy },
+    ]}
+    data-name="content"
+  >
+    {
+      badges.length > 0 && (
+        <div class="flex flex-wrap items-start gap-2 overflow-clip md:flex-nowrap" data-name="badges">
+          {badges.map((badge) => <Badge label={badge} />)}
+        </div>
+      )
+    }
+    <div class="flex items-center gap-1 overflow-clip" data-name="title-row">
+      <h3 class="m-0 text-[24px] leading-[1.2] font-bold text-fg">
+        <a
+          href={href}
+          class="project-card__link press-card__target text-fg no-underline"
+          {...external ? { target: "_blank", rel: "noopener noreferrer" } : {}}
+        >{title}</a>
+      </h3>
+      {external && <Icon name="external-link" size={14} class="text-fg" />}
+    </div>
+    <p class="m-0 w-full text-[16px] leading-[1.5] text-muted">{description}</p>
+    {languages && languages.length > 0 && <LanguageBar languages={languages} />}
+  </div>
+</article>
+
+<style>
+  /* Stretched link: the whole card is the hit area; badges sit above it. */
+  .project-card__link::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+  }
+  .project-card__link:focus-visible {
+    outline: none;
+  }
+  .project-card:has(.project-card__link:focus-visible) {
+    outline: 2px solid var(--accent-career);
+    outline-offset: 2px;
+  }
+</style>

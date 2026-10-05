@@ -1,0 +1,34 @@
+---
+import Img from "./Img.astro";
+
+interface Props {
+  before: string;
+  after: string;
+  beforeAlt: string;
+  afterAlt: string;
+}
+const { before, after, beforeAlt, afterAlt } = Astro.props;
+const frames = [
+  { id: before, alt: beforeAlt, label: "Before", glyph: "M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12z", tone: "var(--accent-writing)" },
+  { id: after, alt: afterAlt, label: "After", glyph: "M9 16.17L4.83 12l-1.42 1.41L9 19L21 7l-1.41-1.41z", tone: "var(--accent-engineering)" },
+];
+---
+
+<div class="grid w-full grid-cols-2 gap-2">
+  {
+    frames.map((frame) => (
+      <div class="relative min-w-0">
+        <span
+          class="absolute top-2 left-2 z-10 flex size-7 items-center justify-center rounded-full border border-border bg-bg"
+          style={`color:${frame.tone}`}
+          aria-label={frame.label}
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <path fill="currentColor" d={frame.glyph} />
+          </svg>
+        </span>
+        <Img id={frame.id} alt={frame.alt} sizes="(min-width: 768px) 180px, 45vw" class="rounded-md" />
+      </div>
+    ))
+  }
+</div>

@@ -1,0 +1,250 @@
+/* Write-up article (Figma 51:1374): 760px column, body/prose 18/1.65 muted.
+   Section gap 32, intra-section gap 16. Wing accent arrives as --wing. */
+
+.writeup-article {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.writeup-article > * + *,
+.writeup-flow > * + * {
+  margin-top: 16px;
+}
+
+.writeup-article > .section-heading:not(:first-child) {
+  margin-top: 32px;
+}
+
+/* Prose */
+.writeup-article > p,
+.writeup-flow > p,
+.case-study-card__body {
+  margin-bottom: 0;
+  font-size: 18px;
+  line-height: 1.65;
+  color: var(--fg-muted);
+  width: 100%;
+}
+
+.case-study-card__body {
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.writeup-small {
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--fg-muted);
+}
+
+.writeup-article :where(p, li, figcaption, .writeup-small) a {
+  color: var(--fg);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--wing) 60%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: color var(--motion-fast) var(--ease-out);
+}
+@media (hover: hover) {
+  .writeup-article :where(p, li, figcaption, .writeup-small) a:hover {
+    color: var(--wing);
+  }
+}
+
+.writeup-article :where(p, li, .writeup-small) strong {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.writeup-article :where(p, li, td, .writeup-small, .editorial-node__title, .editorial-node__body) code {
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--fg);
+}
+
+/* SectionHeading (50:377) */
+.section-heading__eyebrow {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.3;
+  font-weight: 700;
+  letter-spacing: 1.56px;
+  color: var(--wing);
+}
+.section-heading__title {
+  margin: 0;
+  width: 100%;
+  font-size: 28px;
+  line-height: 1.08;
+  font-weight: 700;
+  letter-spacing: -0.98px;
+  color: var(--fg);
+  scroll-margin-top: 32px;
+}
+@media (min-width: 768px) {
+  .section-heading__title {
+    font-size: 36px;
+    letter-spacing: -1.26px;
+  }
+}
+
+/* h4 (writeup/h4 22/1.15 semibold, -3% tracking) */
+.writeup-article > h4,
+.writeup-h4 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: -0.66px;
+  color: var(--fg);
+}
+
+/* Callout (50:380) */
+.callout__label {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.3;
+  font-weight: 700;
+  letter-spacing: 1.56px;
+  text-align: center;
+  color: var(--wing);
+}
+.callout__body {
+  margin: 0;
+  width: 100%;
+  font-size: 22px;
+  line-height: 1.3;
+  font-weight: 500;
+  text-align: center;
+  color: var(--fg);
+}
+
+/* Figures (51:1493) */
+.writeup-caption {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--fg-muted);
+}
+.writeup-figure__media > * {
+  border-radius: var(--radius-card);
+}
+
+/* CodeBlock (51:1549): Martian Mono 13/1.6, p16, radius/card, 1px border */
+.writeup-article pre.astro-code {
+  width: 100%;
+  margin-bottom: 0;
+  padding: 16px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background-color: var(--surface) !important;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  tab-size: 2;
+}
+.writeup-article pre.astro-code code {
+  font-family: inherit;
+}
+:root.dark .astro-code,
+:root.dark .astro-code span {
+  color: var(--shiki-dark) !important;
+  font-style: var(--shiki-dark-font-style) !important;
+  font-weight: var(--shiki-dark-font-weight) !important;
+}
+
+/* Editorial nodes (Switch pipeline / architecture) */
+.editorial-node {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--card);
+}
+.editorial-node__step {
+  font-size: 12px;
+  line-height: 1.3;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--wing);
+}
+.editorial-node__title {
+  font-size: 18px;
+  line-height: 1.3;
+  font-weight: 600;
+  color: var(--fg);
+}
+.editorial-node__body {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
+.pipeline {
+  grid-template-columns: minmax(0, 1fr);
+}
+.pipeline__arrow {
+  width: 24px;
+  height: 24px;
+  margin: 0 auto;
+  transform: rotate(90deg);
+  fill: none;
+  stroke: var(--fg-muted);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+@media (min-width: 900px) {
+  .pipeline {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+  }
+  .pipeline__arrow {
+    width: 32px;
+    transform: none;
+  }
+  .pipeline .editorial-node {
+    align-self: stretch;
+  }
+}
+
+.writeup-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
+.case-study-card__icon {
+  color: var(--wing);
+}
+.case-study-card__icon :global(svg),
+.case-study-card__icon svg {
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+
+/* Narrow (5-up) cards wrap long words like Figma ("Anchor-ing"). */
+.case-study-card__title {
+  hyphens: auto;
+  overflow-wrap: anywhere;
+}

@@ -1,0 +1,47 @@
+---
+/** Scrollable screenshot inside a phone frame (both from Cloudinary). */
+import { cldSrcSet, cldUrl, assetRatio } from "../../lib/cloudinary";
+
+interface Props {
+  content: string;
+  frame: string;
+  alt?: string;
+}
+const { content, frame, alt = "Mobile view" } = Astro.props;
+---
+
+<div class="phone-mockup relative mx-auto aspect-[9/16] w-full max-w-[260px]">
+  <div class="phone-mockup__screen absolute top-1/2 left-1/2 z-[1] aspect-[9/16] w-[90%] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[28px] bg-skeleton" tabindex="0" aria-label="Scrollable screenshot">
+    <img
+      src={cldUrl(content, { width: 540 })}
+      srcset={cldSrcSet(content, {}, [270, 540, 810])}
+      sizes="240px"
+      alt={alt}
+      loading="lazy"
+      decoding="async"
+      class="block h-auto w-full"
+      style={`aspect-ratio:${assetRatio(content, "9 / 40")}`}
+    />
+  </div>
+  <img
+    src={cldUrl(frame, { width: 520 })}
+    srcset={cldSrcSet(frame, {}, [260, 520, 780])}
+    sizes="260px"
+    alt=""
+    loading="lazy"
+    decoding="async"
+    class="pointer-events-none absolute inset-0 z-[2] h-full w-full object-contain"
+  />
+  <span class="absolute top-4 right-0 z-30 flex h-10 items-center gap-1 rounded-md border border-border bg-bg px-3 text-[13px] leading-[1.3] font-medium text-fg">
+    Scroll me!
+  </span>
+</div>
+
+<style>
+  .phone-mockup__screen {
+    scrollbar-width: none;
+  }
+  .phone-mockup__screen::-webkit-scrollbar {
+    display: none;
+  }
+</style>

@@ -1,0 +1,20 @@
+---
+/** Image figure. Caption from `caption` prop or slotted (rich) content. */
+import Img from "./Img.astro";
+
+interface Props {
+  id: string;
+  alt: string;
+  caption?: string;
+  sizes?: string;
+}
+
+const { id, alt, caption, sizes } = Astro.props;
+const slotted = Astro.slots.has("default") ? await Astro.slots.render("default") : "";
+---
+
+<figure class="writeup-figure flex w-full min-w-0 flex-col gap-2">
+  <Img id={id} alt={alt} sizes={sizes} />
+  {caption && <figcaption class="writeup-caption">{caption}</figcaption>}
+  {!caption && slotted && <figcaption class="writeup-caption" set:html={slotted} />}
+</figure>

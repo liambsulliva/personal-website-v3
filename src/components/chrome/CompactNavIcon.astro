@@ -1,0 +1,74 @@
+---
+/**
+ * Figma CompactNavIcon (93:3666). 36px hit, 24px accent glyph.
+ * Hover: section label (13px medium, accent) 4px below the hit, and on
+ * desktop the glyph "scare-bounces" away from the cursor (§15).
+ */
+import Icon from "../icons/Icon.astro";
+import type { Section } from "../../lib/sections";
+
+interface Props {
+  section: Section;
+  current?: boolean;
+}
+
+const { section, current = false } = Astro.props;
+---
+
+<a
+  href={section.href}
+  class="compact-nav-icon squishy relative flex size-9 shrink-0 flex-col items-center gap-1"
+  style={`color:${section.color}`}
+  aria-label={section.label}
+  aria-current={current ? "page" : undefined}
+>
+  <span class="flex size-9 shrink-0 items-center justify-center overflow-clip">
+    <Icon name={section.icon} class="compact-nav-icon__glyph" />
+  </span>
+  <span
+    class="compact-nav-icon__label pointer-events-none absolute top-10 left-[18.5px] -translate-x-1/2 text-center text-[13px] leading-[normal] font-medium whitespace-nowrap"
+    aria-hidden="true">{section.label}</span
+  >
+</a>
+
+<style>
+  .compact-nav-icon__label {
+    opacity: 0;
+    transition: opacity var(--motion-fast) var(--ease-out);
+  }
+  @media (hover: hover) {
+    .compact-nav-icon:hover .compact-nav-icon__label {
+      opacity: 1;
+    }
+  }
+  .compact-nav-icon:focus-visible .compact-nav-icon__label {
+    opacity: 1;
+  }
+
+  /* Scare-bounce: jump up as if startled, fall back with a short overshoot. */
+  @keyframes scare-bounce {
+    0% {
+      transform: translateY(0);
+      animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    28% {
+      transform: translateY(-7px);
+      animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
+    }
+    62% {
+      transform: translateY(1.5px);
+      animation-timing-function: ease-out;
+    }
+    80% {
+      transform: translateY(-1px);
+    }
+    100% {
+      transform: translateY(0);
+    }
+  }
+  @media (hover: hover) and (pointer: fine) and (min-width: 768px) {
+    .compact-nav-icon:hover :global(.compact-nav-icon__glyph) {
+      animation: scare-bounce 420ms both;
+    }
+  }
+</style>

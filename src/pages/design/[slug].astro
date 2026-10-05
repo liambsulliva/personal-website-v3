@@ -1,0 +1,20 @@
+---
+import { getCollection, render } from "astro:content";
+import WriteupLayout from "../../layouts/WriteupLayout.astro";
+import { mdxComponents } from "../../components/writeup/index";
+import { hasWriteup } from "../../lib/content";
+import { tocFromBody } from "../../lib/toc";
+
+export async function getStaticPaths() {
+  const projects = await getCollection("projects", (p) => p.data.wing === "design");
+  return projects.filter(hasWriteup).map((entry) => ({ params: { slug: entry.id }, props: { entry } }));
+}
+
+const { entry } = Astro.props;
+const { Content } = await render(entry);
+const toc = tocFromBody(entry.body);
+---
+
+<WriteupLayout entry={entry} toc={toc}>
+  <Content components={mdxComponents} />
+</WriteupLayout>

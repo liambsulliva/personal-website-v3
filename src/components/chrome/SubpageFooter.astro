@@ -1,0 +1,13 @@
+---
+/** Figma SubpageFooter (21:449): Logomark + Timer, pt32 pb48 px64. */
+import Logomark from "./Logomark.astro";
+import Timer from "./Timer.tsx";
+---
+
+<footer
+  class="flex w-full items-center justify-between px-6 pt-8 pb-8 md:px-16 md:pb-12"
+  data-name="Footer"
+>
+  <Logomark />
+  <Timer client:idle />
+</footer>

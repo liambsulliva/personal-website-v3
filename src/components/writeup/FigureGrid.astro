@@ -1,0 +1,11 @@
+---
+interface Props {
+  columns?: 2 | 3 | 4;
+}
+const { columns = 2 } = Astro.props;
+const cols = { 2: "sm:grid-cols-2", 3: "sm:grid-cols-3", 4: "sm:grid-cols-2 lg:grid-cols-4" }[columns];
+---
+
+<div class:list={["figure-grid grid w-full min-w-0 grid-cols-1 items-start gap-3", cols]}>
+  <slot />
+</div>

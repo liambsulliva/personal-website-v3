@@ -1,0 +1,31 @@
+---
+interface Props {
+  nodes: { step: string; title: string; body: string }[];
+  ariaLabel?: string;
+}
+const { nodes, ariaLabel } = Astro.props;
+---
+
+<div class="flex w-full flex-col gap-6">
+  <div
+    class="pipeline grid w-full items-stretch gap-3"
+    role={ariaLabel ? "img" : undefined}
+    aria-label={ariaLabel}
+  >
+    {
+      nodes.flatMap((node, index) => [
+        index > 0 && (
+          <svg class="pipeline__arrow" viewBox="0 0 48 24" aria-hidden="true">
+            <path d="M2 12h36M30 4l10 8-10 8" />
+          </svg>
+        ),
+        <div class="editorial-node">
+          <span class="editorial-node__step">{node.step}</span>
+          <strong class="editorial-node__title" set:html={node.title} />
+          <p class="editorial-node__body" set:html={node.body} />
+        </div>,
+      ])
+    }
+  </div>
+  <slot />
+</div>
