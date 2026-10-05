@@ -16,6 +16,9 @@ const { title = "Liam Sullivan", description = DEFAULT_DESCRIPTION } =
 const origin = Astro.site ?? Astro.url;
 const canonical = new URL(Astro.url.pathname, origin);
 const ogImage = new URL("/banner.jpg", origin);
+// Favicons follow the browser's color scheme (its tab strip), not the site theme.
+const FAVICON_SCHEMES = ["light", "dark"] as const;
+const FAVICON_SIZES = [16, 32, 64, 128, 256, 512];
 ---
 
 <!doctype html>
@@ -28,7 +31,25 @@ const ogImage = new URL("/banner.jpg", origin);
     <meta name="author" content="Liam Sullivan" />
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href={canonical} />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    {FAVICON_SCHEMES.map((scheme) => (
+      <>
+        {FAVICON_SIZES.map((size) => (
+          <link
+            rel="icon"
+            type="image/png"
+            sizes={`${size}x${size}`}
+            href={`/favicon/icon-${scheme}-${size}.png`}
+            media={`(prefers-color-scheme: ${scheme})`}
+          />
+        ))}
+        <link
+          rel="icon"
+          type="image/svg+xml"
+          href={`/favicon/icon-${scheme}.svg`}
+          media={`(prefers-color-scheme: ${scheme})`}
+        />
+      </>
+    ))}
 
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
