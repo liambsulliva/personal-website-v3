@@ -94,6 +94,9 @@ export const IMAGE_MAP = [
     ...piece("writing", "featured", "english-is-the-new-frontier", "assets/writing/english-is-the-new-frontier.jpg"),
     local: true,
   },
+  ...["pickled-onions", "hearts-of-palm", "tofu"].map((slug) =>
+    piece("writing", "cooking", slug, `public/images/editorial/cooking/${slug}.jpg`),
+  ),
 
   // ── Career logos (official marks, see assets/career/) ───────
   ...[

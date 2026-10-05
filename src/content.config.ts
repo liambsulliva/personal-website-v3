@@ -61,6 +61,7 @@ const pieces = defineCollection({
       "featured",
       "substack",
       "video",
+      "cooking",
       "berlin",
     ]),
     date: z.coerce.date(),

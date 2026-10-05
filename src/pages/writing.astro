@@ -1,8 +1,9 @@
 ---
 /**
  * /writing (Figma Subpage / Writing 28:811). Featured (SectionLabel +
- * FeaturedArticle), then Substack / Video Essays (from `pieces`, hidden while
- * empty) and Study Abroad (Berlin WordPress posts, SSR fetch, 300s cache).
+ * FeaturedArticle), then Substack / Video Essays / Cooking (from `pieces`,
+ * hidden while empty) and Study Abroad (Berlin WordPress posts, SSR fetch,
+ * 300s cache).
  */
 import SubpageLayout from "../layouts/SubpageLayout.astro";
 import ArticleCard from "../components/cards/ArticleCard.astro";
@@ -21,6 +22,7 @@ const featured = pieces.find((piece) => piece.data.section === "featured");
 const sections = [
   { key: "substack", label: "Substack" },
   { key: "video", label: "Video Essays" },
+  { key: "cooking", label: "Cooking" },
 ] as const;
 ---
 
