@@ -127,12 +127,25 @@ describe("FeaturedArticle", () => {
         description: "A dek",
         meta: "Blog • Sep 2026",
         href: "https://example.com/post",
-        image: "site/pieces/writing/featured/english-is-the-new-frontier",
+        image: "site/pieces/writing/featured/not-uploaded-yet",
       },
     });
     expect(html).toContain("cld--missing");
     expect(html).not.toContain("<img");
     expect(html).not.toContain("Image coming soon");
+  });
+
+  it("renders the seeded English is the New Frontier cover", async () => {
+    const html = await container.renderToString(FeaturedArticle, {
+      props: {
+        title: "English is the New Frontier.",
+        meta: "Blog • Sep 2026",
+        href: "https://example.com/post",
+        image: "site/pieces/writing/featured/english-is-the-new-frontier",
+      },
+    });
+    expect(html).not.toContain("cld--missing");
+    expect(html).toMatch(/<img[^>]*english-is-the-new-frontier/);
   });
 });
 

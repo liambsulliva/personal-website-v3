@@ -89,7 +89,11 @@ export const IMAGE_MAP = [
   ...[1, 2, 3, 4, 5, 6].map((n) =>
     piece("design", "design-club", `clubmeeting${n}`, `public/images/editorial/presentations/clubmeeting${n}.png`),
   ),
-  piece("writing", "featured", "english-is-the-new-frontier"),
+  // Substack hero for the post (assets/writing).
+  {
+    ...piece("writing", "featured", "english-is-the-new-frontier", "assets/writing/english-is-the-new-frontier.jpg"),
+    local: true,
+  },
 
   // ── Career logos (official marks, see assets/career/) ───────
   ...[

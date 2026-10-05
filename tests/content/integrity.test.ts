@@ -14,7 +14,6 @@ const PUBLIC = join(ROOT, "public");
 // Reserved slots in scripts/cloudinary-map.mjs that still need an upload.
 // The page shows the skeleton until then; remove an id once it's seeded.
 const PENDING_UPLOADS = new Set([
-  "site/pieces/writing/featured/english-is-the-new-frontier",
   "site/projects/claudia-cooks/cover",
 ]);
 
