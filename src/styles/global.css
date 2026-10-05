@@ -213,43 +213,41 @@ body {
   }
 }
 
-/* Timer: hover flips the face down to 24-hour time (a 24px cube turn). */
+/* Timer: a 24px film gate over a two-frame strip (local, then PGH).
+   Hover/focus (or a tap, via data-advanced) pulls the strip down one frame,
+   like a projector advance. */
 .timer {
-  perspective: 240px;
   cursor: default;
   outline-offset: 2px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
-.timer__cube {
-  position: relative;
+.timer__gate {
   display: block;
   height: 24px;
-  transform-style: preserve-3d;
-  transform-origin: 50% 50% -12px;
-  transition: transform 420ms cubic-bezier(0.34, 1.4, 0.64, 1);
+  overflow: clip;
 }
-.timer__face {
+.timer__strip {
+  display: flex;
+  flex-direction: column;
+  transition: transform 100ms cubic-bezier(0.7, 0, 0.3, 1);
+}
+.timer__frame {
   display: block;
   font-size: 16px;
   line-height: 24px;
   white-space: nowrap;
   text-align: right;
   color: var(--fg);
-  backface-visibility: hidden;
-}
-.timer__face--top {
-  position: absolute;
-  right: 0;
-  top: 0;
-  transform-origin: 50% 50% -12px;
-  transform: rotateX(90deg);
 }
 @media (hover: hover) {
-  .timer:hover .timer__cube {
-    transform: rotateX(-90deg);
+  .timer:hover .timer__strip {
+    transform: translateY(-24px);
   }
 }
-.timer:focus-visible .timer__cube {
-  transform: rotateX(-90deg);
+.timer:focus-visible .timer__strip,
+.timer[data-advanced] .timer__strip {
+  transform: translateY(-24px);
 }
 
 /* Photography tag row: side-scrolls without a visible scrollbar (v2). */
@@ -320,11 +318,50 @@ label[for] {
   transition-timing-function: var(--ease-out), ease-out;
 }
 
+/* Gallery → lightbox flyer (islands/lightboxFlight.ts). Sits above the YARL
+   portal (z 9999); position/size are set inline, motion is WAAPI. */
+.lightbox-flyer {
+  position: fixed;
+  z-index: 10000;
+  margin: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transform-origin: 50% 50%;
+  contain: paint;
+  will-change: transform;
+}
+.lightbox-flyer img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Lightbox backdrop. The photo is handed off first; then the backdrop and
+   chrome darken in behind it at YARL's default fade (250ms ease).
+   PhotoGallery holds .lightbox-undimmed on the YARL root until the handoff. */
+.yarl__container {
+  transition: background-color 250ms ease;
+}
+.yarl__toolbar {
+  transition: opacity 250ms ease;
+}
+.lightbox-undimmed .yarl__container {
+  background-color: transparent;
+}
+.lightbox-undimmed .yarl__toolbar,
+.lightbox-undimmed .yarl__navigation_prev,
+.lightbox-undimmed .yarl__navigation_next {
+  opacity: 0;
+}
+
 /* yet-another-react-lightbox chrome (close / prev / next / zoom).
    Prev/next are vertically centered with translateY(-50%); press scale
    has to keep that or they jump. */
 .yarl__button:not(:disabled) {
-  transition: transform 460ms cubic-bezier(0.34, 2.1, 0.5, 1);
+  transition:
+    transform 460ms cubic-bezier(0.34, 2.1, 0.5, 1),
+    opacity 250ms ease;
 }
 .yarl__button:not(:disabled):active {
   transform: scale(0.95);

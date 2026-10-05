@@ -13,6 +13,9 @@ interface ProgressiveImageProps {
   loading?: "eager" | "lazy";
   draggable?: boolean;
   objectFit?: "cover" | "fill";
+  /** false: the placeholder appears without its opacity fade (lightbox
+   *  handoff, where it must be opaque on its first painted frame). */
+  fadeIn?: boolean;
   onUpgradeLoad?: () => void;
 }
 
@@ -25,9 +28,12 @@ export default function ProgressiveImage({
   loading = "lazy",
   draggable,
   objectFit = "cover",
+  fadeIn = true,
   onUpgradeLoad,
 }: ProgressiveImageProps) {
-  const layerClassName = `absolute inset-0 h-full w-full ${objectFit === "fill" ? "object-fill" : "object-cover"} transition-opacity duration-300`;
+  const baseClassName = `absolute inset-0 h-full w-full ${objectFit === "fill" ? "object-fill" : "object-cover"}`;
+  const layerClassName = `${baseClassName} transition-opacity duration-300`;
+  const placeholderClassName = fadeIn ? layerClassName : baseClassName;
   const [placeholderLoaded, setPlaceholderLoaded] = useState(false);
   const [upgradeRequested, setUpgradeRequested] = useState(upgrade);
   const [upgradeLoaded, setUpgradeLoaded] = useState(false);
@@ -45,7 +51,7 @@ export default function ProgressiveImage({
         loading={loading}
         decoding="async"
         draggable={draggable}
-        className={`${layerClassName} ${placeholderLoaded ? "opacity-100" : "opacity-0"}`}
+        className={`${placeholderClassName} ${placeholderLoaded ? "opacity-100" : "opacity-0"}`}
         onLoad={() => setPlaceholderLoaded(true)}
         ref={(img) => {
           if (img?.complete && img.naturalWidth > 0 && !placeholderLoaded) setPlaceholderLoaded(true);
