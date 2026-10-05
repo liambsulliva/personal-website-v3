@@ -16,6 +16,12 @@ import BrandGlyph from "../../src/components/icons/BrandGlyph.astro";
 import TimelineRow from "../../src/components/cards/TimelineRow.astro";
 import Mark from "../../src/components/chrome/Mark.astro";
 import PhoneMockup from "../../src/components/writeup/PhoneMockup.astro";
+import SectionHeading from "../../src/components/writeup/SectionHeading.astro";
+import Callout from "../../src/components/writeup/Callout.astro";
+import SwitchHud from "../../src/components/writeup/SwitchHud.astro";
+import Logomark from "../../src/components/chrome/Logomark.astro";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 
 let container: AstroContainer;
 
@@ -24,6 +30,7 @@ beforeAll(async () => {
 });
 
 const EXTERNAL_ICON = "/icons/external-link.svg";
+const ROOT = join(import.meta.dirname, "../..");
 
 describe("ArticleCard", () => {
   it("internal pieces open in the same tab with no outbound icon", async () => {
@@ -50,6 +57,19 @@ describe("ArticleCard", () => {
     expect(html).toContain('target="_blank"');
     expect(html).toContain('rel="noopener noreferrer"');
     expect(html).toContain(EXTERNAL_ICON);
+  });
+
+  it("sets a medium-weight title with the metadata tucked right under it", async () => {
+    const html = await container.renderToString(ArticleCard, {
+      props: { title: "Berlin", meta: "Blog • Jun 2024", href: "https://example.com/post" },
+    });
+    const content = html.match(/<div class="([^"]*)"[^>]*data-name="content"/)?.[1] ?? "";
+    const title = html.match(/<p class="([^"]*)"[^>]*>Berlin</)?.[1] ?? "";
+    const meta = html.match(/<p class="([^"]*)"[^>]*>Blog • Jun 2024</)?.[1] ?? "";
+    expect(content).toContain("gap-0.5");
+    expect(title).toContain("font-medium");
+    expect(title).toContain("leading-[1.3]");
+    expect(meta).toContain("leading-[1.3]");
   });
 });
 
@@ -165,18 +185,68 @@ describe("TimelineRow", () => {
   });
 });
 
+// Eyebrows: small Geist (never mono) in the section accent, written as
+// authored: no forced caps, no wide tracking.
+const expectEyebrowClasses = (classes: string) => {
+  expect(classes).not.toMatch(/\buppercase\b/);
+  expect(classes).not.toMatch(/\btracking-/);
+  expect(classes).not.toMatch(/\bfont-mono\b/);
+};
+
 describe("SectionLabel", () => {
   it("uses the standard 24px bold heading, not the oversized muted featured style", async () => {
     const html = await container.renderToString(SectionLabel, {
-      props: { id: "writing-featured" },
-      slots: { default: "Featured" },
+      props: { id: "writing-substack" },
+      slots: { default: "Substack" },
     });
-    expect(html).toContain("Featured");
+    expect(html).toContain("Substack");
     expect(html).toContain("text-[24px]");
     expect(html).toContain("font-bold");
     expect(html).not.toContain("text-[32px]");
     expect(html).not.toContain("text-[40px]");
     expect(html).not.toContain("font-medium");
+  });
+
+  it("renders Featured! as a 12px accent eyebrow, as written", async () => {
+    const html = await container.renderToString(SectionLabel, {
+      props: { id: "writing-featured", eyebrow: true },
+      slots: { default: "Featured!" },
+    });
+    const classes = html.match(/<h2[^>]*class="([^"]*)"/)?.[1] ?? "";
+    expect(html).toMatch(/>Featured!<\/h2>/);
+    expect(classes).toContain("text-[12px]");
+    expect(classes).toContain("text-wing");
+    expect(classes).not.toContain("text-[24px]");
+    expectEyebrowClasses(classes);
+  });
+});
+
+describe("SectionHeading", () => {
+  it("keeps the eyebrow's authored casing", async () => {
+    const html = await container.renderToString(SectionHeading, {
+      props: { id: "ctx", eyebrow: "Project timeline", title: "Desktop-first development" },
+    });
+    expect(html).toMatch(/class="section-heading__eyebrow"[^>]*>Project timeline</);
+    expect(html).not.toContain("PROJECT TIMELINE");
+  });
+
+  it("tucks the eyebrow 4px above the title", async () => {
+    const html = await container.renderToString(SectionHeading, {
+      props: { id: "ctx", eyebrow: "Context", title: "Desktop-first development" },
+    });
+    const header = html.match(/<header class="([^"]*)"/)?.[1] ?? "";
+    expect(header).toContain("gap-1");
+    expect(header).not.toMatch(/\bgap-(?!1\b)/);
+  });
+});
+
+describe("Callout", () => {
+  it("keeps the label's authored casing", async () => {
+    const html = await container.renderToString(Callout, {
+      props: { label: "The goal?" },
+      slots: { default: "Make it feel at home on smaller devices." },
+    });
+    expect(html).toMatch(/class="callout__label"[^>]*>The goal\?</);
   });
 });
 
@@ -199,11 +269,16 @@ describe("Mark", () => {
       },
       slots: { default: "Digital Narrative and Interactive Design (DNID)" },
     });
-    expect(html).toContain("Digital Narrative and Interactive Design (DNID)");
+    expect(html.replace(/<[^>]+>/g, "")).toContain("Digital Narrative and Interactive Design (DNID)");
     const open = html.match(/<a\b[^>]*>/)?.[0] ?? "";
     expect(open).not.toContain("whitespace-nowrap");
     expect(open).not.toContain("inline-flex");
+    expect(open).not.toContain("inline-block");
     expect(html).not.toMatch(/height:\s*26px/);
+    // Only the last word rides with the glyph; the rest flows with the prose.
+    const keep = html.match(/class="mark__keep"[^>]*>([\s\S]*?)<\/span><\/span><\/a>/)?.[1] ?? "";
+    expect(keep).toMatch(/^\(DNID\)/);
+    expect(keep).toContain("palette");
   });
 });
 
@@ -267,6 +342,41 @@ describe("Breadcrumb", () => {
     );
     expect(html).toContain('aria-label="Liam Sullivan, home"');
   });
+
+  it("keeps the path segments in mono (only eyebrows moved to Geist)", async () => {
+    const html = await container.renderToString(Breadcrumb, {
+      props: { path: "/writing/" },
+    });
+    expect(html).toMatch(/<li class="[^"]*\bfont-mono\b/);
+  });
+});
+
+describe("SwitchHud", () => {
+  it("ships keyboard and touch control rows, swapping them on touch-first devices", async () => {
+    const html = await container.renderToString(SwitchHud);
+    const rows = [...html.matchAll(/<ul[^>]*data-input="(\w+)"[^>]*aria-label="([^"]+)"/g)].map(
+      ([, input, label]) => [input, label],
+    );
+    expect(rows).toEqual([
+      ["keyboard", "Keyboard controls"],
+      ["touch", "Touch controls"],
+    ]);
+    const touch = html.slice(html.indexOf('data-input="touch"'));
+    for (const hint of ["Tap", "Tap again", "Back (top right)"]) expect(touch).toContain(hint);
+    const source = readFileSync(join(ROOT, "src/components/writeup/SwitchHud.astro"), "utf8");
+    expect(source).toContain("@media (hover: none) and (pointer: coarse)");
+  });
+});
+
+describe("Logomark", () => {
+  it("draws the v3 pill from the favicon's own glyph paths in the theme color", async () => {
+    const html = await container.renderToString(Logomark);
+    const favicon = readFileSync(join(ROOT, "public/favicon/icon-light.svg"), "utf8");
+    const [v3, dot] = [...favicon.matchAll(/ d="([^"]+)"/g)].map(([, d]) => d);
+    expect(html).toContain(`fill="var(--fg)" d="${v3}"`);
+    expect(html).toContain(`fill="#ff8400" d="${dot}"`);
+    expect(html).toContain('aria-label="Site versions"');
+  });
 });
 
 describe("RootLayout", () => {
@@ -284,11 +394,27 @@ describe("RootLayout", () => {
     expect(html).toContain("<title>Me - Liam Sullivan</title>");
   });
 
-  it("applies theme and motion before first paint, defaulting to light", async () => {
+  it("applies theme and motion before first paint, defaulting to system", async () => {
     const html = await container.renderToString(RootLayout);
     const head = html.slice(0, html.indexOf("</head>"));
-    expect(head).toContain('localStorage.getItem("theme") || "light"');
+    expect(head).toContain('localStorage.getItem("theme") || "system"');
     expect(head).toContain("data-reduced-motion");
+  });
+
+  it("links light and dark favicons (SVG + every PNG size) by color scheme", async () => {
+    const html = await container.renderToString(RootLayout);
+    for (const scheme of ["light", "dark"]) {
+      const media = `media="(prefers-color-scheme: ${scheme})"`;
+      const svg = `/favicon/icon-${scheme}.svg`;
+      expect(html).toMatch(new RegExp(`href="${svg}"[^>]*${media.replace(/[()]/g, "\\$&")}`));
+      expect(existsSync(join(ROOT, "public", svg))).toBe(true);
+      for (const size of [16, 32, 64, 128, 256, 512]) {
+        const png = `/favicon/icon-${scheme}-${size}.png`;
+        expect(html).toContain(`sizes="${size}x${size}" href="${png}"`);
+        expect(existsSync(join(ROOT, "public", png))).toBe(true);
+      }
+    }
+    expect(html).not.toContain("/favicon.svg");
   });
 });
 

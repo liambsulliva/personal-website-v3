@@ -27,11 +27,11 @@ const { title, meta, href, image, imageUrl, external = true } = Astro.props;
     {image && <CldImage id={image} alt="" aspect="16:9" fill sizes="(min-width: 1024px) 660px, 100vw" />}
     {!image && imageUrl && <img src={imageUrl} alt="" loading="lazy" decoding="async" class="absolute inset-0 h-full w-full object-cover" />}
   </div>
-  <div class="flex w-full flex-col items-start gap-2 overflow-clip p-5" data-name="content">
+  <div class="flex w-full flex-col items-start gap-0.5 overflow-clip p-5" data-name="content">
     <div class="flex w-full items-center gap-2 overflow-clip" data-name="title-row">
-      <p class="m-0 min-w-px flex-[1_0_0] truncate text-[16px] leading-[1.5] text-fg">{title}</p>
+      <p class="m-0 min-w-px flex-[1_0_0] truncate text-[16px] leading-[1.3] font-medium text-fg">{title}</p>
       {external && <Icon name="external-link" size={16} class="text-fg" />}
     </div>
-    <p class="m-0 text-[16px] leading-[1.5] whitespace-nowrap text-muted">{meta}</p>
+    <p class="m-0 text-[16px] leading-[1.3] whitespace-nowrap text-muted">{meta}</p>
   </div>
 </a>

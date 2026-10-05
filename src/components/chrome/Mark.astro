@@ -1,9 +1,10 @@
 ---
 /**
  * Inline accent chip from Figma /me (mark/*): semibold accent word(s) with a
- * 16px glyph in a padded slot. Links to the v2 reference. Long titles (DNID)
- * wrap with the prose instead of clipping on narrow screens; the glyph rides
- * the last line.
+ * 16px glyph in a padded slot. Links to the v2 reference. The link is a
+ * plain inline run, so long titles (DNID) break mid-sentence like the rest of
+ * the paragraph; the last word and glyph stay together so the glyph never
+ * starts a line on its own.
  */
 import Icon from "../icons/Icon.astro";
 
@@ -15,15 +16,15 @@ interface Props {
 }
 
 const { href, color, icon, image } = Astro.props;
+const label = (await Astro.slots.render("default")).trim();
+const cut = Math.max(0, label.search(/\S+$/));
+const head = label.slice(0, cut);
+const last = label.slice(cut);
 ---
 
 <style>
-  /* inline-block + max-width so short marks stay in the line and long ones
-     wrap inside the prose column. No fixed height: wrapped lines must stack. */
-  .mark {
-    display: inline-block;
-    max-width: 100%;
-    vertical-align: baseline;
+  .mark__keep {
+    white-space: nowrap;
   }
   .mark__glyph {
     display: inline-flex;
@@ -40,8 +41,8 @@ const { href, color, icon, image } = Astro.props;
   }
 </style>
 
-<a href={href} target="_blank" rel="noopener noreferrer" class="mark squishy squishy-md font-semibold no-underline" style={`color:${color}`}
-  ><span class="mark__text"><slot /></span>{
+<a href={href} target="_blank" rel="noopener noreferrer" class="mark font-semibold no-underline" style={`color:${color}`}
+  ><span class="mark__text"><Fragment set:html={head} /><span class="mark__keep"><Fragment set:html={last} />{
     icon && (
       <span class="mark__glyph" aria-hidden="true">
         <Icon name={icon} size={16} />
@@ -53,5 +54,5 @@ const { href, color, icon, image } = Astro.props;
         <img src={image} alt="" width="16" height="16" class="size-4 object-contain" />
       </span>
     )
-  }</a
+  }</span></span></a
 >

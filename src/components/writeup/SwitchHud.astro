@@ -1,5 +1,10 @@
 ---
-/** Switch React Menu browser preview: lazy iframe + keyboard HUD (was Svelte). */
+/**
+ * Switch React Menu browser preview: lazy iframe + controls HUD (was Svelte).
+ * Touch-first browsers (no hover, coarse pointer) get the embed's own touch
+ * targets instead of keyboard keys: tap a tile to select it, tap it again to
+ * open it, the bottom-corner arrows page, and the top-right button goes back.
+ */
 interface Props {
   src?: string;
   title?: string;
@@ -7,35 +12,64 @@ interface Props {
 
 const { src = "/switch-menu/index.html", title = "Switch React Menu browser preview" } = Astro.props;
 
-const controls = [
-  { keys: ["←", "→"], label: "Navigate" },
-  { keys: ["Q", "E"], label: "Page (L / R)" },
-  { keys: ["Enter", "Z"], label: "Select (A)" },
-  { keys: ["X"], label: "Back (B)" },
+const layouts = [
+  {
+    input: "keyboard",
+    label: "Keyboard controls",
+    controls: [
+      { keys: ["←", "→"], label: "Navigate" },
+      { keys: ["Q", "E"], label: "Page (L / R)" },
+      { keys: ["Enter", "Z"], label: "Select (A)" },
+      { keys: ["X"], label: "Back (B)" },
+    ],
+  },
+  {
+    input: "touch",
+    label: "Touch controls",
+    controls: [
+      { keys: ["Tap"], label: "Select" },
+      { keys: ["Tap again"], label: "Open (A)" },
+      { keys: ["‹", "›"], label: "Page (bottom corners)" },
+      { keys: ["Back"], label: "Back (top right)" },
+    ],
+  },
 ];
 ---
 
 <div class="switch-hud relative aspect-video w-full overflow-hidden rounded-card border border-border bg-black">
   <iframe src={src} title={title} loading="lazy" allow="fullscreen" class="block h-full w-full border-0"></iframe>
-  <div class="switch-hud__bar pointer-events-none absolute inset-x-0 bottom-0 flex flex-col gap-2 px-4 pt-10 pb-3 select-none" aria-label="Keyboard controls">
-    <ul class="m-0 flex list-none flex-wrap justify-center gap-x-5 gap-y-2 p-0">
-      {
-        controls.map((control) => (
-          <li class="flex items-center gap-2 text-[12px] leading-none text-white/80">
-            <span class="inline-flex items-center gap-1">
-              {control.keys.map((key) => (
-                <kbd class="switch-hud__key">{key}</kbd>
-              ))}
-            </span>
-            <span class="text-white/60">{control.label}</span>
-          </li>
-        ))
-      }
-    </ul>
+  <div class="switch-hud__bar pointer-events-none absolute inset-x-0 bottom-0 flex flex-col gap-2 px-4 pt-10 pb-3 select-none">
+    {
+      layouts.map((layout) => (
+        <ul class="switch-hud__controls m-0 flex list-none flex-wrap justify-center gap-x-5 gap-y-2 p-0" data-input={layout.input} aria-label={layout.label}>
+          {layout.controls.map((control) => (
+            <li class="flex items-center gap-2 text-[12px] leading-none text-white/80">
+              <span class="inline-flex items-center gap-1">
+                {control.keys.map((key) => (
+                  <kbd class="switch-hud__key">{key}</kbd>
+                ))}
+              </span>
+              <span class="text-white/60">{control.label}</span>
+            </li>
+          ))}
+        </ul>
+      ))
+    }
   </div>
 </div>
 
 <style>
+  .switch-hud__controls[data-input="touch"] {
+    display: none;
+  }
+  @media (hover: none) and (pointer: coarse) {
+    .switch-hud__controls[data-input="keyboard"] {
+      display: none;
+    }
+    .switch-hud__controls[data-input="touch"] {
+      display: flex;
+    }
+  }
   .switch-hud__bar {
     background: linear-gradient(to top, rgb(0 0 0 / 0.92) 0%, rgb(0 0 0 / 0.72) 55%, transparent 100%);
   }

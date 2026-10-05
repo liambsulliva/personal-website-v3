@@ -29,7 +29,7 @@ const photos = firstPage.data.resources.map(toGalleryPhoto);
   {slides[0] && <link rel="preload" as="image" slot="head" href={slides[0].placeholderSrc} fetchpriority="high" />}
   <div class="flex w-full min-w-0 flex-col items-stretch gap-8 overflow-x-clip px-6 py-6 md:px-16 md:py-12" data-name="Content">
     <section class="flex w-full flex-col items-start gap-3" aria-labelledby="photography-featured">
-      <SectionLabel id="photography-featured">Featured</SectionLabel>
+      <SectionLabel id="photography-featured" eyebrow>Featured!</SectionLabel>
       <div class="w-full">
         {
           slides.length > 0 ? (

@@ -47,8 +47,8 @@ document.addEventListener("click", (event) => {
   const target = event.target as Element | null;
 
   if (target?.closest("[data-theme-toggle]")) {
-    const current = (root.dataset.theme as Theme) || "light";
-    const next = NEXT_THEME[current] ?? "light";
+    const current = (root.dataset.theme as Theme) || "system";
+    const next = NEXT_THEME[current] ?? "system";
     store("theme", next);
     applyTheme(next);
     return;

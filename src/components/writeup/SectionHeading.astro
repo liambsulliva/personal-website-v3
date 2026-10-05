@@ -1,8 +1,9 @@
 ---
 /**
- * Figma SectionHeading (50:377): wing-accent eyebrow (12px bold, 1.56px
- * tracking) + 36px h2 (tracking -1.26px). TOC entries are generated from
- * these (label = toc ?? eyebrow ?? title).
+ * Figma SectionHeading (50:377): wing-accent eyebrow (12px bold Geist, as
+ * written: no caps or tracking) 4px above a 36px h2 (tracking -1.26px). Only
+ * write-ups use this; gallery eyebrows are SectionLabel. TOC entries
+ * are generated from these (label = toc ?? eyebrow ?? title).
  */
 interface Props {
   id: string;
@@ -14,7 +15,7 @@ interface Props {
 const { id, title, eyebrow } = Astro.props;
 ---
 
-<header class="section-heading flex w-full flex-col items-start gap-3">
-  {eyebrow && <p class="section-heading__eyebrow">{eyebrow.toUpperCase()}</p>}
+<header class="section-heading flex w-full flex-col items-start gap-1">
+  {eyebrow && <p class="section-heading__eyebrow">{eyebrow}</p>}
   <h2 id={id} class="section-heading__title">{title}</h2>
 </header>

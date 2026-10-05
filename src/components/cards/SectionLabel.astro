@@ -1,9 +1,22 @@
 ---
-/** Gallery section label (Design/Writing): heading/card 24/1.2 bold. */
+/**
+ * Gallery section label (Design/Writing): heading/card 24/1.2 bold.
+ * `eyebrow`: small Geist label in the section accent (Featured!), matching the
+ * write-up SectionHeading eyebrow (12px bold).
+ */
 interface Props {
   id?: string;
+  eyebrow?: boolean;
 }
-const { id } = Astro.props;
+const { id, eyebrow = false } = Astro.props;
 ---
 
-<h2 id={id} class="m-0 text-[24px] leading-[1.2] font-bold whitespace-nowrap text-fg"><slot /></h2>
+<h2
+  id={id}
+  class:list={[
+    "m-0 whitespace-nowrap",
+    eyebrow
+      ? "text-[12px] leading-[1.3] font-bold text-wing"
+      : "text-[24px] leading-[1.2] font-bold text-fg",
+  ]}
+><slot /></h2>

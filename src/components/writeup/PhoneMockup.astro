@@ -46,14 +46,18 @@ const { content, frame, alt = "Mobile view" } = Astro.props;
   .phone-mockup {
     isolation: isolate;
   }
+  /* The frame (1080×1920, transparent outside the bezel) has its glass at
+     x 159–920, y 128–1791 with a ~125px inner radius. The screen fills that
+     opening plus 8px tucked under the opaque bezel, so nothing shows past
+     the phone on a dark page. */
   .phone-mockup__screen {
     position: absolute;
-    top: 5%;
-    left: 5%;
+    top: 6.25%;
+    left: 13.98%;
     z-index: 1;
-    width: 90%;
-    height: 90%;
-    border-radius: 28px;
+    width: 72.04%;
+    height: 87.5%;
+    border-radius: 12.2% / 6.9%;
     contain: strict;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
