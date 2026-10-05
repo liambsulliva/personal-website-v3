@@ -14,6 +14,7 @@ import ProgressiveImage from "../../src/components/islands/ProgressiveImage";
 import FeaturedArticle from "../../src/components/cards/FeaturedArticle.astro";
 import BrandGlyph from "../../src/components/icons/BrandGlyph.astro";
 import TimelineRow from "../../src/components/cards/TimelineRow.astro";
+import Mark from "../../src/components/chrome/Mark.astro";
 
 let container: AstroContainer;
 
@@ -184,6 +185,24 @@ describe("Socials", () => {
     for (const label of ["Resume", "GitHub", "LinkedIn"])
       expect(html).toContain(`aria-label="${label}"`);
     expect(html.match(/target="_blank"/g)).toHaveLength(3);
+  });
+});
+
+describe("Mark", () => {
+  it("lets the /me DNID degree title wrap on narrow screens", async () => {
+    const html = await container.renderToString(Mark, {
+      props: {
+        href: "https://www.sci.pitt.edu/academics/undergraduate-majors/digital-narrative-and-interactive-design",
+        color: "var(--accent-design)",
+        icon: "palette",
+      },
+      slots: { default: "Digital Narrative and Interactive Design (DNID)" },
+    });
+    expect(html).toContain("Digital Narrative and Interactive Design (DNID)");
+    const open = html.match(/<a\b[^>]*>/)?.[0] ?? "";
+    expect(open).not.toContain("whitespace-nowrap");
+    expect(open).not.toContain("inline-flex");
+    expect(html).not.toMatch(/height:\s*26px/);
   });
 });
 
