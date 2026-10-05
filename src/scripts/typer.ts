@@ -1,7 +1,8 @@
 // Lobby hero type-in. Same contract as before — forward only, once per
 // session, SSR text when motion is off — but the motion is v2's
 // DescriptionTyper: one character at a time, pausing at each line, with that
-// component's blinking "|" cursor. Icons still pop when their word lands.
+// component's blinking "|" cursor. Marks (Analyst chart, PNC logo) type as
+// the beat after their word so the caret ends past them, not in front.
 // The delete/shuffle loop stays out; these three lines are the finished copy.
 
 const root = document.documentElement;
@@ -51,7 +52,7 @@ async function run(hero: HTMLElement): Promise<void> {
     else el.after(caret);
   };
 
-  const steps: { el: HTMLElement; pop?: HTMLElement; lineEnd: boolean }[] = [];
+  const steps: { el: HTMLElement; lineEnd: boolean }[] = [];
   tokens.forEach((token, index) => {
     const raw = token.textContent ?? "";
     const coreStart = raw.search(/\S/);
@@ -74,18 +75,21 @@ async function run(hero: HTMLElement): Promise<void> {
     // don't receive the component's scoped styles.
     token.dataset.shown = "";
     const next = tokens[index + 1];
+    const pop = pops.get(core);
+    const isLineEnd =
+      !!next &&
+      !next.hasAttribute("data-join") &&
+      token.closest(".hero__line") !== next.closest(".hero__line");
     chars.forEach((el, charIndex) => {
       const last = charIndex === chars.length - 1;
       steps.push({
         el,
-        pop: last ? pops.get(core) : undefined,
-        lineEnd:
-          last &&
-          !!next &&
-          !next.hasAttribute("data-join") &&
-          token.closest(".hero__line") !== next.closest(".hero__line"),
+        lineEnd: last && !pop && isLineEnd,
       });
     });
+    // Marks type as their own beat after the word, so the caret parks after
+    // the glyph (the PNC line-end pause used to sit in front of the logo).
+    if (pop) steps.push({ el: pop, lineEnd: isLineEnd });
   });
 
   if (!steps.length) {
@@ -101,7 +105,6 @@ async function run(hero: HTMLElement): Promise<void> {
     if (cancelled) return;
     step.el.dataset.shown = "";
     step.el.style.visibility = "visible";
-    if (step.pop) step.pop.dataset.shown = "";
     placeCaret(step.el);
     await sleep(step.lineEnd ? LINE_DELAY : TYPE_DELAY);
   }
