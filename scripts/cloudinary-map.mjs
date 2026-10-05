@@ -97,6 +97,11 @@ export const IMAGE_MAP = [
   ...["pickled-onions", "hearts-of-palm", "tofu"].map((slug) =>
     piece("writing", "cooking", slug, `public/images/editorial/cooking/${slug}.jpg`),
   ),
+  // YouTube maxres thumbnails for the video essays (assets/writing/video).
+  ...["defense-mechanisms", "ultimate-platform-fighter"].map((slug) => ({
+    ...piece("writing", "video", slug, `assets/writing/video/${slug}.jpg`),
+    local: true,
+  })),
 
   // ── Career logos (official marks, see assets/career/) ───────
   ...[
