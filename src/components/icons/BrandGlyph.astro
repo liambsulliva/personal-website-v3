@@ -2,6 +2,8 @@
 /**
  * Full-color brand glyph from Figma (public/brand/*.svg). Badges render the
  * glyph at 2/3 of its native size inside a 32px slot (Figma Badge 14:143).
+ * Black marks flip in dark mode; the hue rotation keeps colored parts (Astro's
+ * gradient) their own color while light and dark swap.
  */
 import { BRANDS, type BrandKey } from "../../lib/brands";
 
@@ -11,7 +13,8 @@ interface Props {
 }
 
 const { brand, scale = 2 / 3 } = Astro.props;
-const { file, width, height } = BRANDS[brand];
+const glyph: { file: string; width: number; height: number; invertOnDark?: boolean } = BRANDS[brand];
+const { file, width, height, invertOnDark = false } = glyph;
 ---
 
 <img
@@ -19,6 +22,12 @@ const { file, width, height } = BRANDS[brand];
   alt=""
   width={+(width * scale).toFixed(3)}
   height={+(height * scale).toFixed(3)}
-  class="block shrink-0"
+  class:list={["block shrink-0", { "brand-glyph--invert-dark": invertOnDark }]}
   style={`width:${(width * scale).toFixed(3)}px;height:${(height * scale).toFixed(3)}px`}
 />
+
+<style>
+  :global(html.dark) .brand-glyph--invert-dark {
+    filter: invert(1) hue-rotate(180deg);
+  }
+</style>

@@ -1,10 +1,12 @@
 ---
 /**
  * Progressive Cloudinary image. Paints surface/skeleton, then a ~1KB blurred
- * LQIP, then the responsive srcset fades in (instant under zap). Unseeded or
- * missing assets fall back to the Figma skeleton.
+ * LQIP, then the responsive srcset fades in (instant under zap). Ids that
+ * aren't in the manifest yet (reserved slots, see scripts/cloudinary-map.mjs)
+ * skip both requests and stay as a gray skeleton, which also covers assets
+ * that fail to load.
  */
-import { assetRatio, cldPlaceholder, cldSrcSet, cldUrl, type CldOptions } from "../../lib/cloudinary";
+import { assetRatio, assetSize, cldPlaceholder, cldSrcSet, cldUrl, type CldOptions } from "../../lib/cloudinary";
 
 interface Props {
   id: string;
@@ -38,27 +40,36 @@ const {
   bare = false,
 } = Astro.props;
 
+const missing = !assetSize(id);
 const options: CldOptions = aspect && !bare ? { aspect, crop: "fill", gravity } : { crop: "limit" };
 const ratio = aspect ? aspect.replace(":", " / ") : assetRatio(id);
 const style = [
-  bare ? "" : `--lqip:url("${cldPlaceholder(id, options)}")`,
+  bare || missing ? "" : `--lqip:url("${cldPlaceholder(id, options)}")`,
   fill ? "" : `aspect-ratio:${ratio}`,
 ].join(";");
 ---
 
-<span class:list={["cld", { "cld--fill": fill, "cld--bare": bare }, className]} style={style}>
-  <img
-    src={cldUrl(id, { ...options, width: 960 })}
-    srcset={cldSrcSet(id, options)}
-    sizes={sizes}
-    alt={alt}
-    loading={loading}
-    decoding="async"
-    fetchpriority={fetchpriority}
-    data-cld-img
-    onload="this.dataset.loaded=''"
-    onerror="this.dataset.error=''"
-  />
+<span
+  class:list={["cld", { "cld--fill": fill, "cld--bare": bare, "cld--missing": missing }, className]}
+  style={style}
+  {...(missing && alt ? { role: "img", "aria-label": alt } : {})}
+>
+  {
+    !missing && (
+      <img
+        src={cldUrl(id, { ...options, width: 960 })}
+        srcset={cldSrcSet(id, options)}
+        sizes={sizes}
+        alt={alt}
+        loading={loading}
+        decoding="async"
+        fetchpriority={fetchpriority}
+        data-cld-img
+        onload="this.dataset.loaded=''"
+        onerror="this.dataset.error=''"
+      />
+    )
+  }
 </span>
 
 <style is:global>
@@ -98,6 +109,11 @@ const style = [
   }
   .cld--bare {
     background: none;
+  }
+  /* Missing or failed image: leave the gray skeleton fill. */
+  .cld--missing,
+  .cld:has(> img[data-error]) {
+    background: var(--skeleton);
   }
   .cld--bare > img {
     object-fit: contain;

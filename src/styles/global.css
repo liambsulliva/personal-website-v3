@@ -21,9 +21,9 @@
 @property --control-hover { syntax: "<color>"; inherits: true; initial-value: #d0d0d0; }
 @property --accent-walnut { syntax: "<color>"; inherits: true; initial-value: #5c3a21; }
 @property --accent-career { syntax: "<color>"; inherits: true; initial-value: #1f4fff; }
-@property --accent-engineering { syntax: "<color>"; inherits: true; initial-value: #008a3e; }
+@property --accent-engineering { syntax: "<color>"; inherits: true; initial-value: #007a37; }
 @property --accent-design { syntax: "<color>"; inherits: true; initial-value: #c800e0; }
-@property --accent-photography { syntax: "<color>"; inherits: true; initial-value: #c99700; }
+@property --accent-photography { syntax: "<color>"; inherits: true; initial-value: #957000; }
 @property --accent-writing { syntax: "<color>"; inherits: true; initial-value: #e8360a; }
 @property --accent-pnc { syntax: "<color>"; inherits: true; initial-value: #f58025; }
 
@@ -50,9 +50,9 @@
 
   --accent-walnut: #5c3a21;
   --accent-career: #1f4fff;
-  --accent-engineering: #008a3e;
+  --accent-engineering: #007a37;
   --accent-design: #c800e0;
-  --accent-photography: #c99700;
+  --accent-photography: #957000;
   --accent-writing: #e8360a;
   --accent-pnc: #f58025;
 

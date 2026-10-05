@@ -5,6 +5,7 @@
  * visibility for controls, lightbox and next-page pagination only.
  */
 import SubpageLayout from "../layouts/SubpageLayout.astro";
+import SectionLabel from "../components/cards/SectionLabel.astro";
 import FeaturedCarousel from "../components/islands/FeaturedCarousel.tsx";
 import PhotoGallery from "../components/islands/PhotoGallery.tsx";
 import { listPhotoTags, photoExpression, PUBLIC_CACHE_CONTROL, searchPhotos } from "../lib/cloudinaryServer";
@@ -28,7 +29,7 @@ const photos = firstPage.data.resources.map(toGalleryPhoto);
   {slides[0] && <link rel="preload" as="image" slot="head" href={slides[0].placeholderSrc} fetchpriority="high" />}
   <div class="flex w-full min-w-0 flex-col items-stretch gap-8 overflow-x-clip px-6 py-6 md:px-16 md:py-12" data-name="Content">
     <section class="flex w-full flex-col items-start gap-3" aria-labelledby="photography-featured">
-      <h2 id="photography-featured" class="m-0 text-[32px] leading-[1.2] font-medium text-muted md:text-[40px]">Featured</h2>
+      <SectionLabel id="photography-featured">Featured</SectionLabel>
       <div class="w-full">
         {
           slides.length > 0 ? (

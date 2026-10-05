@@ -9,9 +9,10 @@ interface Props {
   href: string;
   monogram?: string;
   logo?: string;
+  whiteLogoOnDark?: boolean;
 }
 
-const { company, role, dates, href, monogram, logo } = Astro.props;
+const { company, role, dates, href, monogram, logo, whiteLogoOnDark = false } = Astro.props;
 ---
 
 <a
@@ -39,7 +40,7 @@ const { company, role, dates, href, monogram, logo } = Astro.props;
           height="56"
           loading="lazy"
           decoding="async"
-          class="size-full object-contain"
+          class:list={["size-full object-contain", { "timeline-row__logo--white": whiteLogoOnDark }]}
         />
       ) : (
         <span class="text-[20px] leading-none font-semibold whitespace-nowrap text-fg" aria-hidden="true">{monogram}</span>
@@ -77,5 +78,8 @@ const { company, role, dates, href, monogram, logo } = Astro.props;
   }
   .timeline-row:focus-visible::before {
     opacity: 0.05;
+  }
+  :global(html.dark) .timeline-row__logo--white {
+    filter: brightness(0) invert(1);
   }
 </style>

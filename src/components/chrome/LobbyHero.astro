@@ -22,31 +22,42 @@ const words = (text: string) => text.split(" ");
   <span class="hero__line hero__line--2">
     <span class="hero__group"
       ><span data-tok>A</span>
-      {
-        words("Business Systems Analyst").map((word) => (
-          <>
-            {" "}
-            <span data-tok class="hero__strong" data-anim-trigger="bsa" style="color:var(--accent-career)">
-              {word}
-            </span>
-          </>
-        ))
-      }</span
+      <a
+        href="https://www.tealhq.com/career-paths/business-systems-analyst"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="hero__link"
+        style="color:var(--accent-career)"
+        >{
+          words("Business Systems").map((word) => (
+            <>
+              <span data-tok class="hero__strong">{word}</span>{" "}
+            </>
+          ))
+        }<span class="hero__keep"
+          ><span data-tok class="hero__strong">Analyst</span><span class="hero__pop" data-pop="Analyst" style="--pop:var(--bsa)"
+            ><span class="hero__chair"><Icon name="chart-column" class="hero__bsa" size="var(--bsa)" /></span></span
+          ></span
+        ></a
+      ></span
     >
-    <span class="hero__pop" data-pop="Analyst" data-anim-trigger="bsa" style="color:var(--accent-career)">
-      <span class="hero__chair">
-        <Icon name="chart-column" class="hero__bsa" size="var(--bsa)" />
-      </span>
-    </span>
     <span class="hero__group"
       ><span data-tok>at</span>
-      <span data-tok class="hero__strong" data-anim-trigger="pnc" style="color:var(--accent-pnc)">PNC</span></span
+      <a
+        href="https://www.pnc.com"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="hero__link"
+        style="color:var(--accent-pnc)"
+        ><span class="hero__keep"
+          ><span data-tok class="hero__strong">PNC</span><span class="hero__pop" data-pop="PNC" style="--pop:var(--pnc)"
+            ><span class="hero__ball"
+              ><img src="/brand/pnc.png" alt="" width="36" height="36" class="hero__pnc block object-cover" /></span
+            ></span
+          ></span
+        ></a
+      ></span
     >
-    <span class="hero__pop" data-pop="PNC" data-anim-trigger="pnc">
-      <span class="hero__ball">
-        <img src="/brand/pnc.png" alt="PNC" width="36" height="36" class="hero__pnc block object-cover" />
-      </span>
-    </span>
   </span>
   <span class="hero__line">
     <span class="hero__group">
@@ -64,21 +75,14 @@ const words = (text: string) => text.split(" ");
 </h1>
 
 <style>
-  /* Mobile (Figma 19:467): one wrapping flow, 24/1.25 medium, gap 2px 6px. */
+  /* Mobile (Figma 19:467): one wrapping run of inline text, 24/1.25 medium
+     (plus the 2px row gap). Only a word and its mark are kept together. */
   .hero {
     --bsa: 22px;
     --pnc: 22px;
-    display: flex;
-    flex-wrap: wrap;
-    align-content: center;
-    align-items: center;
-    gap: 2px 6px;
+    --pop-gap: 6px;
     font-size: 24px;
-    line-height: 1.25;
-  }
-  .hero__line,
-  .hero__group {
-    display: contents;
+    line-height: calc(1.25em + 2px);
   }
   .hero__unit {
     white-space: nowrap;
@@ -106,12 +110,39 @@ const words = (text: string) => text.split(" ");
   .hero__liam-link:active .hero__liam {
     text-decoration-line: underline;
   }
-  [data-anim-trigger] {
-    cursor: default;
+  /* Role and company link out like their /me Marks, and each mark is part of
+     its link. text-decoration never underlines images, so the underline is a
+     background stripe across the link's inline box (text, gap and mark),
+     drawn where Geist's own underline sits: 0.1em under the baseline, 0.05em
+     thick, i.e. 0.07em above the 0.22em descent. Inline boxes wrap, so the
+     stripe follows "Business Systems Analyst" onto a second line on phones. */
+  .hero__link {
+    text-decoration: none;
+    background: no-repeat linear-gradient(currentColor, currentColor) 0 calc(100% - 0.07em) / 0 max(1px, 0.05em);
   }
+  @media (hover: hover) {
+    .hero__link:hover {
+      background-size: 100% max(1px, 0.05em);
+    }
+  }
+  .hero__link:focus-visible,
+  .hero__link:active {
+    background-size: 100% max(1px, 0.05em);
+  }
+  :global(html.typing) .hero__link {
+    background-image: none;
+  }
+  .hero__keep {
+    white-space: nowrap;
+  }
+  /* Marks sit centered on the text (Geist's content box is 0.92em up / 0.22em
+     down, so its middle is 0.35em above the baseline), the way the old flex
+     row centered them. */
   .hero__pop {
-    display: flex;
-    flex-shrink: 0;
+    display: inline-block;
+    margin-left: var(--pop-gap);
+    vertical-align: calc(0.35em - var(--pop) / 2);
+    line-height: 0;
   }
   .hero__pnc {
     width: var(--pnc);
@@ -123,10 +154,10 @@ const words = (text: string) => text.split(" ");
     .hero {
       --bsa: calc(28 * var(--lobby-u, 1px));
       --pnc: calc(36 * var(--lobby-u, 1px));
+      --pop-gap: calc(12 * var(--lobby-u, 1px));
+      display: flex;
       flex-direction: column;
-      flex-wrap: nowrap;
       align-items: flex-start;
-      gap: 0;
       font-size: calc(40 * var(--lobby-u, 1px));
       line-height: 1.2;
     }

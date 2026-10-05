@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 // v2 ProgressiveImage (commit d0baf91): skeleton → 480px placeholder → srcset
 // upgrade that, once requested, stays requested. v3 additions: site tokens for
-// the skeleton, and catching placeholders that finished loading before SSR
-// hydration attached onLoad.
+// the skeleton, catching placeholders that finished loading before SSR
+// hydration attached onLoad, and leaving the placeholder visible until the
+// island mounts so SSR'd photos paint without waiting on hydration (or JS).
 interface ProgressiveImageProps {
   placeholderSrc: string;
   srcSet?: string;
@@ -37,6 +38,10 @@ export default function ProgressiveImage({
   const [placeholderLoaded, setPlaceholderLoaded] = useState(false);
   const [upgradeRequested, setUpgradeRequested] = useState(upgrade);
   const [upgradeLoaded, setUpgradeLoaded] = useState(false);
+  // false on the server and the hydrating render, so both emit the same
+  // visible markup; the fade only takes over once React owns the element.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   if (upgrade && !upgradeRequested) {
     setUpgradeRequested(true);
@@ -51,7 +56,7 @@ export default function ProgressiveImage({
         loading={loading}
         decoding="async"
         draggable={draggable}
-        className={`${placeholderClassName} ${placeholderLoaded ? "opacity-100" : "opacity-0"}`}
+        className={`${placeholderClassName} ${placeholderLoaded || !mounted ? "opacity-100" : "opacity-0"}`}
         onLoad={() => setPlaceholderLoaded(true)}
         ref={(img) => {
           if (img?.complete && img.naturalWidth > 0 && !placeholderLoaded) setPlaceholderLoaded(true);

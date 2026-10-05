@@ -11,9 +11,10 @@ const DEFAULT_DESCRIPTION =
 
 const { title = "Liam Sullivan", description = DEFAULT_DESCRIPTION } =
   Astro.props;
-const canonical = new URL(Astro.url.pathname, Astro.site);
-// Crawlers need an absolute share image; fall back to the request origin.
-const ogImage = new URL("/banner.jpg", Astro.site ?? Astro.url);
+// Canonical and share URLs are absolute; without `site`, fall back to the request origin.
+const origin = Astro.site ?? Astro.url;
+const canonical = new URL(Astro.url.pathname, origin);
+const ogImage = new URL("/banner.jpg", origin);
 ---
 
 <!doctype html>

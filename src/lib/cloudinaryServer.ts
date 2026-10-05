@@ -124,6 +124,9 @@ export async function listPhotoTags(): Promise<string[]> {
     cursor = data.next_cursor;
   } while (cursor);
 
-  tags.delete("featured");
-  return [...tags].sort();
+  return publicTags(tags);
 }
+
+/** Chip-row tags: `featured` is editorial and `_`-prefixed tags are internal. */
+export const publicTags = (tags: Iterable<string>) =>
+  [...new Set(tags)].filter((tag) => tag !== "featured" && !tag.startsWith("_")).sort();

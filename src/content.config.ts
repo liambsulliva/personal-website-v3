@@ -12,6 +12,8 @@ const career = defineCollection({
     // Figma's Education row renders "Pitt", so 4 rather than 2.
     monogram: z.string().max(4).optional(),
     logo: z.string().optional(), // Cloudinary public_id (site/career/*)
+    // One-color wordmark that disappears on the dark field: render it white there.
+    whiteLogoOnDark: z.boolean().default(false),
     href: z.string().url(),
     order: z.number().default(0),
   }),
