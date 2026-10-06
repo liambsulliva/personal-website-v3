@@ -9,7 +9,7 @@ import Controls from "../components/chrome/Controls.astro";
 import Socials from "../components/chrome/Socials.astro";
 import NavLink from "../components/chrome/NavLink.astro";
 import Logomark from "../components/chrome/Logomark.astro";
-import Timer from "../components/chrome/Timer.tsx";
+import Timer from "../components/chrome/Timer.astro";
 import { SECTIONS } from "../lib/sections";
 ---
 
@@ -59,7 +59,7 @@ import { SECTIONS } from "../lib/sections";
 
     <div class="flex w-full items-end justify-between" data-name="Bottom">
       <Logomark />
-      <Timer client:idle />
+      <Timer />
     </div>
   </main>
 </RootLayout>

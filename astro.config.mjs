@@ -6,13 +6,14 @@ import vercel from "@astrojs/vercel";
 import tailwindcss from "@tailwindcss/vite";
 import rehypeExternalLinks from "rehype-external-links";
 import slashSafeRedirects from "./integrations/slashSafeRedirects.mjs";
+import criticalCss from "./integrations/criticalCss.mjs";
 
 // https://astro.build/config
 export default defineConfig({
   site: "https://liambsullivan.com",
   trailingSlash: "ignore",
   devToolbar: { enabled: false },
-  integrations: [react(), svelte(), mdx(), slashSafeRedirects()],
+  integrations: [react(), svelte(), mdx(), slashSafeRedirects(), criticalCss()],
   markdown: {
     shikiConfig: {
       themes: { light: "github-light", dark: "github-dark-default" },

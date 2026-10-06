@@ -7,7 +7,7 @@ import Icon from "../icons/Icon.astro";
 import Controls from "./Controls.astro";
 import Socials from "./Socials.astro";
 import Logomark from "./Logomark.astro";
-import Timer from "./Timer.tsx";
+import Timer from "./Timer.astro";
 import { SECTIONS } from "../../lib/sections";
 
 ---
@@ -61,7 +61,7 @@ import { SECTIONS } from "../../lib/sections";
 
     <div class="flex w-full items-center justify-between" data-name="Bottom">
       <Logomark />
-      <Timer client:idle />
+      <Timer />
     </div>
   </div>
 </div>

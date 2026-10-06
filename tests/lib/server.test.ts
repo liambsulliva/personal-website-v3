@@ -8,6 +8,7 @@ import {
   SWITCH_MENU_PROJECT_URL,
 } from "../../src/lib/switchMenuEmbed";
 import { slashSafeRoute } from "../../integrations/slashSafeRedirects.mjs";
+import { PRE_PAINT_STATE } from "../../integrations/criticalCss.mjs";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -156,5 +157,28 @@ describe("slashSafeRoute (Vercel redirect patterns)", () => {
     expect(slashSafeRoute(filesystem)).toBe(filesystem);
     const done = { src: "^/x/?$", headers: { Location: "/y" }, status: 301 };
     expect(slashSafeRoute(done)).toBe(done);
+  });
+});
+
+describe("PRE_PAINT_STATE (critical CSS allowlist)", () => {
+  it("keeps rules for state set before the deferred stylesheet arrives", () => {
+    for (const selector of [
+      ":root.dark",
+      ".dark\\:text-fg:where(.dark,.dark *)",
+      ":root.js .cld>img:not([data-loaded])",
+      "html.typing .hero__link",
+      ":root[data-reduced-motion] *",
+      ':root[data-theme="system"] .theme-glyph',
+      "[data-pop][data-shown]",
+      '.toc-link[aria-current="true"]',
+    ]) {
+      expect(PRE_PAINT_STATE.test(selector), selector).toBe(true);
+    }
+  });
+
+  it("leaves look-alike selectors to Beasties", () => {
+    for (const selector of [".darken", ".typings", ".json", "[data-themes]", "[data-loaded]"]) {
+      expect(PRE_PAINT_STATE.test(selector), selector).toBe(false);
+    }
   });
 });

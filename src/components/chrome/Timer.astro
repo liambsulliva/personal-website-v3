@@ -1,0 +1,70 @@
+---
+/**
+ * Figma Timer (6:141). Tick only, so a plain script instead of an island.
+ * Shows the visitor's local time; hover/focus advances the film strip one
+ * frame to Pittsburgh time, "5:08 PM (My Time)". Touch has no hover, so a
+ * tap toggles the same advance — unadvertised, for whoever finds it.
+ * Hidden until the script fills in the first tick.
+ */
+---
+
+<div
+  class="timer flex shrink-0 items-start px-2 py-1"
+  tabindex="-1"
+  style="visibility: hidden"
+  data-timer
+>
+  <time class="timer__gate">
+    <span class="timer__strip">
+      <span class="timer__frame" data-timer-yours>0:00 PM (Your Time)</span>
+      <span class="timer__frame" aria-hidden="true" data-timer-home>0:00 PM (My Time)</span>
+    </span>
+  </time>
+</div>
+
+<script>
+  const local = new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+  const pgh = new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "America/New_York",
+  });
+
+  for (const timer of document.querySelectorAll<HTMLElement>("[data-timer]")) {
+    const gate = timer.querySelector("time")!;
+    const yours = timer.querySelector("[data-timer-yours]")!;
+    const home = timer.querySelector("[data-timer-home]")!;
+
+    const tick = () => {
+      const now = new Date();
+      yours.textContent = `${local.format(now)} (Your Time)`;
+      home.textContent = `${pgh.format(now)} (My Time)`;
+      gate.dateTime = now.toISOString();
+      timer.setAttribute(
+        "aria-label",
+        `Local time ${yours.textContent}, Pittsburgh time ${home.textContent}`,
+      );
+    };
+
+    tick();
+    timer.tabIndex = 0;
+    timer.style.visibility = "visible";
+    // Align ticks to the minute boundary.
+    setTimeout(
+      () => {
+        tick();
+        setInterval(tick, 60_000);
+      },
+      60_000 - (Date.now() % 60_000),
+    );
+
+    timer.addEventListener("pointerup", (event) => {
+      if (event.pointerType !== "mouse") timer.toggleAttribute("data-advanced");
+    });
+  }
+</script>

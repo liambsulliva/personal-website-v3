@@ -1,7 +1,7 @@
 ---
 /** Figma SubpageFooter (21:449): Logomark + Timer, pt32 pb48 px64. */
 import Logomark from "./Logomark.astro";
-import Timer from "./Timer.tsx";
+import Timer from "./Timer.astro";
 ---
 
 <footer
@@ -9,5 +9,5 @@ import Timer from "./Timer.tsx";
   data-name="Footer"
 >
   <Logomark />
-  <Timer client:idle />
+  <Timer />
 </footer>
