@@ -1,11 +1,11 @@
 ---
 /**
- * /design (Figma Subpage / Design 53:3354): UX case-study row, then
+ * /design (Figma Subpage / Design 53:3354): UX case studies as FeaturedArticle, then
  * Graphic Design (3-up), Layouts (2-up), Design Club (3-up) ArticleCards.
  */
 import SubpageLayout from "../../layouts/SubpageLayout.astro";
-import ProjectCard from "../../components/cards/ProjectCard.astro";
 import ArticleCard from "../../components/cards/ArticleCard.astro";
+import FeaturedArticle from "../../components/cards/FeaturedArticle.astro";
 import SectionLabel from "../../components/cards/SectionLabel.astro";
 import { getPieces, getProjects, hasWriteup, pieceMeta, projectHref } from "../../lib/content";
 
@@ -22,17 +22,17 @@ const sections = [
   <div class="flex w-full flex-col items-start gap-12 overflow-clip px-6 py-6 md:px-16 md:py-12" data-name="DesignBody">
     {
       caseStudies.length > 0 && (
-        <section class="flex w-full flex-col items-start gap-3" aria-labelledby="design-ux">
-          <SectionLabel id="design-ux">UX</SectionLabel>
+        <section class="flex w-full flex-col items-start gap-3" aria-labelledby="design-featured">
+          <SectionLabel id="design-featured" eyebrow>Featured!</SectionLabel>
           {caseStudies.map((project) => (
-            <ProjectCard
-              variant="case-study"
+            <FeaturedArticle
               title={project.data.title}
               description={project.data.description}
+              meta={project.data.date ? pieceMeta("Case Study", project.data.date) : "Case Study"}
               image={project.data.image}
               href={projectHref(project)}
               external={!hasWriteup(project)}
-              loading="eager"
+              bare
             />
           ))}
         </section>

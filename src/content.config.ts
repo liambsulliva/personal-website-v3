@@ -45,6 +45,7 @@ const projects = defineCollection({
     tools: z.array(z.string()).optional(),
     timeline: z.array(z.string()).optional(),
     subtitle: z.string().optional(),
+    date: z.coerce.date().optional(), // case-study card meta ("Case Study • Oct 2024")
     order: z.number().default(0),
   }),
 });

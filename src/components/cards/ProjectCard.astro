@@ -19,8 +19,6 @@ interface Props {
   external?: boolean;
   badges?: string[];
   languages?: { name: string; pct: number }[];
-  /** Design "case study" row: no badges, content vertically centered, 271px tall */
-  variant?: "default" | "case-study";
   loading?: "lazy" | "eager";
 }
 
@@ -32,24 +30,13 @@ const {
   external = false,
   badges = [],
   languages,
-  variant = "default",
   loading = "lazy",
 } = Astro.props;
-const caseStudy = variant === "case-study";
 ---
 
-<article
-  class:list={[
-    "project-card hover-surface relative flex w-full flex-col items-start gap-3 overflow-clip rounded-card border border-border bg-card p-3 text-left no-underline md:flex-row md:gap-6",
-    { "md:h-[271px]": caseStudy },
-  ]}
->
+<article class="project-card hover-surface relative flex w-full flex-col items-start gap-3 overflow-clip rounded-card border border-border bg-card p-3 text-left no-underline md:flex-row md:gap-6">
   <div
-    class:list={[
-      "relative h-[178px] w-full shrink-0 md:h-auto md:w-[480px] md:self-stretch",
-      { "md:min-h-[270px]": !caseStudy },
-      caseStudy ? "" : "overflow-clip rounded-md bg-skeleton",
-    ]}
+    class="relative h-[178px] w-full shrink-0 overflow-clip rounded-md bg-skeleton md:h-auto md:min-h-[270px] md:w-[480px] md:self-stretch"
     data-name="media"
   >
     <CldImage
@@ -57,18 +44,11 @@ const caseStudy = variant === "case-study";
       alt=""
       aspect="16:9"
       fill
-      bare={caseStudy}
       sizes="(min-width: 768px) 480px, 100vw"
       loading={loading}
     />
   </div>
-  <div
-    class:list={[
-      "flex min-w-px flex-[1_0_0] flex-col items-start gap-3 overflow-clip md:self-stretch",
-      caseStudy ? "md:h-full md:justify-center md:py-2" : "md:gap-4 md:py-3 md:pr-3",
-    ]}
-    data-name="content"
-  >
+  <div class="flex min-w-px flex-[1_0_0] flex-col items-start gap-3 overflow-clip md:gap-4 md:self-stretch md:py-3 md:pr-3" data-name="content">
     {
       badges.length > 0 && (
         <div class="flex flex-wrap items-start gap-2 overflow-clip md:flex-nowrap" data-name="badges">
@@ -76,7 +56,7 @@ const caseStudy = variant === "case-study";
         </div>
       )
     }
-    <div class:list={["flex w-full flex-col items-start", caseStudy ? "gap-3" : "gap-2"]} data-name="text">
+    <div class="flex w-full flex-col items-start gap-2" data-name="text">
       <div class="flex items-center gap-1 overflow-clip" data-name="title-row">
         <h3 class="m-0 text-[24px] leading-[1.2] font-bold text-fg">
           <a

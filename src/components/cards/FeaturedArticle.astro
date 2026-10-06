@@ -1,35 +1,51 @@
 ---
-/** Figma Writing / FeaturedArticle (68:3004). */
+/**
+ * Figma Writing / FeaturedArticle (68:3004). Featured card for /writing and the
+ * /design case study: media left (on top on mobile), content right.
+ * Title + description sit 8px apart as one group (gap holds when either wraps);
+ * meta follows 12px below. `external` opens in a new tab with the external
+ * icon. `bare` floats transparent artwork (mockups) with no skeleton behind it.
+ */
 import CldImage from "../media/CldImage.astro";
 import Icon from "../icons/Icon.astro";
 
 interface Props {
   title: string;
   description?: string;
-  meta: string;
+  meta?: string;
   href: string;
   image?: string;
+  external?: boolean;
+  bare?: boolean;
+  loading?: "lazy" | "eager";
 }
 
-const { title, description, meta, href, image } = Astro.props;
+const { title, description, meta, href, image, external = false, bare = false, loading = "eager" } = Astro.props;
 ---
 
 <a
   href={href}
-  target="_blank"
-  rel="noopener noreferrer"
+  {...external ? { target: "_blank", rel: "noopener noreferrer" } : {}}
   class="hover-surface flex w-full flex-col items-start gap-3 overflow-clip rounded-card border border-border bg-surface p-3 no-underline md:flex-row md:gap-6"
   style="--hover-base:var(--surface)"
 >
-  <div class="relative aspect-[640/336] w-full shrink-0 overflow-clip rounded-md bg-skeleton md:h-[336px] md:w-[640px] md:max-w-[50%] md:aspect-auto" data-name="media">
-    {image && <CldImage id={image} alt="" aspect="40:21" fill sizes="(min-width: 768px) 640px, 100vw" loading="eager" />}
+  <div
+    class:list={[
+      "relative aspect-[640/336] w-full shrink-0 md:h-[256px] md:w-[488px] md:max-w-[50%] md:aspect-auto",
+      { "overflow-clip rounded-md bg-skeleton": !bare },
+    ]}
+    data-name="media"
+  >
+    {image && <CldImage id={image} alt="" aspect="40:21" fill bare={bare} sizes="(min-width: 768px) 488px, 100vw" loading={loading} />}
   </div>
   <div class="flex min-w-px flex-[1_0_0] flex-col items-start justify-center gap-3 self-stretch overflow-clip py-4 pr-3 pl-1" data-name="content">
-    <div class="flex w-full items-center gap-2 overflow-clip" data-name="title-row">
-      <h3 class="m-0 min-w-px flex-[1_0_0] text-[24px] leading-[normal] font-bold text-fg md:text-[32px]">{title}</h3>
-      <Icon name="external-link" size={16} class="text-fg" />
+    <div class="flex w-full flex-col items-start gap-2" data-name="text">
+      <div class="flex w-full items-center gap-2 overflow-clip" data-name="title-row">
+        <h3 class="m-0 min-w-px flex-[1_0_0] text-[24px] leading-[normal] font-bold text-fg md:text-[32px]">{title}</h3>
+        {external && <Icon name="external-link" size={16} class="text-fg" />}
+      </div>
+      {description && <p class="m-0 w-full text-[16px] leading-[normal] text-muted">{description}</p>}
     </div>
-    {description && <p class="m-0 w-full text-[16px] leading-[normal] text-muted">{description}</p>}
-    <p class="m-0 text-[14px] leading-[normal] whitespace-nowrap text-muted">{meta}</p>
+    {meta && <p class="m-0 text-[14px] leading-[normal] whitespace-nowrap text-muted">{meta}</p>}
   </div>
 </a>
