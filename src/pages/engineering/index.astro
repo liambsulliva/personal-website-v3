@@ -1,14 +1,34 @@
 ---
-/** /engineering (Figma Subpage / Engineering 24:329): one-column ProjectCards, gap 24. */
+/**
+ * /engineering (Figma Subpage / Engineering 24:329): the featured project as a
+ * FeaturedArticle, then one-column ProjectCards, gap 24.
+ */
 import SubpageLayout from "../../layouts/SubpageLayout.astro";
 import ProjectCard from "../../components/cards/ProjectCard.astro";
-import { getProjects, hasWriteup, projectHref } from "../../lib/content";
+import FeaturedArticle from "../../components/cards/FeaturedArticle.astro";
+import SectionLabel from "../../components/cards/SectionLabel.astro";
+import { getProjects, hasWriteup, pieceMeta, projectHref, splitFeatured } from "../../lib/content";
 
-const projects = await getProjects("engineering");
+const { featured, rest: projects } = splitFeatured(await getProjects("engineering"));
 ---
 
 <SubpageLayout title="Engineering - Liam Sullivan" section="engineering">
   <div class="flex w-full flex-col items-start gap-6 overflow-clip px-6 py-6 md:px-16 md:py-12" data-name="Content">
+    {
+      featured && (
+        <section class="mb-6 flex w-full flex-col items-start gap-3" aria-labelledby="engineering-featured">
+          <SectionLabel id="engineering-featured" eyebrow>Featured!</SectionLabel>
+          <FeaturedArticle
+            title={featured.data.title}
+            description={featured.data.description}
+            meta={featured.data.date ? pieceMeta("Project", featured.data.date) : featured.data.badges.join(" • ")}
+            image={featured.data.image}
+            href={projectHref(featured)}
+            external={!hasWriteup(featured)}
+          />
+        </section>
+      )
+    }
     {
       projects.map((project, index) => (
         <ProjectCard
@@ -19,7 +39,7 @@ const projects = await getProjects("engineering");
           external={!hasWriteup(project)}
           badges={project.data.badges}
           languages={project.data.languages}
-          loading={index < 2 ? "eager" : "lazy"}
+          loading={index < (featured ? 1 : 2) ? "eager" : "lazy"}
         />
       ))
     }

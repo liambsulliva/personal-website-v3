@@ -25,6 +25,16 @@ export async function getProjects(wing: "engineering" | "design") {
   return projects.sort((a, b) => a.data.order - b.data.order);
 }
 
+/**
+ * Each wing's page leads with one FeaturedArticle: the first entry (in page
+ * order) flagged `featured`. It's pulled out of the regular lists so it
+ * never shows twice.
+ */
+export function splitFeatured<T extends { data: { featured: boolean } }>(entries: T[]) {
+  const featured = entries.find((entry) => entry.data.featured);
+  return { featured, rest: entries.filter((entry) => entry !== featured) };
+}
+
 /** A project with an MDX body is a write-up; otherwise the card is outbound. */
 export const hasWriteup = (project: CollectionEntry<"projects">) =>
   Boolean(project.body && project.body.trim().length > 0);

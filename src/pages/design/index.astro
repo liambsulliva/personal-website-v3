@@ -1,16 +1,43 @@
 ---
 /**
- * /design (Figma Subpage / Design 53:3354): UX case studies as FeaturedArticle, then
+ * /design (Figma Subpage / Design 53:3354): the featured case study or piece as a
+ * FeaturedArticle, any other case studies (also FeaturedArticle), then
  * Graphic Design (3-up), Layouts (2-up), Design Club (3-up) ArticleCards.
  */
 import SubpageLayout from "../../layouts/SubpageLayout.astro";
 import ArticleCard from "../../components/cards/ArticleCard.astro";
 import FeaturedArticle from "../../components/cards/FeaturedArticle.astro";
 import SectionLabel from "../../components/cards/SectionLabel.astro";
-import { getPieces, getProjects, hasWriteup, pieceMeta, projectHref } from "../../lib/content";
+import { getPieces, getProjects, hasWriteup, pieceMeta, projectHref, splitFeatured } from "../../lib/content";
+import type { CollectionEntry } from "astro:content";
 
-const caseStudies = await getProjects("design");
-const pieces = await getPieces("design");
+// Either a case study or a piece can lead the page; case studies win a tie.
+const { featured: featuredProject, rest: caseStudies } = splitFeatured(await getProjects("design"));
+const allPieces = await getPieces("design");
+const pieceSplit = splitFeatured(allPieces);
+const featuredPiece = featuredProject ? undefined : pieceSplit.featured;
+const pieces = featuredPiece ? pieceSplit.rest : allPieces;
+
+const caseStudyCard = (project: CollectionEntry<"projects">) => ({
+  title: project.data.title,
+  description: project.data.description,
+  meta: project.data.date ? pieceMeta("Case Study", project.data.date) : "Case Study",
+  image: project.data.image,
+  href: projectHref(project),
+  external: !hasWriteup(project),
+  bare: true,
+});
+const featured = featuredProject
+  ? caseStudyCard(featuredProject)
+  : featuredPiece && {
+      title: featuredPiece.data.title,
+      description: featuredPiece.data.description,
+      meta: pieceMeta(featuredPiece.data.kind, featuredPiece.data.date),
+      image: featuredPiece.data.image,
+      href: featuredPiece.data.href,
+      external: featuredPiece.data.external,
+      bare: false,
+    };
 const sections = [
   { key: "graphic-design", label: "Graphic Design", columns: 3 },
   { key: "layouts", label: "Layouts", columns: 2, media: "wide" },
@@ -21,19 +48,19 @@ const sections = [
 <SubpageLayout title="Design - Liam Sullivan" section="design">
   <div class="flex w-full flex-col items-start gap-12 overflow-clip px-6 py-6 md:px-16 md:py-12" data-name="DesignBody">
     {
-      caseStudies.length > 0 && (
+      featured && (
         <section class="flex w-full flex-col items-start gap-3" aria-labelledby="design-featured">
           <SectionLabel id="design-featured" eyebrow>Featured!</SectionLabel>
+          <FeaturedArticle {...featured} />
+        </section>
+      )
+    }
+    {
+      caseStudies.length > 0 && (
+        <section class="flex w-full flex-col items-start gap-3" aria-labelledby="design-case-studies">
+          <SectionLabel id="design-case-studies">Case Studies</SectionLabel>
           {caseStudies.map((project) => (
-            <FeaturedArticle
-              title={project.data.title}
-              description={project.data.description}
-              meta={project.data.date ? pieceMeta("Case Study", project.data.date) : "Case Study"}
-              image={project.data.image}
-              href={projectHref(project)}
-              external={!hasWriteup(project)}
-              bare
-            />
+            <FeaturedArticle {...caseStudyCard(project)} />
           ))}
         </section>
       )

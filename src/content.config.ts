@@ -46,6 +46,7 @@ const projects = defineCollection({
     timeline: z.array(z.string()).optional(),
     subtitle: z.string().optional(),
     date: z.coerce.date().optional(), // case-study card meta ("Case Study • Oct 2024")
+    featured: z.boolean().default(false), // the FeaturedArticle atop its wing's page (one per page)
     order: z.number().default(0),
   }),
 });
@@ -60,7 +61,6 @@ const pieces = defineCollection({
       "graphic-design",
       "layouts",
       "design-club",
-      "featured",
       "substack",
       "video",
       "cooking",
@@ -70,8 +70,9 @@ const pieces = defineCollection({
     href: z.string(),
     external: z.boolean().default(true),
     image: z.string().optional(),
-    description: z.string().optional(), // featured dek
+    description: z.string().optional(), // FeaturedArticle dek
     kind: z.string().optional(), // meta label: "Logo", "Cover", "Blog", …
+    featured: z.boolean().default(false), // the FeaturedArticle atop its gallery's page (one per page)
     order: z.number().default(0),
   }),
 });

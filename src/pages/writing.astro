@@ -1,6 +1,6 @@
 ---
 /**
- * /writing (Figma Subpage / Writing 28:811). Featured (SectionLabel +
+ * /writing (Figma Subpage / Writing 28:811). Featured (the piece flagged `featured`, as SectionLabel +
  * FeaturedArticle), then Substack / Cooking / Video Essays (from `pieces`,
  * hidden while empty) and Study Abroad (Berlin WordPress posts, SSR fetch,
  * 300s cache).
@@ -9,7 +9,7 @@ import SubpageLayout from "../layouts/SubpageLayout.astro";
 import ArticleCard from "../components/cards/ArticleCard.astro";
 import FeaturedArticle from "../components/cards/FeaturedArticle.astro";
 import SectionLabel from "../components/cards/SectionLabel.astro";
-import { getPieces, pieceMeta } from "../lib/content";
+import { getPieces, pieceMeta, splitFeatured } from "../lib/content";
 import { getBerlinPosts } from "../lib/berlin";
 import { PUBLIC_CACHE_CONTROL } from "../lib/cloudinaryServer";
 
@@ -18,7 +18,7 @@ export const prerender = false;
 Astro.response.headers.set("Cache-Control", PUBLIC_CACHE_CONTROL);
 
 const [pieces, berlin] = await Promise.all([getPieces("writing"), getBerlinPosts()]);
-const featured = pieces.find((piece) => piece.data.section === "featured");
+const { featured, rest } = splitFeatured(pieces);
 const sections = [
   { key: "substack", label: "Substack" },
   { key: "cooking", label: "Cooking" },
@@ -45,7 +45,7 @@ const sections = [
     }
     {
       sections.map((section) => {
-        const items = pieces.filter((piece) => piece.data.section === section.key);
+        const items = rest.filter((piece) => piece.data.section === section.key);
         if (items.length === 0) return null;
         return (
           <section class="flex w-full flex-col items-start gap-3" aria-labelledby={`writing-${section.key}`}>
