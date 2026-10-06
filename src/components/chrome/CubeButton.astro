@@ -1,0 +1,51 @@
+---
+/**
+ * IconButton cube / cube-off. Lobby-only, desktop-only toggle for the
+ * background wireframe cube (scripts/cube.ts). Greyed out while motion is off.
+ */
+import IconButton from "./IconButton.astro";
+import Icon from "../icons/Icon.astro";
+---
+
+<IconButton label="Toggle 3D" action="cube" class="cube-button">
+  <Fragment slot="icon">
+    <Icon name="cube" class="cube-glyph" data-for="on" />
+    <Icon name="cube-off" class="cube-glyph" data-for="off" />
+  </Fragment>
+  <Fragment slot="label">
+    <span class="cube-label" data-for="on">3D on</span>
+    <span class="cube-label" data-for="off">3D off</span>
+    <span class="cube-label" data-for="disabled">3D needs motion</span>
+  </Fragment>
+</IconButton>
+
+<style is:global>
+  .cube-label[data-for="disabled"],
+  :root[data-cube-off] .cube-glyph[data-for="on"],
+  :root:not([data-cube-off]):not([data-reduced-motion]) .cube-glyph[data-for="off"],
+  :root[data-reduced-motion] .cube-glyph[data-for="on"],
+  :root[data-cube-off] .cube-label[data-for="on"],
+  :root:not([data-cube-off]) .cube-label[data-for="off"],
+  :root[data-reduced-motion] .cube-label:not([data-for="disabled"]) {
+    display: none;
+  }
+  :root[data-reduced-motion] .cube-label[data-for="disabled"] {
+    display: inline;
+  }
+
+  /* Motion off: greyed out, no hover fill. Out-specifies IconButton's scoped hover rules. */
+  :root[data-reduced-motion] .cube-button.icon-button .icon-button__hit {
+    cursor: default;
+    background-color: transparent;
+  }
+  :root[data-reduced-motion] .cube-button.icon-button .icon-button__glyph .glyph {
+    opacity: 0.35;
+  }
+
+  /* Desktop-only: no cube below md or on touch-first devices. */
+  @media (max-width: 767px), (hover: none) {
+    .cube-button {
+      display: none;
+    }
+  }
+</style>
