@@ -14,17 +14,18 @@
 //   npm run photos:albums -- propose   match photos to folders → scripts/album-proposal.json
 //                                      (--offline: no Cloudinary call, from caches)
 //                                      + a thumbnail contact sheet in scripts/.cache/
-//   npm run photos:albums -- build     generate src/content/albums/*.yaml from the (edited)
+//   npm run photos:albums -- build     write src/content/albums/*.yaml from the (edited)
 //                                      proposal, offline (photo ids live in the
 //                                      repo; nothing is tagged in Cloudinary)
 //
 // Needs CLOUDINARY_CLOUD_NAME / _API_KEY / _API_SECRET (and FLICKR_API_KEY,
 // FLICKR_USER_ID) in .env.
 
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import YAML from "yaml";
 import { PHOTO_SCOPE, ROOT, envValue, requireCredentials, resourceWithMetadata, searchAll } from "./lib/cloudinary.mjs";
-import { MIN_ALBUM_PHOTOS, captureDay, flickrIdOf, parseFolders, proposeAlbums, albumYaml, siteAlbums } from "./lib/albums.mjs";
+import { MIN_ALBUM_PHOTOS, captureDay, flickrIdOf, parseFolders, proposeAlbums, albumYaml, mergeAlbum, siteAlbums, withOverrideFolders } from "./lib/albums.mjs";
 import { accountDates, photoDate } from "./lib/flickr.mjs";
 
 const CACHE_DIR = resolve(ROOT, "scripts/.cache");
@@ -39,7 +40,11 @@ const NAS_HITS = resolve(CACHE_DIR, "nas-hits.json");
 const PHOTOS_CACHE = resolve(CACHE_DIR, "photos.json");
 const FOLDERS = resolve(ROOT, "scripts/album-folders.json");
 const PROPOSAL = resolve(ROOT, "scripts/album-proposal.json");
+// Your categorizations: "<root>/<shoot folder>" → public_ids. Applied first by
+// propose, so they survive every re-run (the proposal itself is regenerated).
+const OVERRIDES = resolve(ROOT, "scripts/album-overrides.json");
 const SHEET = resolve(CACHE_DIR, "proposal.html");
+const REVIEW = resolve(CACHE_DIR, "to-categorize.html");
 const ALBUMS_DIR = resolve(ROOT, "src/content/albums");
 // The Admin API's 500 calls an hour include Search, which the live site's
 // photo pages use on every uncached render. Leave them plenty.
@@ -129,26 +134,32 @@ async function propose(offline) {
   if (missing) console.error(`Note: ${missing} photos have no cached filename/EXIF; only their public_id can place them.`);
   const flickrDates = readJson(FLICKR_CACHE, {});
   const nasHits = readJson(NAS_HITS, {});
-  const folders = parseFolders(readJson(FOLDERS, null) ?? {});
+  const takenOf = (id) => {
+    const { taken = null, file = null } = cache[id] ?? {};
+    return captureDay(taken) ? taken : (flickrDates[flickrIdOf(file)] ?? null);
+  };
+  const manual = readJson(OVERRIDES, {});
+  const folders = parseFolders(withOverrideFolders(readJson(FOLDERS, null) ?? {}, manual, (id) => captureDay(takenOf(id))));
   const proposal = proposeAlbums(
     folders,
-    photos.map((photo) => {
-      const { taken = null, file = null } = cache[photo.public_id] ?? {};
-      const when = captureDay(taken) ? taken : (flickrDates[flickrIdOf(file)] ?? null);
-      return { ...photo, taken: when, file };
-    }),
-    { nasHits },
+    photos.map((photo) => ({ ...photo, taken: takenOf(photo.public_id), file: cache[photo.public_id]?.file ?? null })),
+    { nasHits, manual },
   );
   writeJson(PROPOSAL, proposal);
   mkdirSync(CACHE_DIR, { recursive: true });
   writeFileSync(SHEET, contactSheet(proposal, photos));
+  writeFileSync(REVIEW, reviewSheet(proposal, photos, (id) => {
+    const { taken = null, file = null } = cache[id] ?? {};
+    return { day: captureDay(captureDay(taken) ? taken : flickrDates[flickrIdOf(file)]), file };
+  }));
 
   const shown = proposal.albums.filter((album) => album.photos.length >= MIN_ALBUM_PHOTOS).length;
   console.error(
     `${proposal.albums.length} folders, ${shown} with ≥ ${MIN_ALBUM_PHOTOS} photos; ` +
       `${proposal.unassigned.length} photos unassigned.\n` +
       `Review ${PROPOSAL.replace(`${ROOT}/`, "")} (move ids between albums, delete what's wrong) ` +
-      `with the contact sheet ${SHEET.replace(`${ROOT}/`, "")}, then run \`build\`.`,
+      `with the contact sheet ${SHEET.replace(`${ROOT}/`, "")}, then run \`build\`.\n` +
+      `What still needs you: ${REVIEW.replace(`${ROOT}/`, "")} (categorize in scripts/album-overrides.json).`,
   );
 }
 
@@ -163,12 +174,21 @@ function build() {
     Object.entries(cache).map(([id, entry]) => [id, captureDay(entry.taken) ? entry.taken : (flickrDates[flickrIdOf(entry.file)] ?? null)]),
   );
   const albums = siteAlbums(proposal, taken, envValue("CLOUDINARY_CLOUD_NAME"));
-  // The collection is exactly this build: albums that fell under the minimum go.
-  rmSync(ALBUMS_DIR, { recursive: true, force: true });
+  // The YAML is the source of truth: keep each file's title, year and date,
+  // refresh photos and count, and never delete an album file.
   mkdirSync(ALBUMS_DIR, { recursive: true });
-  for (const album of albums) writeFileSync(resolve(ALBUMS_DIR, `${album.slug}.yaml`), albumYaml(album));
+  const built = new Set();
+  for (const album of albums) {
+    const path = resolve(ALBUMS_DIR, `${album.slug}.yaml`);
+    const existing = existsSync(path) ? YAML.parse(readFileSync(path, "utf8")) : null;
+    writeFileSync(path, albumYaml(mergeAlbum(album, existing)));
+    built.add(`${album.slug}.yaml`);
+  }
+  const untouched = readdirSync(ALBUMS_DIR).filter((file) => /\.ya?ml$/.test(file) && !built.has(file));
   const kept = proposal.albums.flatMap((album) => album.photos).filter(({ how }) => how !== "ambiguous").length;
   console.error(`Wrote ${albums.length} albums to ${ALBUMS_DIR.replace(`${ROOT}/`, "")} from ${kept} placed photos (ambiguous ones wait for review).`);
+  if (untouched.length)
+    console.error(`Left alone (no longer built, or made by hand; delete them yourself if unwanted): ${untouched.join(", ")}`);
 }
 
 const escape = (text) => String(text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
@@ -190,6 +210,44 @@ figure{margin:0;width:160px}img{width:160px;height:160px;border-radius:6px;displ
 <p><b style="color:#72c">Purple</b> = its camera file is in that NAS folder. Named = the photo's own name matches the folder. Dated = capture date (EXIF or Flickr) match. <b style="color:#27c">Dotted</b> = a folder dated a day off. <b style="color:#d90">Dashed</b> = inferred from neighbours in upload order. <b style="color:#c33">Red</b> = same-day folders the tags couldn't split.</p>
 ${proposal.albums.map((album) => section(`${album.year} · ${album.folder}${album.photos.length < MIN_ALBUM_PHOTOS ? ` (hidden: < ${MIN_ALBUM_PHOTOS})` : ""}`, album.photos)).join("")}
 ${section("Unassigned", proposal.unassigned.map((id) => ({ id, how: "unassigned" })))}`;
+}
+
+/** Just the photos still needing you (unassigned, or ambiguous with a guess),
+ *  grouped by capture day, with what to paste into album-overrides.json. */
+function reviewSheet(proposal, photos, info) {
+  const byId = new Map(photos.map((photo) => [photo.public_id, photo]));
+  const rows = [
+    ...proposal.albums.flatMap((album) =>
+      album.photos.filter(({ how }) => how === "ambiguous").map(({ id }) => ({ id, guess: album.folder })),
+    ),
+    ...proposal.unassigned.map((id) => ({ id, guess: null })),
+  ].map((row) => ({ ...row, ...info(row.id) }));
+  const groups = new Map();
+  for (const row of rows) {
+    const key = `${row.day ?? "Undated"}${row.guess ? ` · best guess: ${row.guess}` : ""}`;
+    groups.set(key, [...(groups.get(key) ?? []), row]);
+  }
+  const tile = ({ id, file }) => {
+    const url = byId.get(id)?.secure_url;
+    return `<figure><img loading="lazy" src="${url ? thumb(url) : ""}"><figcaption><code>${escape(id)}</code>${file && file !== id ? `<br>${escape(file.replace(/_\d{8,}_o$/, ""))}` : ""}</figcaption></figure>`;
+  };
+  const sections = [...groups]
+    .sort(([a], [b]) => (a.startsWith("Undated") ? 1 : b.startsWith("Undated") ? -1 : a.localeCompare(b)))
+    .map(
+      ([key, items]) =>
+        `<h2>${escape(key)} <small>${items.length}</small></h2>` +
+        `<textarea readonly rows="2">${escape(JSON.stringify(items.map(({ id }) => id)))}</textarea>` +
+        `<div class="grid">${items.map(tile).join("")}</div>`,
+    );
+  return `<!doctype html><meta charset="utf-8"><title>Photos to categorize</title>
+<style>body{font:14px system-ui;margin:24px;max-width:1200px}h2{margin:32px 0 8px}small{color:#888;font-weight:400}
+.grid{display:flex;flex-wrap:wrap;gap:8px}figure{margin:0;width:140px}img{width:140px;height:140px;object-fit:cover;border-radius:6px;background:#ddd;display:block}
+figcaption{font-size:11px;color:#555;word-break:break-all}code{font-size:10px}textarea{width:100%;font:11px ui-monospace,monospace;color:#555}</style>
+<h1>${rows.length} photos to categorize</h1>
+<p>Each group's ids are in its box. Put them in <code>scripts/album-overrides.json</code> under the shoot they belong to, keyed by its NAS path,
+e.g. <code>{ "2026 Photos/Bigelow Bash 4-11": ["DJDiesel-21_csviz", …] }</code>. A shoot that isn't in <code>scripts/album-folders.json</code> yet (say Otakon 2026) needs adding there first.
+Then run <code>npm run photos:albums -- propose --offline</code> and <code>build</code>.</p>
+${sections.join("\n")}`;
 }
 
 requireCredentials();

@@ -1,0 +1,19 @@
+# title, year and date are yours to edit; `npm run photos:albums -- build` keeps them
+# and refreshes only photos and count (from scripts/album-proposal.json).
+title: "Jocelyn Bilton"
+year: 2026
+date: 2026-06-04
+count: 12
+photos:
+  - "JoceEdits-1_gj79tg"
+  - "JoceEdits-4_fnixad"
+  - "JoceEdits-9_b3mjyc"
+  - "JoceEdits-10_xdpywc"
+  - "JoceEdits-14_bqloeo"
+  - "JoceEdits-17_mhh9cg"
+  - "JoceEdits-18_vfdlmn"
+  - "JoceEdits-20_ptznkz"
+  - "JoceEdits-21_pvfm5u"
+  - "JoceEdits-26_gaxrdt"
+  - "JoceEdits-30_azgcv4"
+  - "JoceEdits-32_cy1qxo"

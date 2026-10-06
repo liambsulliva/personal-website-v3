@@ -1,0 +1,22 @@
+# title, year and date are yours to edit; `npm run photos:albums -- build` keeps them
+# and refreshes only photos and count (from scripts/album-proposal.json).
+title: "AP Studio Art - Pink & Purple"
+year: 2021
+date: 2021-12-30
+count: 15
+photos:
+  - "jupbwhwpdntbzhyqxzif"
+  - "cwd7tzm2adplxkqdg3v6"
+  - "alkoa3s4mrxm64mmtysg"
+  - "a5ohdgllck5ezf5e7jgc"
+  - "grbaw2i3wjzhtyaxyzm7"
+  - "th6gx0vln3ozz1uw44q8"
+  - "smcw7hurqthdm5vxoekg"
+  - "u4hqnyhqbzxila15cjun"
+  - "rggd9fi2nrefxfepbihc"
+  - "c6pjwjrmsghtnfi3gh4s"
+  - "mdkhg8plnsfy1iygzbmv"
+  - "i6cutshcwvwhxjr9ujdi"
+  - "qwzp0achwnpzhwhr1lmu"
+  - "dhwgklvfagr9jztlocsf"
+  - "nnwyyimyyd6slhpnl8kh"

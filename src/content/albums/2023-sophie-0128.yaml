@@ -1,0 +1,19 @@
+# title, year and date are yours to edit; `npm run photos:albums -- build` keeps them
+# and refreshes only photos and count (from scripts/album-proposal.json).
+title: "Sophia"
+year: 2023
+date: 2023-01-28
+count: 12
+photos:
+  - "kzscfmeatdydpiobujvf"
+  - "zjrjcxcrqxdnf15isuhj"
+  - "wklg2l2uolemmrem0mda"
+  - "nzn9uu867dvpwruu045j"
+  - "lx1sgcgpjmircsmn9fav"
+  - "y0ah64bpfqhrrtxmwlaa"
+  - "jx7tooztxmbaqyoymvah"
+  - "wgi8rgtxs8aazbywwno1"
+  - "ou4b6sigqeawzz8leymm"
+  - "fiqrufhrpwtnnhyjstzi"
+  - "n0coxipewa1uf0chtbud"
+  - "ft5hggjet7vcpyousrod"

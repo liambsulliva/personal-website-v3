@@ -1,0 +1,19 @@
+# title, year and date are yours to edit; `npm run photos:albums -- build` keeps them
+# and refreshes only photos and count (from scripts/album-proposal.json).
+title: "NFL Draft 2026"
+year: 2026
+date: 2026-04-24
+count: 12
+photos:
+  - "Draft-8_w6lmwv"
+  - "Draft-10_jzeo0s"
+  - "Draft-12_nzkcao"
+  - "Draft-14_g16iq1"
+  - "Draft-16_romsqn"
+  - "Draft-18_wc1ecv"
+  - "Draft-25_lvqu1m"
+  - "Draft-28_g3qlyu"
+  - "Draft-29_gkkhdr"
+  - "Draft-31_apzual"
+  - "Draft-32_gxsp36"
+  - "Draft-34_ix8mob"

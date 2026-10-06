@@ -14,9 +14,15 @@ export type Folder = {
   folder: string;
   title: string;
   year: number;
+  /** NAS path the shoot folder sits in: `2024 Photos`, `TPN Sophomore Year`, … */
+  root: string;
+  /** In its own year folder (wins same-name ties over a secondary root). */
+  primary: boolean;
   start: string | null;
   end: string | null;
   loose: boolean;
+  /** Dated only by its NAS import, not its name. */
+  approx: boolean;
   tags: string[];
 };
 
@@ -31,7 +37,7 @@ export type SourcePhoto = {
   file?: string | null;
 };
 
-export type AlbumHow = "nas" | "named" | "dated" | "nearby" | "ambiguous" | "inferred";
+export type AlbumHow = "manual" | "nas" | "named" | "dated" | "nearby" | "ambiguous" | "inferred";
 
 export type ProposedAlbum = {
   slug: string;
@@ -62,7 +68,7 @@ export declare function parseFolders(json: Record<string, FolderEntry[]>): Folde
 export declare function proposeAlbums(
   folders: Folder[],
   photos: SourcePhoto[],
-  options?: { nasHits?: Record<string, string[]> },
+  options?: { nasHits?: Record<string, string[]>; manual?: Record<string, string[]> },
 ): Proposal;
 export declare function siteAlbums(
   proposal: Proposal,
@@ -76,3 +82,13 @@ export declare function flickrTaken(datetaken: string | null | undefined, unknow
 export declare function photoName(publicId: string, file?: string | null): string | null;
 export declare function cameraStem(file: string | null | undefined): string | null;
 export declare function shootOf(path: string): string | null;
+export declare function photoWords(publicId: string, file?: string | null): string[] | null;
+export declare function withOverrideFolders(
+  json: Record<string, FolderEntry[]>,
+  manual: Record<string, string[]>,
+  dayOf: (id: string) => string | null,
+): Record<string, FolderEntry[]>;
+export declare function mergeAlbum<T extends { title: string; year: number; date: string | null }>(
+  built: T,
+  existing: Partial<Pick<T, "title" | "year" | "date">> | null,
+): T;

@@ -4,7 +4,7 @@
 
 export const MIN_ALBUM_PHOTOS = 5;
 // Placements a compiled album keeps. `ambiguous` waits for review.
-const KEPT = new Set(["nas", "named", "dated", "nearby", "inferred"]);
+const KEPT = new Set(["manual", "nas", "named", "dated", "nearby", "inferred"]);
 
 const pad = (n) => String(n).padStart(2, "0");
 const isDay = (month, day) => month >= 1 && month <= 12 && day >= 1 && day <= 31;
@@ -137,6 +137,31 @@ const KEYWORD_TAGS = [
 export const hintTags = (title) => [...new Set(KEYWORD_TAGS.flatMap(([pattern, tags]) => (pattern.test(title) ? tags : [])))];
 
 /**
+ * Adds a folder entry for every override shoot album-folders.json doesn't
+ * list (`2026 Photos/Otakon 2026`, `2022 Photos/2D Design/Photo/Blue 10-13`):
+ * your overrides can define albums too. The last path segment is its name and
+ * the rest its root; its year is its earliest photo's (`dayOf(id)` → YYYY-MM-DD
+ * or null), else the path's `YYYY Photos`, else the current year.
+ */
+export function withOverrideFolders(json, manual, dayOf) {
+  const listed = new Set(
+    Object.entries(json).flatMap(([year, entries]) =>
+      entries.map((entry) => `${rootOf(Number(year), entry)}/${typeof entry === "string" ? entry : entry.name}`),
+    ),
+  );
+  const out = Object.fromEntries(Object.entries(json).map(([year, entries]) => [year, [...entries]]));
+  for (const [shoot, ids] of Object.entries(manual)) {
+    if (listed.has(shoot)) continue;
+    const cut = shoot.lastIndexOf("/");
+    if (cut < 1) throw new Error(`album-overrides.json: "${shoot}" needs a path, like "2026 Photos/Otakon 2026"`);
+    const days = ids.map(dayOf).filter(Boolean).sort();
+    const year = days[0]?.slice(0, 4) ?? shoot.match(/^(\d{4}) Photos\//)?.[1] ?? String(new Date().getFullYear());
+    (out[year] ??= []).push({ name: shoot.slice(cut + 1), root: shoot.slice(0, cut) });
+  }
+  return out;
+}
+
+/**
  * `{ "2026": ["Amelia Harn Bookstore 5-30", { "name": "…", "tags": [...] }], … }`
  * → folders with unique slugs (`2026-amelia-harn-bookstore-0530`).
  */
@@ -196,6 +221,16 @@ const CAMERA_NAME = /^_?[a-z]{1,4}_?\d{4,}/i;
  * ids (`fub3coia8qrcg5jlanrt`) give null.
  */
 export function photoName(publicId, file) {
+  const parts = photoWords(publicId, file);
+  const key = parts ? parts.join("") : null;
+  return key && key.length >= 5 ? key : null;
+}
+
+const words = (text) => text.toLowerCase().split(/[^a-z0-9]+/).filter((word) => word && !/^\d+$/.test(word));
+
+/** photoName's words (`pitt-volleyball-v-oregon` → pitt, volleyball, v, oregon),
+ *  for matching a name whose words all appear in a longer folder title. */
+export function photoWords(publicId, file) {
   const flickrTitle = typeof file === "string" ? file.match(/^(.*)_\d{8,}_o$/)?.[1] : null;
   for (const raw of [flickrTitle, publicId]) {
     if (!raw || /^[a-z0-9]{20}$/.test(raw)) continue;
@@ -204,15 +239,15 @@ export function photoName(publicId, file) {
       .replace(/jpe?g$/i, "")
       .replace(/[-_ ]\d+$/, ""); // a frame counter: -10, _3
     if (CAMERA_NAME.test(name)) continue;
-    const key = nameKey(name);
-    if (key.length >= 5) return key;
+    const parts = words(name);
+    if (parts.join("").length >= 5) return parts;
   }
   return null;
 }
 
 /**
  * Matches photos to folders.
- * -1. NAS file hits (see below) come first and are final.
+ * -2. Manual overrides come first; -1. NAS file hits (see below) next. Both are final.
  * 0. A photo whose own name (photoName) starts with a folder's title, or vice
  *    versa, goes there (`named`); several matching folders are split by date,
  *    else the most specific title takes it, flagged `ambiguous`.
@@ -227,17 +262,29 @@ export function photoName(publicId, file) {
  * `photos`: { public_id, tags, created_at, taken, file } with `taken` EXIF or
  * null and `file` the original filename.
  */
-export function proposeAlbums(folders, photos, { nasHits = {} } = {}) {
+export function proposeAlbums(folders, photos, { nasHits = {}, manual = {} } = {}) {
   const assignment = new Map(); // public_id → { slug, how }
   const settled = new Set(); // NAS knows where the file lives: no guessing after
+  const byShoot = new Map(folders.map((folder) => [`${folder.root}/${folder.folder}`, folder]));
+
+  // -2. Your own calls (scripts/album-overrides.json: "<root>/<shoot>" → ids)
+  //     win over everything and survive every re-run.
+  for (const [shoot, ids] of Object.entries(manual)) {
+    const folder = byShoot.get(shoot);
+    if (!folder) throw new Error(`album-overrides.json: no shoot folder "${shoot}" in album-folders.json`);
+    for (const id of ids) {
+      assignment.set(id, { slug: folder.slug, how: "manual" });
+      settled.add(id);
+    }
+  }
 
   // -1. The photo's camera file on the NAS (nasHits: stem → paths). Counters
   //     roll over, so a stem can sit in several shoots; the one whose date
   //     (±1 day) fits the photo wins (`nas`). Found only outside the year
   //     folders (e.g. TPN Sophomore Year), the photo stays unassigned.
-  const byShoot = new Map(folders.map((folder) => [`${folder.root}/${folder.folder}`, folder]));
   const fits = (folder, day) => folder.start && shiftDay(folder.start, -1) <= day && day <= shiftDay(folder.end, 1);
   for (const photo of photos) {
+    if (settled.has(photo.public_id)) continue;
     const hits = nasHits[cameraStem(photo.file)];
     if (!hits?.length) continue;
     const shoots = [...new Set(hits.map(shootOf).filter(Boolean))].map((key) => byShoot.get(key)).filter(Boolean);
@@ -257,17 +304,28 @@ export function proposeAlbums(folders, photos, { nasHits = {} } = {}) {
       .find((found) => found.length) ?? [];
 
   const titled = folders
-    .map((folder) => ({ folder, key: nameKey(folder.title.replace(/\.\.\.$/, "")) }))
+    .map((folder) => ({ folder, key: nameKey(folder.title.replace(/\.\.\.$/, "")), words: new Set(words(folder.title)) }))
     .filter(({ key }) => key.length >= 5);
   for (const photo of photos) {
     if (settled.has(photo.public_id)) continue;
     const name = photoName(photo.public_id, photo.file);
     if (!name) continue;
-    const matches = titled.filter(({ key }) => name.startsWith(key) || key.startsWith(name));
+    // A prefix either way (`PulisCarShow` / "Puli's Car Show"), or every word
+    // of a longer name in the title (`pitt-volleyball-v-oregon`).
+    const parts = photoWords(photo.public_id, photo.file);
+    const matches = titled.filter(
+      ({ key, words: title }) =>
+        name.startsWith(key) || key.startsWith(name) || (parts.length >= 3 && parts.every((part) => title.has(part))),
+    );
     if (!matches.length) continue;
     const day = captureDay(photo.taken);
     const onDay = day ? matches.filter(({ folder }) => folder.start && folder.start <= day && day <= folder.end) : [];
-    let pool = onDay.length ? onDay : matches;
+    // Dated, a same-named folder from another year is out (two Supernovas).
+    const sameYear = day ? matches.filter(({ folder }) => folder.year === Number(day.slice(0, 4))) : [];
+    let pool = onDay.length ? onDay : sameYear.length ? sameYear : matches;
+    // `sophia` fits two Sophia Brush shoots but was taken on "Sophie 1-28"'s
+    // day: a dated photo no name match can settle is left to its date.
+    if (day && !onDay.length && pool.length > 1) continue;
     // A year folder beats a secondary root's same-named shoot.
     const primary = pool.filter(({ folder }) => folder.primary);
     if (primary.length === 1 && pool.length > 1) pool = primary;
@@ -292,7 +350,12 @@ export function proposeAlbums(folders, photos, { nasHits = {} } = {}) {
       assignment.set(photo.public_id, { slug: candidates[0].slug, how: near || candidates[0].approx ? "nearby" : "dated" });
       continue;
     }
-    const scored = candidates.map((folder) => ({ folder, score: overlap(folder.tags, photo.tags) }));
+    // Same-day folders: tags, and words of the photo's own name (`ls-climbing-club`).
+    const parts = photoWords(photo.public_id, photo.file) ?? [];
+    const scored = candidates.map((folder) => ({
+      folder,
+      score: overlap(folder.tags, photo.tags) + 2 * overlap(parts, words(folder.title)),
+    }));
     const best = Math.max(...scored.map(({ score }) => score));
     const winners = scored.filter(({ score }) => score === best);
     assignment.set(photo.public_id, {
@@ -302,7 +365,7 @@ export function proposeAlbums(folders, photos, { nasHits = {} } = {}) {
   }
 
   const ordered = [...photos].sort((a, b) => a.created_at.localeCompare(b.created_at) || a.public_id.localeCompare(b.public_id));
-  const anchors = ordered.map((photo) => (["nas", "dated", "named"].includes(assignment.get(photo.public_id)?.how) ? photo : null));
+  const anchors = ordered.map((photo) => (["manual", "nas", "dated", "named"].includes(assignment.get(photo.public_id)?.how) ? photo : null));
   const nearest = (index, step) => {
     for (let i = index + step; i >= 0 && i < ordered.length; i += step) if (anchors[i]) return anchors[i];
     return null;
@@ -372,10 +435,21 @@ export function siteAlbums(proposal, taken, cloudName) {
 
 const yamlString = (text) => JSON.stringify(text); // a JSON string is a valid YAML scalar
 
+/**
+ * A rebuilt album over its existing YAML: the file owns title, year and date
+ * (edit them freely); the build only refreshes photos and count.
+ */
+export function mergeAlbum(built, existing) {
+  if (!existing) return built;
+  const pick = (key) => (existing[key] === undefined ? built[key] : existing[key]);
+  return { ...built, title: pick("title"), year: pick("year"), date: pick("date") };
+}
+
 /** One album as its content-collection YAML (src/content/albums/<slug>.yaml). */
 export function albumYaml({ title, year, date, count, photos }) {
   return [
-    "# Generated by `npm run photos:albums -- build` from scripts/album-proposal.json.",
+    "# title, year and date are yours to edit; `npm run photos:albums -- build` keeps them",
+    "# and refreshes only photos and count (from scripts/album-proposal.json).",
     `title: ${yamlString(title)}`,
     `year: ${year}`,
     `date: ${date ?? "null"}`,

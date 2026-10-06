@@ -1,0 +1,28 @@
+# title, year and date are yours to edit; `npm run photos:albums -- build` keeps them
+# and refreshes only photos and count (from scripts/album-proposal.json).
+title: "Makenzie Wolf"
+year: 2025
+date: 2025-09-19
+count: 21
+photos:
+  - "awynanaexu54mlofvjxn"
+  - "dnm4lxqwmybksooodyuh"
+  - "dvjkqp4yfnuejy7yp6aw"
+  - "eyr9z6q8ct2rfrdqzmkk"
+  - "ezm1sg7a9c76vxnghbud"
+  - "f1lh9z7pceg6dbsmbr7e"
+  - "gg4se6e1ta01x9t022eu"
+  - "jn51u137ow7ec9i13wfa"
+  - "kee3lqeblap7d9d3y8dk"
+  - "l3tu82xyyu300mhlfvkk"
+  - "lymx8eufaxrkkpepqddm"
+  - "m9fxay2rswkxxmyayety"
+  - "nfdrdi37npg8gt01hqd9"
+  - "onffz5sho7jvmm1fse3d"
+  - "pzlgukjqdtzbu37ateqz"
+  - "qnjy2sxgekfnwqdgkxfe"
+  - "r4gtgklwr1j3dvi7tpg3"
+  - "r7kssppc0p9csn3iraoj"
+  - "rwowtlftfm9bncj41p2o"
+  - "ugwkt8wger19xihimkjl"
+  - "wjlbqg22jnktjmwgyrbj"

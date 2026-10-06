@@ -1,0 +1,29 @@
+# title, year and date are yours to edit; `npm run photos:albums -- build` keeps them
+# and refreshes only photos and count (from scripts/album-proposal.json).
+title: "Pitt Volleyball v. Oregon"
+year: 2024
+date: 2024-12-12
+count: 22
+photos:
+  - "ebekqd56srtpo2rcnm64"
+  - "my2hxdutfl4n9jw1c6ym"
+  - "k1zqdjqrh6g6c8m4iq1g"
+  - "saf3bmstex4yzquacb08"
+  - "o9bsyxc1porqd3rfdb00"
+  - "lqwchoazjflhlkxgoy0e"
+  - "plsiiawtgehfeaojdvdl"
+  - "joi8u1v7mr3ngfge5i3l"
+  - "fctzig1pd7afepxih3th"
+  - "uu8kcbdlj7nzmdfh7h4z"
+  - "r4hbnqsrdrejb4gwhfaa"
+  - "zltb4bv66s1glfzqxrbd"
+  - "rigwzivngnrpegthpi2y"
+  - "dob6ffdmae0viwagb4g5"
+  - "riz0v1qgqdxlpov4oi49"
+  - "zmpehewmsn0lnwh4cn0q"
+  - "n6hyuohoqleo0jlwrdly"
+  - "mjo9aex6jyzzraev8gxp"
+  - "giknu02wkxwkluuyotey"
+  - "etbhh3i5ga4brrh65g14"
+  - "ukngfzpynbzh9dsbgzha"
+  - "hpumont4aodhmxbh6rsl"
