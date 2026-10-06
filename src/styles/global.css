@@ -178,13 +178,10 @@ body {
   outline-offset: 2px;
 }
 
-/* Monochrome Figma glyph rendered through a mask so it follows currentColor. */
+/* Monochrome Figma glyph, inlined in currentColor (icons/Icon.astro). */
 .glyph {
   display: block;
   flex-shrink: 0;
-  background-color: currentColor;
-  -webkit-mask: var(--glyph) center / 100% 100% no-repeat;
-  mask: var(--glyph) center / 100% 100% no-repeat;
 }
 
 /* Hover lighten/darken for card surfaces (§15). */

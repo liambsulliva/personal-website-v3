@@ -1,4 +1,7 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState } from "react";
+import Glyph from "./Glyph";
+import chevronLeft from "../icons/svg/chevron-left.svg?raw";
+import chevronRight from "../icons/svg/chevron-right.svg?raw";
 
 // v2 CloudinaryMenu: one horizontally scrolling row of Figma Chips, with
 // edge fades + chevron buttons that appear only while there is overflow.
@@ -44,11 +47,7 @@ function ScrollButton({ direction, onClick }: { direction: "left" | "right"; onC
         className="squishy pointer-events-auto flex size-9 items-center justify-center text-fg"
         aria-label={`Scroll tags ${direction}`}
       >
-        <span
-          className="glyph"
-          style={{ "--glyph": `url(/icons/chevron-${direction}.svg)`, width: 20, height: 20 } as CSSProperties}
-          aria-hidden="true"
-        />
+        <Glyph svg={direction === "left" ? chevronLeft : chevronRight} size={20} />
       </button>
     </div>
   );

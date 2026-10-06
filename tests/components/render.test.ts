@@ -29,7 +29,7 @@ beforeAll(async () => {
   container = await AstroContainer.create();
 });
 
-const EXTERNAL_ICON = "/icons/external-link.svg";
+const EXTERNAL_ICON = 'data-icon="external-link"';
 const ROOT = join(import.meta.dirname, "../..");
 
 describe("ArticleCard", () => {

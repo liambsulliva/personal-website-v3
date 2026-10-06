@@ -1,4 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import Glyph from "./Glyph";
+import chevronLeft from "../icons/svg/chevron-left.svg?raw";
+import chevronRight from "../icons/svg/chevron-right.svg?raw";
 
 type CarouselTransition = "fade" | "slide";
 
@@ -67,17 +70,7 @@ export const CarouselNavigationButton: React.FC<{
     className="carousel-nav squishy flex size-10 shrink-0 items-center justify-center overflow-clip rounded-[20px] border border-border bg-bg text-fg disabled:pointer-events-none disabled:opacity-40"
     aria-label={label}
   >
-    <span
-      className="glyph"
-      style={
-        {
-          "--glyph": `url(/icons/chevron-${direction === "next" ? "right" : "left"}.svg)`,
-          width: 20,
-          height: 20,
-        } as React.CSSProperties
-      }
-      aria-hidden="true"
-    />
+    <Glyph svg={direction === "next" ? chevronRight : chevronLeft} size={20} />
   </button>
 );
 
