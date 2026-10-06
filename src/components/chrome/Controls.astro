@@ -1,9 +1,18 @@
 ---
 import ThemeButton from "./ThemeButton.astro";
 import MotionButton from "./MotionButton.astro";
+import CubeButton from "./CubeButton.astro";
+
+interface Props {
+  /** Lobby only: the background cube toggle (scripts/cube.ts). */
+  cube?: boolean;
+}
+
+const { cube = false } = Astro.props;
 ---
 
 <div class="flex items-start" data-name="Controls">
   <ThemeButton />
   <MotionButton />
+  {cube && <CubeButton />}
 </div>

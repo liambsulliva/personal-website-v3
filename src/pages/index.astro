@@ -14,6 +14,14 @@ import { SECTIONS } from "../lib/sections";
 ---
 
 <RootLayout title="Liam Sullivan">
+  <!-- Cube toggle state before first paint (no icon flash). -->
+  <script is:inline slot="head">
+    try {
+      if (localStorage.getItem("cube") === "off") {
+        document.documentElement.setAttribute("data-cube-off", "");
+      }
+    } catch {}
+  </script>
   <script is:inline slot="head">
     (() => {
       const root = document.documentElement;
@@ -31,15 +39,17 @@ import { SECTIONS } from "../lib/sections";
     })();
   </script>
 
+  <canvas class="lobby-cube" aria-hidden="true"></canvas>
+
   <main
     id="main"
     tabindex="-1"
-    class="flex min-h-dvh w-full flex-col items-start gap-6 px-6 pt-4 pb-8 md:gap-8 md:px-16 md:py-12 outline-none"
+    class="relative z-[1] flex min-h-dvh w-full flex-col items-start gap-6 px-6 pt-4 pb-8 md:gap-8 md:px-16 md:py-12 outline-none"
   >
     <div class="flex w-full flex-col-reverse gap-6 md:flex-row md:items-start md:justify-between md:gap-0" data-name="Top">
       <LobbyHero />
       <div class="flex justify-end">
-        <Controls />
+        <Controls cube />
       </div>
     </div>
 
@@ -66,9 +76,30 @@ import { SECTIONS } from "../lib/sections";
 
 <script>
   import "../scripts/typer";
+  import "../scripts/cube";
 </script>
 
 <style>
+  /* Background cube (scripts/cube.ts): faint behind the type, a touch
+     stronger in dark mode where thin colored lines read weaker. */
+  .lobby-cube {
+    --cube-opacity: 0.18;
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 700ms var(--ease-out);
+  }
+  :global(.dark) .lobby-cube {
+    --cube-opacity: 0.3;
+  }
+  .lobby-cube.is-visible {
+    opacity: var(--cube-opacity);
+  }
+
   /* Desktop lobby unit: 1 Figma px × --lobby-u. Solved so the baseline of
      "museum." meets the cap-top of "Me" (hero is top-anchored, nav is
      bottom-anchored, so the unit follows the viewport height). */

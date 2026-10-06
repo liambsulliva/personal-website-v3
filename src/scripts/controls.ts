@@ -1,6 +1,6 @@
-// Theme (light → dark → system) and motion (zap) controls. Icon and tooltip
-// state is pure CSS keyed off
-// html[data-theme] / html[data-reduced-motion].
+// Theme (light → dark → system), motion (zap) and lobby cube controls. Icon
+// and tooltip state is pure CSS keyed off
+// html[data-theme] / html[data-reduced-motion] / html[data-cube-off].
 
 type Theme = "light" | "dark" | "system";
 
@@ -38,10 +38,21 @@ const NEXT_THEME: Record<Theme, Theme> = {
 
 const isReduced = () => root.hasAttribute("data-reduced-motion");
 
+// The cube needs motion: greyed out (but still focusable for its tooltip) while zap is off.
+const syncCubeDisabled = (reduced: boolean) => {
+  document.querySelectorAll("[data-cube-toggle]").forEach((button) => {
+    if (reduced) button.setAttribute("aria-disabled", "true");
+    else button.removeAttribute("aria-disabled");
+  });
+};
+
 const applyMotion = (reduced: boolean) => {
   root.toggleAttribute("data-reduced-motion", reduced);
+  syncCubeDisabled(reduced);
   document.dispatchEvent(new CustomEvent("motionchange", { detail: { reduced } }));
 };
+
+syncCubeDisabled(isReduced());
 
 document.addEventListener("click", (event) => {
   const target = event.target as Element | null;
@@ -58,6 +69,15 @@ document.addEventListener("click", (event) => {
     const next = !isReduced();
     store("motion", next ? "reduced" : "full");
     applyMotion(next);
+    return;
+  }
+
+  if (target?.closest("[data-cube-toggle]")) {
+    if (isReduced()) return;
+    const on = root.hasAttribute("data-cube-off");
+    root.toggleAttribute("data-cube-off", !on);
+    store("cube", on ? "on" : "off");
+    document.dispatchEvent(new CustomEvent("cubechange", { detail: { on } }));
     return;
   }
 });

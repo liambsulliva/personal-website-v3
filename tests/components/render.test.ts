@@ -7,6 +7,7 @@ import ProjectCard from "../../src/components/cards/ProjectCard.astro";
 import CldImage from "../../src/components/media/CldImage.astro";
 import SectionLabel from "../../src/components/cards/SectionLabel.astro";
 import Socials from "../../src/components/chrome/Socials.astro";
+import Controls from "../../src/components/chrome/Controls.astro";
 import LobbyHero from "../../src/components/chrome/LobbyHero.astro";
 import Breadcrumb from "../../src/components/chrome/Breadcrumb.astro";
 import RootLayout from "../../src/layouts/RootLayout.astro";
@@ -269,6 +270,22 @@ describe("Socials", () => {
     for (const label of ["Resume", "GitHub", "LinkedIn"])
       expect(html).toContain(`aria-label="${label}"`);
     expect(html.match(/target="_blank"/g)).toHaveLength(3);
+  });
+});
+
+describe("Controls", () => {
+  it("leaves the cube toggle out by default (subpage mobile menu)", async () => {
+    const html = await container.renderToString(Controls);
+    expect(html).toContain("data-motion-toggle");
+    expect(html).not.toContain("data-cube-toggle");
+    expect(html).not.toContain("/icons/cube");
+  });
+
+  it("puts the lobby cube toggle right of motion, with on and off glyphs", async () => {
+    const html = await container.renderToString(Controls, { props: { cube: true } });
+    expect(html.indexOf("data-cube-toggle")).toBeGreaterThan(html.indexOf("data-motion-toggle"));
+    expect(html).toContain("/icons/cube.svg");
+    expect(html).toContain("/icons/cube-off.svg");
   });
 });
 

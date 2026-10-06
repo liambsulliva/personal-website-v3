@@ -11,7 +11,7 @@ interface Props {
   href?: string;
   external?: boolean;
   /** data-* hook for scripts (e.g. data-theme-toggle) */
-  action?: "theme" | "motion";
+  action?: "theme" | "motion" | "cube";
   class?: string;
   /** Extra attributes for the hit element (e.g. popovertarget) */
   attrs?: Record<string, string>;
@@ -23,7 +23,9 @@ const actionAttrs =
     ? { "data-theme-toggle": "" }
     : action === "motion"
       ? { "data-motion-toggle": "" }
-      : {};
+      : action === "cube"
+        ? { "data-cube-toggle": "" }
+        : {};
 const Tag: any = href ? "a" : "button";
 const linkAttrs = href
   ? { href, ...(external ? { target: "_blank", rel: "noopener noreferrer" } : {}) }
