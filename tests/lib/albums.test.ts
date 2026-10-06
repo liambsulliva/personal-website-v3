@@ -2,16 +2,21 @@ import { describe, expect, it } from "vitest";
 import realFolders from "../../scripts/album-folders.json";
 import {
   MIN_ALBUM_PHOTOS,
-  albumTag as scriptAlbumTag,
+  flickrIdOf,
+  flickrTaken,
+  photoName,
+  cameraStem,
+  shootOf,
   captureDay,
   hintTags,
   parseFolderName,
   parseFolders,
   proposeAlbums,
   siteAlbums,
-  toAlbumsModule,
+  albumYaml,
 } from "../../scripts/lib/albums.mjs";
-import { albumDetails, albumExpression, albumTag, toAlbumCard, type Album } from "../../src/lib/albums";
+import { albumDetails, toAlbumCard, type Album } from "../../src/lib/albums";
+import { idsExpression } from "../../src/lib/cloudinaryServer";
 
 type Photo = { public_id: string; tags: string[]; created_at: string; taken: string | null };
 
@@ -30,10 +35,8 @@ const resource = (public_id: string) => ({
   tags: ["extra"],
 });
 
-const previewOf = (id: string) => {
-  const { public_id, secure_url, width, height } = resource(id);
-  return { public_id, secure_url, width, height };
-};
+const CLOUD = "demo";
+const previewOf = (id: string) => ({ public_id: id, secure_url: `https://res.cloudinary.com/${CLOUD}/image/upload/${id}` });
 
 const assigned = (proposal: ReturnType<typeof proposeAlbums>) =>
   Object.fromEntries(proposal.albums.flatMap((album) => album.photos.map(({ id, how }) => [id, `${album.slug} ${how}`])));
@@ -162,7 +165,7 @@ describe("parseFolders", () => {
         2026: ["Bigelow Bash 4-11", { name: "Nala 4-25", tags: ["pets"] }, "Iceland 2026"],
         2023: ["Moab 3-3-9"],
       }),
-    ).toEqual([
+    ).toMatchObject([
       {
         slug: "2023-moab-0303",
         folder: "Moab 3-3-9",
@@ -239,8 +242,8 @@ describe("parseFolders", () => {
     it("gives unique, tag-safe slugs", () => {
       const slugs = folders.map((f) => f.slug);
       expect(new Set(slugs).size).toBe(slugs.length);
-      for (const slug of slugs) expect(slug).toMatch(/^[a-z0-9-]+$/);
-      for (const slug of slugs) expect(scriptAlbumTag(slug)).toMatch(/^_album-\d{4}-[a-z0-9-]+$/);
+      // URL-safe: the album route takes the slug as `?slug=`.
+      for (const slug of slugs) expect(slug).toMatch(/^\d{4}-[a-z0-9-]+$/);
     });
 
     it("gives every folder a title", () => {
@@ -337,8 +340,11 @@ describe("proposeAlbums", () => {
       photo("late", "2026:03:30 01:45:00"),
       photo("morning", "2026:03:30 05:00:00"),
     ]);
-    expect(assigned(proposal)).toEqual({ late: "2026-thievery-corporation-0329 dated" });
-    expect(proposal.unassigned).toEqual(["morning"]);
+    // After 5am it's a new day: only the day-off fallback takes it, flagged.
+    expect(assigned(proposal)).toEqual({
+      late: "2026-thievery-corporation-0329 dated",
+      morning: "2026-thievery-corporation-0329 nearby",
+    });
   });
 
   it("crosses the year boundary for late shows", () => {
@@ -446,13 +452,13 @@ describe("proposeAlbums", () => {
 
 describe("siteAlbums", () => {
   const ids = (prefix: string, n: number) => Array.from({ length: n }, (_, i) => `${prefix}${i}`);
-  const album = (slug: string, title: string, year: number, date: string | null, photoIds: string[]) => ({
+  const album = (slug: string, title: string, year: number, date: string | null, photoIds: string[], how = "dated") => ({
     slug,
     title,
     folder: title,
     year,
     date,
-    photos: photoIds.map((id) => ({ id, how: "dated" })),
+    photos: photoIds.map((id) => ({ id, how })),
   });
 
   const proposal = {
@@ -461,27 +467,26 @@ describe("siteAlbums", () => {
       album("2024-berlin", "Berlin", 2024, null, ids("berlin", 5)),
       album("2024-roma", "Roma", 2024, null, ids("roma", 5)),
       album("2025-tiny-0101", "Tiny", 2025, "2025-01-01", ids("tiny", 4)),
-      album("2025-ghosts-0301", "Ghosts", 2025, "2025-03-01", [...ids("ghost", 4), "missing"]),
+      // Ambiguous placements wait for review, so this one has none kept.
+      album("2025-maybe-0301", "Maybe", 2025, "2025-03-01", ids("maybe", 6), "ambiguous"),
     ],
     unassigned: [],
   };
-  const all = proposal.albums.flatMap((a) => a.photos.map(({ id }) => id)).filter((id) => id !== "missing");
-  const byId = new Map(all.map((id) => [id, resource(id)]));
-  const exif: Record<string, string> = {
+  const taken: Record<string, string | null> = {
     berlin0: "2024:07:03 10:00:00",
     berlin1: "2024:06:30 10:00:00",
     berlin2: "0000:00:00 00:00:00",
   };
 
-  it("hides small albums, counting only existing photos", () => {
+  it("hides albums under five kept photos", () => {
     expect(MIN_ALBUM_PHOTOS).toBe(5);
-    const slugs = siteAlbums(proposal, byId, exif).map((a) => a.slug);
+    const slugs = siteAlbums(proposal, taken, CLOUD).map((a) => a.slug);
     expect(slugs).not.toContain("2025-tiny-0101");
-    expect(slugs).not.toContain("2025-ghosts-0301");
+    expect(slugs).not.toContain("2025-maybe-0301");
   });
 
   it("dates by folder, then earliest capture, then nothing; newest first", () => {
-    expect(siteAlbums(proposal, byId, exif).map(({ slug, date, count }) => [slug, date, count])).toEqual([
+    expect(siteAlbums(proposal, taken, CLOUD).map(({ slug, date, count }) => [slug, date, count])).toEqual([
       ["2026-nala-0425", "2026-04-25", 5],
       ["2024-berlin", "2024-06-30", 5],
       ["2024-roma", null, 5],
@@ -498,26 +503,44 @@ describe("siteAlbums", () => {
         ],
         unassigned: [],
       },
-      byId,
       {},
+      CLOUD,
     );
     expect(albums.map((a) => a.title)).toEqual(["Charlie", "Alpha", "Zed"]);
   });
 
-  it("previews the first three photos", () => {
-    const [nala] = siteAlbums(proposal, byId, exif);
+  it("keeps photo ids in capture order, undated last", () => {
+    const berlin = siteAlbums(proposal, taken, CLOUD).find((a) => a.slug === "2024-berlin");
+    expect(berlin?.photos).toEqual(["berlin1", "berlin0", "berlin2", "berlin3", "berlin4"]);
+  });
+
+  it("previews the first three photos as delivery URLs", () => {
+    const [nala] = siteAlbums(proposal, taken, CLOUD);
     expect(nala.preview).toEqual(ids("nala", 3).map(previewOf));
   });
 
-  it("generates a typed module", () => {
-    const source = toAlbumsModule(proposal, byId, exif);
-    expect(source).toContain('import type { Album } from "../lib/albums";');
-    const json = source.slice(source.indexOf("= ") + 2).trim().replace(/;$/, "");
-    expect(JSON.parse(json)).toEqual(siteAlbums(proposal, byId, exif));
+  it("writes each album as content-collection YAML", () => {
+    const [nala] = siteAlbums(proposal, taken, CLOUD);
+    expect(albumYaml(nala)).toBe(
+      [
+        "# Generated by `npm run photos:albums -- build` from scripts/album-proposal.json.",
+        'title: "Nala"',
+        "year: 2026",
+        "date: 2026-04-25",
+        "count: 5",
+        "photos:",
+        ...nala.photos.map((id) => `  - "${id}"`),
+        "",
+      ].join("\n"),
+    );
+    // Quotes survive (JSON strings are YAML scalars); undated albums say null.
+    const odd = albumYaml({ ...nala, title: 'Is Phat\'s "Closing"?', date: null });
+    expect(odd).toContain(`title: ${JSON.stringify('Is Phat\'s "Closing"?')}`);
+    expect(odd).toContain("date: null");
   });
 });
 
-describe("album labels and tags", () => {
+describe("album labels", () => {
   it("formats stack details", () => {
     expect(albumDetails({ date: "2026-05-30", year: 2026, count: 24 })).toBe("May 2026 · 24 photos");
     expect(albumDetails({ date: "2017-12-03", year: 2017, count: 5 })).toBe("Dec 2017 · 5 photos");
@@ -525,10 +548,10 @@ describe("album labels and tags", () => {
     expect(albumDetails({ date: "2026-01-02", year: 2026, count: 1 })).toBe("Jan 2026 · 1 photo");
   });
 
-  it("builds the Cloudinary tag and expression", () => {
-    expect(albumTag("2026-nala-0425")).toBe("_album-2026-nala-0425");
-    expect(scriptAlbumTag("2026-nala-0425")).toBe(albumTag("2026-nala-0425"));
-    expect(albumExpression("2026-nala-0425")).toBe("resource_type:image AND tags=_album-2026-nala-0425");
+  it("looks an album's photos up by exact public_id", () => {
+    expect(idsExpression(["PulisCarShow-1_gt3ca3", "abc"])).toBe(
+      'resource_type:image AND (public_id="PulisCarShow-1_gt3ca3" OR public_id="abc")',
+    );
   });
 
   it("shapes an album card", () => {
@@ -538,13 +561,146 @@ describe("album labels and tags", () => {
       date: "2026-04-25",
       year: 2026,
       count: 7,
-      preview: ["a", "b", "c"].map(previewOf),
+      photos: ["a", "b", "c", "d", "e", "f", "g"],
     };
     const card = toAlbumCard(album);
     expect(card).toMatchObject({ slug: "2026-nala-0425", title: "Nala", details: "Apr 2026 · 7 photos" });
     expect(card.previews.map((p) => p.key)).toEqual(["a", "b", "c"]);
-    // One 2× center crop per card, no srcset.
+    // One 2× center crop per card, no srcset; the photo ids stay on the server.
     expect(card.previews[0].src).toContain("/upload/c_fill,w_352,h_440,f_auto,q_auto/");
     expect(Object.keys(card.previews[0]).sort()).toEqual(["key", "src"]);
+    expect(card).not.toHaveProperty("photos");
+  });
+});
+
+describe("Flickr originals", () => {
+  it("reads the Flickr id off an original's filename", () => {
+    expect(flickrIdOf("_a730157jpg_53598923131_o")).toBe("53598923131");
+    expect(flickrIdOf("pitt-volleyball-v-oregon_54200994529_o")).toBe("54200994529");
+    expect(flickrIdOf("DSC01234")).toBeNull();
+    expect(flickrIdOf(null)).toBeNull();
+  });
+
+  it("turns Flickr's date taken into the EXIF form, unless it's only the upload date", () => {
+    expect(flickrTaken("2024-02-03 15:25:36", "0")).toBe("2024:02:03 15:25:36");
+    expect(flickrTaken("2024-02-03 15:25:36", "1")).toBeNull();
+    expect(flickrTaken(undefined)).toBeNull();
+  });
+});
+
+describe("photo names", () => {
+  it("keys descriptive public_ids and titled Flickr originals, not camera names or random ids", () => {
+    expect(photoName("PulisCarShow-10_iww7ra")).toBe("puliscarshow");
+    expect(photoName("hpumont4aodhmxbh6rsl", "pitt-volleyball-v-oregon_54200994529_o")).toBe("pittvolleyballvoregon");
+    expect(photoName("fub3coia8qrcg5jlanrt", "_a730157jpg_53598923131_o")).toBeNull();
+    expect(photoName("IMG_1234")).toBeNull();
+  });
+
+  it("puts a named photo in its folder ahead of any date match", () => {
+    const folders = parseFolders({ 2026: ["Bigelow Bash 4-11", "Puli's Car Show 4-11"] });
+    const { albums } = proposeAlbums(folders, [
+      { public_id: "PulisCarShow-3_abc123", tags: ["music"], created_at: "2026-08-07T10:00:00Z", taken: "2026:04:11 20:00:00", file: null },
+    ]);
+    const puli = albums.find((album) => album.slug === "2026-puli-s-car-show-0411");
+    expect(puli?.photos).toEqual([{ id: "PulisCarShow-3_abc123", how: "named" }]);
+  });
+});
+
+describe("ambiguous names", () => {
+  it("flags a name that fits several folders when no date settles it", () => {
+    const folders = parseFolders({ 2019: ["Amelia Harn 1-6", "Amelia Harn Skatepark 6-11"] });
+    const { albums } = proposeAlbums(folders, [
+      { public_id: "x1", tags: [], created_at: "2019-01-01T00:00:00Z", taken: null, file: "amelia-harn_46679040221_o" },
+      { public_id: "x2", tags: [], created_at: "2019-01-02T00:00:00Z", taken: "2019:06:11 12:00:00", file: "amelia-harn_46679040222_o" },
+    ]);
+    const how = Object.fromEntries(albums.flatMap((album) => album.photos.map((photo) => [photo.id, [album.slug, photo.how]])));
+    expect(how.x1[1]).toBe("ambiguous");
+    expect(how.x2).toEqual(["2019-amelia-harn-skatepark-0611", "named"]);
+  });
+});
+
+describe("nearby dates", () => {
+  it("falls back to a folder dated a day off, flagged", () => {
+    const folders = parseFolders({ 2021: ["Kai Watkins 4-25"] });
+    const { albums } = proposeAlbums(folders, [
+      { public_id: "k1", tags: [], created_at: "2021-05-01T00:00:00Z", taken: "2021:04:24 15:00:00", file: null },
+    ]);
+    expect(albums[0].photos).toEqual([{ id: "k1", how: "nearby" }]);
+  });
+});
+
+describe("NAS shoot folders", () => {
+  it("reads the camera filename off a Flickr original", () => {
+    expect(cameraStem("_a730157jpg_53598923131_o")).toBe("_A730157");
+    expect(cameraStem("_a734651-enhanced-nrjpg_53599231464_o")).toBe("_A734651");
+    expect(cameraStem("pitt-volleyball-v-oregon_54200994529_o")).toBeNull();
+  });
+
+  it("files anything nested in a shoot folder under that one shoot", () => {
+    expect(shootOf("/PhotoDrive/2017 Photos/Isabelle and Dean Grimes 12-23/JPEG/_D201700.jpg")).toBe("2017 Photos/Isabelle and Dean Grimes 12-23");
+    expect(shootOf("/PhotoDrive/2024 Photos/PG Church Show 1/_A731632.ARW")).toBe("2024 Photos/PG Church Show 1");
+    expect(shootOf("/PhotoDrive/TPN Sophomore Year/BRIGID 2-3/_A730157.ARW")).toBe("TPN Sophomore Year/BRIGID 2-3");
+    expect(shootOf("/PhotoDrive/TPN Sophomore Year/_A734490.ARW")).toBeNull();
+  });
+
+  const folders = parseFolders({
+    2024: [{ name: "PG Church Show 1", imported: "2024-02-04" }, "Pitt v. UVA 11-9", "Eclipse 4-8"],
+    2017: ["Isabelle and Dean Grimes 12-23", "Erin Hopewell and Shay Monty 12-23"],
+  });
+  const photo = (id: string, file: string, taken: string | null) => ({ public_id: id, tags: [], created_at: "", taken, file });
+
+  it("places a camera file in the shoot whose date fits, across rolled-over counters", () => {
+    const nasHits = {
+      _A731632: ["/PhotoDrive/2024 Photos/PG Church Show 1/_A731632.ARW", "/PhotoDrive/2024 Photos/Pitt v. UVA 11-9/_A731632.ARW"],
+      _D201700: ["/PhotoDrive/2017 Photos/Isabelle and Dean Grimes 12-23/JPEG/_D201700.jpg"],
+    };
+    const proposal = proposeAlbums(
+      folders,
+      [photo("a", "_a731632jpg_53599262389_o", "2024:02:03 15:00:00"), photo("b", "_d201700jpg_38079546434_o", "2017:12:23 12:00:00")],
+      { nasHits },
+    );
+    expect(assigned(proposal)).toEqual({ a: "2024-pg-church-show-1 nas", b: "2017-isabelle-and-dean-grimes-1223 nas" });
+  });
+
+  it("leaves a file found only outside the known shoots unassigned, with no date guess", () => {
+    const nasHits = { _A730157: ["/PhotoDrive/2024 Photos/Pitt v. UVA 11-9/_A730157.ARW", "/PhotoDrive/Other Stuff/BRIGID 2-3/_A730157.ARW"] };
+    const proposal = proposeAlbums(folders, [photo("c", "_a730157jpg_53598923131_o", "2024:02:03 15:25:36")], { nasHits });
+    expect(proposal.unassigned).toEqual(["c"]);
+  });
+
+  it("dates an undated folder by its NAS import, for days no dated folder claims", () => {
+    const proposal = proposeAlbums(folders, [photo("d", "x_1_o", "2024:01:28 12:00:00"), photo("e", "y_2_o", "2024:04:08 12:00:00")]);
+    expect(assigned(proposal)).toEqual({ d: "2024-pg-church-show-1 nearby", e: "2024-eclipse-0408 dated" });
+  });
+});
+
+describe("secondary roots", () => {
+  const folders = parseFolders({
+    2024: [{ name: "BRIGID 2-3", root: "TPN Sophomore Year" }, { name: "Bigelow Bash 4-7", root: "TPN Sophomore Year" }],
+    2026: ["Bigelow Bash 4-11"],
+  });
+
+  it("maps NAS hits under a secondary root to its shoot", () => {
+    const nasHits = { _A730157: ["/PhotoDrive/TPN Sophomore Year/BRIGID 2-3/_A730157.ARW"] };
+    const proposal = proposeAlbums(folders, [
+      { public_id: "c", tags: [], created_at: "", taken: "2024:02:03 15:25:36", file: "_a730157jpg_53598923131_o" },
+    ], { nasHits });
+    expect(assigned(proposal)).toEqual({ c: "2024-brigid-0203 nas" });
+  });
+
+  it("gives same-named undated photos to the year folder's shoot", () => {
+    const proposal = proposeAlbums(folders, [{ public_id: "BigelowBash-10_tmapjv", tags: [], created_at: "", taken: null, file: null }]);
+    expect(assigned(proposal)).toEqual({ "BigelowBash-10_tmapjv": "2026-bigelow-bash-0411 named" });
+  });
+});
+
+describe("undated folders", () => {
+  it("date an album by its earliest photo, not its import window", () => {
+    const folders = parseFolders({ 2024: [{ name: "PG Church Show 1", imported: "2024-02-04" }] });
+    const photos = ["a", "b", "c", "d", "e"].map((id) => ({ public_id: id, tags: [], created_at: "", taken: "2024:02:03 15:00:00", file: null }));
+    const proposal = proposeAlbums(folders, photos);
+    expect(proposal.albums[0].date).toBeNull();
+    const taken = Object.fromEntries(photos.map((photo) => [photo.public_id, photo.taken]));
+    expect(siteAlbums(proposal, taken, "demo")[0].date).toBe("2024-02-03");
   });
 });

@@ -14,8 +14,11 @@ export const MAX_FLYERS = 12;
 export const CLEAR_MS = 150; // gallery fade out / in around a swap
 const STACK_PRESS = 0.96; // .squishy-stack --press-scale
 
-/** A box plus the tilt it's drawn at. */
-export type Card = Box & { angle: number };
+/** A box plus the tilt it's drawn at, and its white print border (stack
+ *  cards have one, gallery tiles don't: the flyer fades it in flight). */
+export type Card = Box & { angle: number; border?: number };
+
+const PRINT_BORDER = 4; // AlbumStack .album-card__print border-4
 
 const center = (box: Box) => ({ x: box.left + box.width / 2, y: box.top + box.height / 2 });
 
@@ -31,7 +34,14 @@ export function cardOf(card: HTMLElement): Card {
   const { x, y } = center(card.getBoundingClientRect());
   const width = card.offsetWidth;
   const height = card.offsetHeight;
-  return { left: x - width / 2, top: y - height / 2, width, height, angle: matrixAngle(getComputedStyle(card).transform) };
+  return {
+    left: x - width / 2,
+    top: y - height / 2,
+    width,
+    height,
+    angle: matrixAngle(getComputedStyle(card).transform),
+    border: PRINT_BORDER,
+  };
 }
 
 /** Where a flyer is right now, mid-flight included. */
@@ -41,7 +51,7 @@ export function flyerCard(flyer: HTMLElement): Card {
   const width = parseFloat(style.width);
   const height = parseFloat(style.height);
   const angle = parseFloat(style.rotate) || 0;
-  return { left: x - width / 2, top: y - height / 2, width, height, angle };
+  return { left: x - width / 2, top: y - height / 2, width, height, angle, border: parseFloat(style.borderTopWidth) || 0 };
 }
 
 /** Puts `flyer`'s anchor at `card`'s center, at `card`'s size and tilt. */
@@ -54,6 +64,7 @@ export function placeCardFlyer(flyer: HTMLElement, card: Card) {
     height: `${card.height}px`,
     translate: "-50% -50%",
     rotate: `${card.angle}deg`,
+    borderWidth: `${card.border ?? 0}px`,
   });
 }
 
@@ -71,6 +82,9 @@ export function createCardFlyer(src: string, card: Card) {
     borderRadius: "8px",
     boxShadow: "0 1px 2px rgba(0, 0, 0, 0.1), 0 6px 16px rgba(0, 0, 0, 0.08)",
     background: "var(--skeleton)",
+    boxSizing: "border-box",
+    borderStyle: "solid",
+    borderColor: "#fff",
   });
   placeCardFlyer(flyer, card);
   const img = document.createElement("img");
@@ -97,8 +111,8 @@ export function flyCard(flyer: HTMLElement, from: Card, to: Card, { duration = S
     ),
     flyer.animate(
       [
-        { width: `${from.width}px`, height: `${from.height}px`, rotate: `${from.angle}deg` },
-        { width: `${to.width}px`, height: `${to.height}px`, rotate: `${to.angle}deg` },
+        { width: `${from.width}px`, height: `${from.height}px`, rotate: `${from.angle}deg`, borderWidth: `${from.border ?? 0}px` },
+        { width: `${to.width}px`, height: `${to.height}px`, rotate: `${to.angle}deg`, borderWidth: `${to.border ?? 0}px` },
       ],
       { ...timing, easing: size },
     ),

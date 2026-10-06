@@ -1,28 +1,29 @@
 ---
 /**
  * /photography (Figma Subpage / Photography / Albums 190:3925). SSR: the album
- * stacks (src/data/albums.ts, no Cloudinary call), the tag list, and the first
- * masonry page. One island holds the stacks and the gallery, since opening an
- * album fills the gallery; it starts above the fold, so it hydrates on load.
+ * stacks (the `albums` content collection, no Cloudinary call), the tag list, and a random
+ * first masonry page of All. One pass over every photo (two Search calls)
+ * yields both the chips and the page. One island holds the stacks and the
+ * gallery, since opening an album fills the gallery; it starts above the
+ * fold, so it hydrates on load.
  */
 import SubpageLayout from "../layouts/SubpageLayout.astro";
 import PhotoGallery from "../components/islands/PhotoGallery.tsx";
-import { ALBUMS } from "../data/albums";
-import { toAlbumCard } from "../lib/albums";
-import { listPhotoTags, photoExpression, PUBLIC_CACHE_CONTROL, searchPhotos } from "../lib/cloudinaryServer";
-import { toGalleryPhoto } from "../lib/photos";
+import { listAlbums, toAlbumCard } from "../lib/albums";
+import { photoExpression, PUBLIC_CACHE_CONTROL, searchAllPhotos } from "../lib/cloudinaryServer";
+import { shuffled, toGalleryPhoto } from "../lib/photos";
 
 export const prerender = false;
 
 Astro.response.headers.set("Cache-Control", PUBLIC_CACHE_CONTROL);
 
-const [firstPage, tags] = await Promise.all([
-  searchPhotos({ expression: photoExpression(), max_results: 20 }),
-  listPhotoTags(),
-]);
+const FIRST_PAGE = 20; // PhotoGallery's PAGE_SIZE
 
-const albums = ALBUMS.map(toAlbumCard);
-const photos = firstPage.data.resources.map(toGalleryPhoto);
+const all = await searchAllPhotos(photoExpression());
+const albums = (await listAlbums()).map(toAlbumCard);
+const photos = shuffled(all.resources).slice(0, FIRST_PAGE).map(toGalleryPhoto);
+// The island carries on through its own shuffle of All, after these 20.
+const initialCursor = all.resources.length > FIRST_PAGE ? String(FIRST_PAGE) : null;
 ---
 
 <SubpageLayout title="Photography - Liam Sullivan" section="photography">
@@ -30,9 +31,9 @@ const photos = firstPage.data.resources.map(toGalleryPhoto);
     <PhotoGallery
       client:load
       albums={albums}
-      tags={tags}
+      tags={all.tags}
       initialPhotos={photos}
-      initialCursor={firstPage.data.next_cursor ?? null}
+      initialCursor={initialCursor}
     />
   </div>
 </SubpageLayout>

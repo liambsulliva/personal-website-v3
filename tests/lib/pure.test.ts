@@ -4,10 +4,11 @@ import { stripHtml } from "../../src/lib/berlin";
 import {
   sanitizePublicCloudinarySearch,
   publicCloudinarySearchUrl,
+  isPublicTag,
 } from "../../src/lib/cloudinarySearchPolicy";
 import { cldTransform, cldSrcSet } from "../../src/lib/cloudinary";
 import { BRANDS, brandFor, docsUrl } from "../../src/lib/brands";
-import { toGalleryPhoto } from "../../src/lib/photos";
+import { shuffled, toGalleryPhoto } from "../../src/lib/photos";
 import { SECTIONS, SOCIALS, VERSIONS } from "../../src/lib/sections";
 
 describe("tocFromBody", () => {
@@ -73,36 +74,6 @@ describe("public Cloudinary search policy", () => {
     expect(sanitizePublicCloudinarySearch(null)).toBeNull();
   });
 
-  it("allows oldest-first order only for album tags", () => {
-    expect(
-      sanitizePublicCloudinarySearch({
-        expression: "resource_type:image AND tags=_album-2026-nala-0425",
-        max_results: 50,
-        sort: "asc",
-      }),
-    ).toEqual({
-      expression: "resource_type:image AND tags=_album-2026-nala-0425",
-      max_results: 50,
-      sort: "asc",
-    });
-    for (const [expression, sort] of [
-      ["resource_type:image AND tags=football", "asc"],
-      ["resource_type:image", "asc"],
-      ["resource_type:image AND tags=_album-2026-nala-0425", "desc"],
-    ]) {
-      expect(
-        sanitizePublicCloudinarySearch({ expression, max_results: 5, sort }),
-      ).toBeNull();
-    }
-    expect(
-      publicCloudinarySearchUrl({
-        expression: "resource_type:image AND tags=_album-x",
-        max_results: 50,
-        sort: "asc",
-      }),
-    ).toContain("&sort=asc");
-  });
-
   it("clamps max_results to 1..50", () => {
     expect(
       sanitizePublicCloudinarySearch({
@@ -148,6 +119,29 @@ describe("Cloudinary site imagery URLs", () => {
       .split(", ")
       .map((candidate) => Number(candidate.split(" ")[1].replace("w", "")));
     expect(Math.max(...widths)).toBeLessThanOrEqual(3024);
+  });
+});
+
+describe("tag chips", () => {
+  it("only lets chip tags through to the tag pool", () => {
+    for (const tag of ["portraits", "esports", "a.b:c-d"]) expect(isPublicTag(tag)).toBe(true);
+    for (const tag of ["_album-2026-nala-0425", "featured", "tags=x OR y", "", null, 3])
+      expect(isPublicTag(tag)).toBe(false);
+  });
+
+  it("shuffles a copy, keeping every photo exactly once", () => {
+    const items = Array.from({ length: 50 }, (_, i) => i);
+    const result = shuffled(items);
+    expect(result).not.toBe(items);
+    expect([...result].sort((a, b) => a - b)).toEqual(items);
+    expect(items[0]).toBe(0); // input untouched
+  });
+
+  it("is a Fisher–Yates walk driven by the random source", () => {
+    // random() = 0 always swaps with index 0: [a,b,c,d] → [b,c,d,a]
+    expect(shuffled(["a", "b", "c", "d"], () => 0)).toEqual(["b", "c", "d", "a"]);
+    // random() just under 1 never moves anything
+    expect(shuffled(["a", "b", "c"], () => 0.9999)).toEqual(["a", "b", "c"]);
   });
 });
 

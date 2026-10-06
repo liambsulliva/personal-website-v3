@@ -1,9 +1,10 @@
 // Pure album logic for scripts/photo-albums.mjs: folder-name parsing, photo
-// matching and the generated src/data/albums.ts. No I/O, so it's unit-tested
+// matching and the generated src/content/albums/*.yaml. No I/O, so it's unit-tested
 // in tests/lib/albums.test.ts.
 
 export const MIN_ALBUM_PHOTOS = 5;
-export const albumTag = (slug) => `_album-${slug}`;
+// Placements a compiled album keeps. `ambiguous` waits for review.
+const KEPT = new Set(["nas", "named", "dated", "nearby", "inferred"]);
 
 const pad = (n) => String(n).padStart(2, "0");
 const isDay = (month, day) => month >= 1 && month <= 12 && day >= 1 && day <= 31;
@@ -15,6 +16,19 @@ export function captureDay(taken) {
   if (!match) return null;
   const [, year, month, day] = match.map(Number);
   return year > 1990 && isDay(month, day) ? iso(year, month, day) : null;
+}
+
+/** Flickr original downloads are named `<title>_<flickr id>_o`. */
+export function flickrIdOf(file) {
+  return typeof file === "string" ? (file.match(/_(\d{8,})_o$/)?.[1] ?? null) : null;
+}
+
+/** Flickr's `datetaken` (`YYYY-MM-DD HH:MM:SS`) → the EXIF form captureDay reads,
+ *  or null when Flickr only knows the upload date (`datetakenunknown`). */
+export function flickrTaken(datetaken, unknown) {
+  if (unknown === "1" || unknown === 1 || typeof datetaken !== "string") return null;
+  const match = datetaken.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}:\d{2}:\d{2})/);
+  return match ? `${match[1]}:${match[2]}:${match[3]} ${match[4]}` : null;
 }
 
 const captureHour = (taken) => Number(taken?.match(/ (\d{2}):/)?.[1] ?? 12);
@@ -34,7 +48,13 @@ const FILE_NOTES = /\((?:jpe?g only|raws?)\)|\braws\b/gi;
  * prefixes and cut-off names (`...`), where only a complete date counts.
  */
 export function parseFolderName(raw, year) {
-  let name = raw.replace(/□/g, "-").replace(/…/g, "...").trim();
+  // \uf022 is a Finder `/` as it comes over SMB (and □ in a screenshot of it):
+  // a date separator between digits (`9/3`), a slash anywhere else.
+  let name = raw
+    .replace(/(?<=\d)[\uf022□](?=\d)/g, "-")
+    .replace(/\s*[\uf022□]\s*/g, "/")
+    .replace(/…/g, "...")
+    .trim();
   const truncated = name.endsWith("...");
   const yy = year % 100;
   let start = null;
@@ -56,6 +76,10 @@ export function parseFolderName(raw, year) {
   // Game Jam 10-18 to 10-20
   tryMatch(/(?<!\d)(\d{1,2})-(\d{1,2}) to (\d{1,2})-(\d{1,2})(?!\d)/, ([m1, d1, m2, d2]) =>
     isDay(m1, d1) && isDay(m2, d2) ? [iso(year, m1, d1), iso(year, m2, d2)] : null,
+  );
+  // Yosemite and San Francisco 8-14 to 22
+  tryMatch(/(?<!\d)(\d{1,2})-(\d{1,2}) to (\d{1,2})(?![\d-])/, ([m, d1, d2]) =>
+    isDay(m, d1) && isDay(m, d2) && d2 > d1 ? [iso(year, m, d1), iso(year, m, d2)] : null,
   );
   // 2-18-22 (date + year) or 3-3-9 (day range)
   tryMatch(/(?<!\d)(\d{1,2})-(\d{1,2})-(\d{1,2})(?![\d-])/, ([m, d, x]) => {
@@ -122,32 +146,108 @@ export function parseFolders(json) {
     const year = Number(yearKey);
     return entries.map((entry) => {
       const folder = typeof entry === "string" ? entry : entry.name;
-      const { title, start, end, loose = false } = parseFolderName(folder, year);
-      let slug = `${year}-${kebab(title.replace(/\.\.\.$/, "")) || "untitled"}${start ? `-${start.slice(5).replace("-", "")}` : ""}`;
+      const parsed = parseFolderName(folder, year);
+      const { title } = parsed;
+      let { start, end, loose = false } = parsed;
+      // Undated, but the NAS folder's creation day says roughly when: the two
+      // weeks up to that import, only for days no dated folder claims.
+      const approx = !start && typeof entry !== "string" && Boolean(entry.imported);
+      if (approx) [start, end, loose] = [shiftDay(entry.imported, -14), entry.imported, true];
+      let slug = `${year}-${kebab(title.replace(/\.\.\.$/, "")) || "untitled"}${parsed.start ? `-${parsed.start.slice(5).replace("-", "")}` : ""}`;
       // Same-named folders get -2, -3…, skipping any slug already handed out.
       for (let n = 2, base = slug; used.has(slug); n += 1) slug = `${base}-${n}`;
       used.add(slug);
       const tags = typeof entry === "string" || !entry.tags ? hintTags(title) : entry.tags;
-      return { slug, folder, title, year, start, end, loose, tags };
+      const root = rootOf(year, entry);
+      return { slug, folder, title, year, root, primary: root === `${year} Photos`, start, end, loose, approx, tags };
     });
   });
 }
 
 const overlap = (a = [], b = []) => a.filter((tag) => b.includes(tag)).length;
 
+/** The camera filename a Flickr original was made from: `_a730157jpg_…_o` and
+ *  `_a734651-enhanced-nrjpg_…_o` → `_A730157`, `_A734651`; else null. */
+export function cameraStem(file) {
+  const title = typeof file === "string" ? file.match(/^(.*)_\d{8,}_o$/)?.[1] : null;
+  const stem = title?.match(/^(_?[a-z]{1,4}_?\d{4,})/i)?.[1];
+  return stem ? stem.toUpperCase() : null;
+}
+
+/** `/PhotoDrive/<root>/<shoot>/…/file` → `<root>/<shoot>`: anything nested in a
+ *  shoot folder belongs to that one album. Files loose in a root give null. */
+export function shootOf(path) {
+  const match = typeof path === "string" ? path.match(/^\/PhotoDrive\/([^/]+)\/([^/]+)\//) : null;
+  return match ? `${match[1]}/${match[2]}` : null;
+}
+
+// Where a folder lives on the NAS: its year folder, or a secondary root
+// (`TPN Sophomore Year`), whose shoots lose ties to the year folders'.
+const rootOf = (year, entry) => (typeof entry !== "string" && entry.root) || `${year} Photos`;
+
+const nameKey = (text) => text.toLowerCase().replace(/[^a-z0-9]/g, "");
+// Camera and phone names say nothing about the shoot: _A730157.jpg, DSC01234, IMG_1234.
+const CAMERA_NAME = /^_?[a-z]{1,4}_?\d{4,}/i;
+
+/**
+ * A photo's own name, when it has one, as a match key: a titled Flickr
+ * original (`pitt-volleyball-v-oregon_54200994529_o`) or a descriptive
+ * public_id (`PulisCarShow-10_iww7ra`). Camera names and Cloudinary's random
+ * ids (`fub3coia8qrcg5jlanrt`) give null.
+ */
+export function photoName(publicId, file) {
+  const flickrTitle = typeof file === "string" ? file.match(/^(.*)_\d{8,}_o$/)?.[1] : null;
+  for (const raw of [flickrTitle, publicId]) {
+    if (!raw || /^[a-z0-9]{20}$/.test(raw)) continue;
+    const name = raw
+      .replace(/_[a-z0-9]{6}$/, "") // Cloudinary's unique-filename suffix
+      .replace(/jpe?g$/i, "")
+      .replace(/[-_ ]\d+$/, ""); // a frame counter: -10, _3
+    if (CAMERA_NAME.test(name)) continue;
+    const key = nameKey(name);
+    if (key.length >= 5) return key;
+  }
+  return null;
+}
+
 /**
  * Matches photos to folders.
+ * -1. NAS file hits (see below) come first and are final.
+ * 0. A photo whose own name (photoName) starts with a folder's title, or vice
+ *    versa, goes there (`named`); several matching folders are split by date,
+ *    else the most specific title takes it, flagged `ambiguous`.
  * 1. Dated photos go to the folder whose date (range) holds their capture day;
  *    a photo taken before 5am also tries the day before (late shows). Open
  *    ranges (`8-14 t...`) only catch days no exact folder claims.
+ *    No folder that day: one dated the day before or after (`nearby`, flagged).
  * 2. Same-day folders are split by how many of the photo's tags the folder's
  *    hint tags share; a tie is `ambiguous` (kept on the first, flagged).
  * 3. Undated photos inherit an album when the nearest dated photos on both
  *    sides in upload order are in that album and share a tag (`inferred`).
- * `photos`: { public_id, tags, created_at, taken } with `taken` EXIF or null.
+ * `photos`: { public_id, tags, created_at, taken, file } with `taken` EXIF or
+ * null and `file` the original filename.
  */
-export function proposeAlbums(folders, photos) {
+export function proposeAlbums(folders, photos, { nasHits = {} } = {}) {
   const assignment = new Map(); // public_id → { slug, how }
+  const settled = new Set(); // NAS knows where the file lives: no guessing after
+
+  // -1. The photo's camera file on the NAS (nasHits: stem → paths). Counters
+  //     roll over, so a stem can sit in several shoots; the one whose date
+  //     (±1 day) fits the photo wins (`nas`). Found only outside the year
+  //     folders (e.g. TPN Sophomore Year), the photo stays unassigned.
+  const byShoot = new Map(folders.map((folder) => [`${folder.root}/${folder.folder}`, folder]));
+  const fits = (folder, day) => folder.start && shiftDay(folder.start, -1) <= day && day <= shiftDay(folder.end, 1);
+  for (const photo of photos) {
+    const hits = nasHits[cameraStem(photo.file)];
+    if (!hits?.length) continue;
+    const shoots = [...new Set(hits.map(shootOf).filter(Boolean))].map((key) => byShoot.get(key)).filter(Boolean);
+    const day = captureDay(photo.taken);
+    let fitting = day ? shoots.filter((folder) => fits(folder, day)) : shoots;
+    // Nothing dated fits: an undated shoot holding the file can't be ruled out.
+    if (!fitting.length) fitting = shoots.filter((folder) => !folder.start);
+    if (fitting.length === 1) assignment.set(photo.public_id, { slug: fitting[0].slug, how: "nas" });
+    settled.add(photo.public_id);
+  }
   const within = (day, loose) =>
     folders.filter((folder) => folder.start && folder.loose === loose && folder.start <= day && day <= folder.end);
   // Exact folders (the photo's day, then the night before) beat open ranges.
@@ -156,13 +256,40 @@ export function proposeAlbums(folders, photos) {
       .map(([d, loose]) => within(d, loose))
       .find((found) => found.length) ?? [];
 
+  const titled = folders
+    .map((folder) => ({ folder, key: nameKey(folder.title.replace(/\.\.\.$/, "")) }))
+    .filter(({ key }) => key.length >= 5);
   for (const photo of photos) {
+    if (settled.has(photo.public_id)) continue;
+    const name = photoName(photo.public_id, photo.file);
+    if (!name) continue;
+    const matches = titled.filter(({ key }) => name.startsWith(key) || key.startsWith(name));
+    if (!matches.length) continue;
+    const day = captureDay(photo.taken);
+    const onDay = day ? matches.filter(({ folder }) => folder.start && folder.start <= day && day <= folder.end) : [];
+    let pool = onDay.length ? onDay : matches;
+    // A year folder beats a secondary root's same-named shoot.
+    const primary = pool.filter(({ folder }) => folder.primary);
+    if (primary.length === 1 && pool.length > 1) pool = primary;
+    const pick = [...pool].sort((a, b) => b.key.length - a.key.length)[0];
+    // `amelia` fits every Amelia Harn shoot: without a date to settle it, flag it.
+    assignment.set(photo.public_id, { slug: pick.folder.slug, how: pool.length === 1 ? "named" : "ambiguous" });
+  }
+
+  for (const photo of photos) {
+    if (assignment.has(photo.public_id) || settled.has(photo.public_id)) continue;
     const day = captureDay(photo.taken);
     if (!day) continue;
-    const candidates = candidatesFor(day, captureHour(photo.taken) < 5);
+    let candidates = candidatesFor(day, captureHour(photo.taken) < 5);
+    let near = false;
+    if (!candidates.length) {
+      // Folders are often named for the day after (or before) the shoot.
+      candidates = [...within(shiftDay(day, -1), false), ...within(shiftDay(day, 1), false)];
+      near = true;
+    }
     if (!candidates.length) continue;
     if (candidates.length === 1) {
-      assignment.set(photo.public_id, { slug: candidates[0].slug, how: "dated" });
+      assignment.set(photo.public_id, { slug: candidates[0].slug, how: near || candidates[0].approx ? "nearby" : "dated" });
       continue;
     }
     const scored = candidates.map((folder) => ({ folder, score: overlap(folder.tags, photo.tags) }));
@@ -170,18 +297,18 @@ export function proposeAlbums(folders, photos) {
     const winners = scored.filter(({ score }) => score === best);
     assignment.set(photo.public_id, {
       slug: winners[0].folder.slug,
-      how: winners.length === 1 && best > 0 ? "dated" : "ambiguous",
+      how: winners.length === 1 && best > 0 ? (near ? "nearby" : "dated") : "ambiguous",
     });
   }
 
   const ordered = [...photos].sort((a, b) => a.created_at.localeCompare(b.created_at) || a.public_id.localeCompare(b.public_id));
-  const anchors = ordered.map((photo) => (assignment.get(photo.public_id)?.how === "dated" ? photo : null));
+  const anchors = ordered.map((photo) => (["nas", "dated", "named"].includes(assignment.get(photo.public_id)?.how) ? photo : null));
   const nearest = (index, step) => {
     for (let i = index + step; i >= 0 && i < ordered.length; i += step) if (anchors[i]) return anchors[i];
     return null;
   };
   ordered.forEach((photo, index) => {
-    if (assignment.has(photo.public_id) || captureDay(photo.taken)) return;
+    if (assignment.has(photo.public_id) || settled.has(photo.public_id) || captureDay(photo.taken)) return;
     const before = nearest(index, -1);
     const after = nearest(index, 1);
     if (!before || !after) return;
@@ -197,7 +324,7 @@ export function proposeAlbums(folders, photos) {
       title: folder.title,
       folder: folder.folder,
       year: folder.year,
-      date: folder.start,
+      date: folder.approx ? null : folder.start, // an import window is no date: the photos give it
       photos: ordered
         .filter((photo) => assignment.get(photo.public_id)?.slug === folder.slug)
         .map((photo) => ({ id: photo.public_id, how: assignment.get(photo.public_id).how })),
@@ -210,30 +337,51 @@ export function proposeAlbums(folders, photos) {
   };
 }
 
-/** Albums shown on the site: ≥ MIN_ALBUM_PHOTOS photos, newest first. */
-export function siteAlbums(proposal, byId, exif) {
+/**
+ * Albums shown on the site: ≥ MIN_ALBUM_PHOTOS kept photos, newest first.
+ * Each keeps its photo ids in capture order (undated last); the site looks
+ * the photos up in Cloudinary by id, so nothing is tagged there. Previews
+ * are the first three, as delivery URLs (`taken`: public_id → EXIF-form date).
+ */
+export function siteAlbums(proposal, taken, cloudName) {
   return proposal.albums
     .map((album) => {
-      const photos = album.photos.map(({ id }) => byId.get(id)).filter(Boolean);
-      const days = photos.map((photo) => captureDay(exif[photo.public_id])).filter(Boolean).sort();
+      const ids = album.photos
+        .filter(({ how }) => KEPT.has(how))
+        .map(({ id }) => id)
+        .map((id, order) => ({ id, order, when: captureDay(taken[id]) ? taken[id] : null }))
+        .sort((a, b) => (a.when && b.when ? a.when.localeCompare(b.when) : a.when ? -1 : b.when ? 1 : 0) || a.order - b.order)
+        .map(({ id }) => id);
+      const days = ids.map((id) => captureDay(taken[id])).filter(Boolean).sort();
       return {
         slug: album.slug,
         title: album.title,
         date: album.date ?? days[0] ?? null,
         year: album.year,
-        count: photos.length,
-        preview: photos.slice(0, 3).map(({ public_id, secure_url, width, height }) => ({ public_id, secure_url, width, height })),
+        count: ids.length,
+        photos: ids,
+        preview: ids.slice(0, 3).map((id) => ({
+          public_id: id,
+          secure_url: `https://res.cloudinary.com/${cloudName}/image/upload/${id}`,
+        })),
       };
     })
     .filter((album) => album.count >= MIN_ALBUM_PHOTOS)
     .sort((a, b) => (b.date ?? `${b.year}-01-01`).localeCompare(a.date ?? `${a.year}-01-01`) || a.title.localeCompare(b.title));
 }
 
-export function toAlbumsModule(proposal, byId, exif) {
-  return `// Generated by \`npm run photos:albums -- apply\` from scripts/album-proposal.json.
-// Don't edit by hand: change titles or membership in the proposal and re-run apply.
-import type { Album } from "../lib/albums";
+const yamlString = (text) => JSON.stringify(text); // a JSON string is a valid YAML scalar
 
-export const ALBUMS: Album[] = ${JSON.stringify(siteAlbums(proposal, byId, exif), null, 2)};
-`;
+/** One album as its content-collection YAML (src/content/albums/<slug>.yaml). */
+export function albumYaml({ title, year, date, count, photos }) {
+  return [
+    "# Generated by `npm run photos:albums -- build` from scripts/album-proposal.json.",
+    `title: ${yamlString(title)}`,
+    `year: ${year}`,
+    `date: ${date ?? "null"}`,
+    `count: ${count}`,
+    "photos:",
+    ...photos.map((id) => `  - ${yamlString(id)}`),
+    "",
+  ].join("\n");
 }

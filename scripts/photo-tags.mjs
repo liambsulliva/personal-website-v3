@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 // Tags photography in Cloudinary from the terminal — the v3 stand-in for v2's
 // dashboard checkboxes. Every tag on a photo outside site/ becomes a chip,
-// except `_`-prefixed ones (e.g. the `_album-<slug>` tags photo-albums writes).
+// except `featured` and `_`-prefixed ones (hidden).
 //
 //   npm run photos:tags -- list <tag>                  public_ids carrying <tag>
-//   npm run photos:tags -- add <tag> <public_id…>      e.g. add _album-2026-nala DSC_0412
+//   npm run photos:tags -- add <tag> <public_id…>      e.g. add portraits DSC_0412
 //   npm run photos:tags -- remove <tag> <public_id…>
 //
 // Needs CLOUDINARY_CLOUD_NAME / _API_KEY / _API_SECRET in .env.

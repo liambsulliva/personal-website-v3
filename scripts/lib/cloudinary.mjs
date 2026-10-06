@@ -16,6 +16,9 @@ const env = Object.fromEntries(
         .map((line) => [line.slice(0, line.indexOf("=")), line.slice(line.indexOf("=") + 1).trim()])
     : [],
 );
+/** A setting from the environment, else .env. */
+export const envValue = (name) => process.env[name] ?? env[name];
+
 const cloud = process.env.CLOUDINARY_CLOUD_NAME ?? env.CLOUDINARY_CLOUD_NAME;
 const key = process.env.CLOUDINARY_API_KEY ?? env.CLOUDINARY_API_KEY;
 const secret = process.env.CLOUDINARY_API_SECRET ?? env.CLOUDINARY_API_SECRET;

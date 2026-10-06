@@ -22,10 +22,11 @@ has to come from the Admin API, which allows 500 calls an hour.
 
 | # | Decision |
 |---|---|
-| Albums | Membership = hidden Cloudinary tag `_album-<slug>` (already filtered out of the chips by `publicTags`). Title, date, count and preview photos live in a generated `src/data/albums.ts`. Folder names are published as they are, including models' names. |
+| Albums | Membership = photo ids in the generated `src/data/albums.ts` (`npm run photos:albums -- build`, offline), with title, date, count and preview photos. Nothing is tagged in Cloudinary. Folder names are published as they are, including models' names. *(Changed 2026-10-05 from hidden `_album-<slug>` tags: no writes to Cloudinary, and album lookups cache until the next deploy.)* |
 | Threshold | An album appears only with **≥ 5** photos. Undated folders take the date of their earliest photo; if none of their photos is dated, the label shows **the year only** (`2024 · 12 photos`). |
 | Folder names | Folders cut off in the screenshots keep the cut-off name with a trailing `...` for now. A cut-off date (`3-...`) counts as undated. `□` in the screenshots is `-`. |
-| Assignment | A script matches photos to folders by EXIF date, splits same-day folders using the existing tags, and infers undated photos from their dated neighbours in upload order. **You approve the proposal before any tag is written.** Leftovers get assigned by hand. |
+| Folders | `scripts/album-folders.json` comes from the NAS (`/PhotoDrive/<YYYY> Photos/<shoot>`, plus `TPN Sophomore Year/<shoot>` for 2023–24, year from the folder's creation date). One album per shoot folder; files in its subfolders count toward it (no nested albums). Undated shoots carry their NAS import date. `2016 Point and Shoot` (camera dumps) is left out. |
+| Assignment | A script matches photos to folders by, in order: the photo's camera file found in a date-consistent NAS shoot folder (`nas`, Synology search, cached in `scripts/.cache/nas-hits.json`); the photo's own name (`PulisCarShow-10` → "Puli's Car Show"); capture date (EXIF, or Flickr's date taken for Flickr originals, whose Cloudinary copies lost their EXIF); a folder dated a day off (`nearby`); and dated neighbours in upload order (`inferred`). Same-day folders are split by tags. `ambiguous` placements are left out until reviewed. Flickr is only used by this offline script; the site reads Cloudinary alone. |
 | Section | The "Featured!" label is removed; the carousel leads with no label. The `featured` tag, `toFeaturedSlide`/`FeaturedSlide` and `FeaturedCarousel.tsx` are deleted. `Carousel.tsx` stays (`PDFCarousel` uses it). |
 | Carousel | Several stacks visible at once in a native scroll-snap track. Swipe or use the existing round prev/next buttons, which are hidden on mobile. Newest first, no year markers. |
 | Stack | Three tilted print-cards (4px bg border, soft shadow). Hover/focus fans the back cards on a spring. Press squishes to 0.96. Open = dashed `border`-coloured outline around the 60% skeleton, title kept. No dragging. Label: title, then `May 2026 · 24 photos`. |
@@ -33,7 +34,7 @@ has to come from the Admin API, which allows 500 calls an hour.
 | Collapse | Triggered by a chip, the open stack's dashed slot (restores the previous tag), or another stack (collapse, then explode, strictly in sequence). Visible tiles fly back into the stack. If the stack is off screen they squash out through the viewport edge toward it (`exitToward`). **Never auto-scroll.** |
 | Chips | None is selected while an album is open. |
 | Timing | Each phase ≤ 200ms, and each phase starts on a *measured* end state (the `whenFrame` pattern). Closing mid-explode reverses from where the cards currently are. Any other click during a transition is ignored. Reduced motion = instant swap. |
-| Loading | Stack previews are SSR'd (no fetch on mount). Album contents are fetched on click, 50 per page in upload order (ascending), with infinite scroll. |
+| Loading | Stack previews are SSR'd (no fetch on mount). An album's photos come all at once on click from `api/cloudinary/album?slug=` (looks up its ids in Cloudinary; CDN-cached a day). Chips (All included) fetch their whole pool once from `api/cloudinary/pool`, shuffle it per selection and page locally; the first All page is shuffled on the server. |
 | URL | No `?album=` state for now. Keep the gallery's source a plain serializable value so it can be wired to the URL later. |
 | Lightbox | Unchanged. Album photos are ordinary gallery tiles, so the existing tile ↔ lightbox flight applies as is. |
 

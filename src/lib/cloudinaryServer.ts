@@ -38,6 +38,10 @@ const authHeader = (apiKey: string, apiSecret: string) =>
 /** Scope a public photo expression to the photography library. */
 export const scopePhotoExpression = (expression: string) => `${expression} AND ${PHOTO_SCOPE}`;
 
+/** The photos with these public_ids (an album's), each matched exactly. */
+export const idsExpression = (ids: readonly string[]) =>
+  `resource_type:image AND (${ids.map((id) => `public_id="${id.replace(/"/g, "")}"`).join(" OR ")})`;
+
 export const photoExpression = (tag?: string | null) =>
   tag ? `resource_type:image AND tags=${tag}` : "resource_type:image";
 
@@ -46,7 +50,8 @@ export async function searchPhotos(body: {
   max_results: number;
   next_cursor?: string;
   sort_by?: Array<Record<string, "asc" | "desc">>;
-}): Promise<{ ok: boolean; status: number; data: PhotoPage }> {
+  fields?: string[];
+}): Promise<{ ok: boolean; status: number; data: PhotoPage & { tags?: string[][] } }> {
   const credentials = getCloudinaryCredentials();
   if (!credentials) return { ok: false, status: 500, data: { resources: [] } };
 
@@ -74,57 +79,57 @@ export async function searchPhotos(body: {
     return { ok: false, status: 502, data: { resources: [] } };
   }
 
+  const resources = raw.resources ?? [];
   return {
     ok: response.ok,
     status: response.status,
     data: {
-      resources: (raw.resources ?? []).map(({ public_id, secure_url, width, height }) => ({
+      resources: resources.map(({ public_id, secure_url, width, height }) => ({
         public_id: public_id as string,
         secure_url: secure_url as string,
         width: width as number,
         height: height as number,
       })),
+      // Only when `fields` asks for them, parallel to `resources`.
+      ...(body.fields?.includes("tags") ? { tags: resources.map(({ tags }) => (Array.isArray(tags) ? tags : [])) } : {}),
       next_cursor: raw.next_cursor,
     },
   };
+}
+
+const POOL_FIELDS = ["public_id", "secure_url", "width", "height", "tags"];
+
+/** Every photo matching `expression` with its tags, paged through Search 500
+ *  at a time: one call for any current tag, two for all 841 photos. */
+export async function searchAllPhotos(
+  expression: string,
+): Promise<{ ok: boolean; status: number; resources: PhotoResource[]; tags: string[] }> {
+  const resources: PhotoResource[] = [];
+  const tags = new Set<string>();
+  let cursor: string | undefined;
+  do {
+    const { ok, status, data } = await searchPhotos({
+      expression,
+      max_results: 500,
+      fields: POOL_FIELDS,
+      ...(cursor ? { next_cursor: cursor } : {}),
+    });
+    if (!ok) return { ok, status, resources: [], tags: [] };
+    resources.push(...data.resources);
+    data.tags?.forEach((photoTags) => photoTags.forEach((tag) => tags.add(tag)));
+    cursor = data.next_cursor;
+  } while (cursor);
+  return { ok: true, status: 200, resources, tags: publicTags(tags) };
 }
 
 /**
  * Tags for the chip row, read off the photos in PHOTO_SCOPE so a chip never
  * filters to an empty grid (the cloud-wide tag list includes tags that only
  * live on excluded assets). `featured` is an editorial flag, not a filter.
+ * /photography gets them from its All pool instead (same Search calls).
  */
 export async function listPhotoTags(): Promise<string[]> {
-  const credentials = getCloudinaryCredentials();
-  if (!credentials) return [];
-
-  const tags = new Set<string>();
-  let cursor: string | undefined;
-  do {
-    const response = await fetch(
-      `https://api.cloudinary.com/v1_1/${credentials.cloudName}/resources/search`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: authHeader(credentials.apiKey, credentials.apiSecret),
-        },
-        body: JSON.stringify({
-          expression: scopePhotoExpression(photoExpression()),
-          fields: ["tags"],
-          max_results: 500,
-          ...(cursor ? { next_cursor: cursor } : {}),
-        }),
-      },
-    );
-    if (!response.ok) break;
-    const data: { resources?: Array<{ tags?: string[] }>; next_cursor?: string } =
-      await response.json();
-    data.resources?.forEach((resource) => resource.tags?.forEach((tag) => tags.add(tag)));
-    cursor = data.next_cursor;
-  } while (cursor);
-
-  return publicTags(tags);
+  return (await searchAllPhotos(photoExpression())).tags;
 }
 
 /** Chip-row tags: `featured` is editorial and `_`-prefixed tags are internal. */

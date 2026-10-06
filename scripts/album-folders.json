@@ -4,14 +4,20 @@
     "Ava Acosta Cottagecore 6-01",
     "Beer and Wine Cover 2-14",
     "Bigelow Bash 4-11",
-    "Christopher Maverick Silhouette 3-...",
+    "Christopher Maverick Silhouette 3-02",
     "Climbing Wall 2-22",
     "Crafts and Drafts 2-07",
     "Design Jam 3-22",
-    "Grad Photos - By Jon Guo",
+    {
+      "name": "Grad Photos - By Jon Guo",
+      "imported": "2026-05-03"
+    },
     "Grad School in v out of the US 1-22",
     "Hemingways 3-05",
-    "Iceland 2026",
+    {
+      "name": "Iceland 2026",
+      "imported": "2026-06-16"
+    },
     "Jocelyn Bilton 6-05",
     "KTP Headshots 3-22",
     "Las Palmas 3-23",
@@ -37,24 +43,33 @@
     "Baconburgh 9-27",
     "Baseball v. NC State 3-22",
     "Brian Ihejurobi Grad Shoot 4-30",
-    "Comp Digital Media 9-30",
+    "Comp Digital Media 9-30 ",
     "DNID Game Jam 10-10",
     "Drag Me To Bingo! 11-9",
     "Election Day 11-4",
-    "FB v. Boston College",
+    {
+      "name": "FB v. Boston College",
+      "imported": "2025-10-04"
+    },
     "FB v. Duquesne 8-30",
     "FB v. Notre Dame 11-15",
     "Free Speech Panel 11-3",
     "Ginger Run 1-15",
     "Grace & Friends Grad Shoot 4-19",
-    "Gymnastics v. Stanford",
+    {
+      "name": "Gymnastics v. Stanford",
+      "imported": "2025-01-26"
+    },
     "Haven 1-14",
     "Haven 2-28",
     "Haven 4-27",
-    "Heinz Chapel - Women in the Wind...",
-    "Higher Education-Free Speech Ra...",
+    "Heinz Chapel - Women in the Windows Tour 3-21",
+    "Higher Education\uf022Free Speech Rally 4-17",
     "Kenzie 9-19",
-    "KTP Initiation Fall 2025",
+    {
+      "name": "KTP Initiation Fall 2025",
+      "imported": "2025-10-23"
+    },
     "KTP New Member Headshots 2-12",
     "Maggie and Katy 5-13",
     "Mary C 8-1",
@@ -62,37 +77,55 @@
     "Michael Meyer Silhouettes 2-18",
     "MSOC v. NC State 9-26",
     "Oakland Gentrification 10-20",
-    "Otakon 2025",
+    {
+      "name": "Otakon 2025",
+      "imported": "2025-08-20"
+    },
     "PGH Tattoo Co 3-23",
     "PGH Tattoo Expo 2-15",
     "PGH Zine Fair 10-19",
     "Phipps Summer Show 9-3",
-    "Pitt Democrats v. Republicans Deb...",
+    "Pitt Democrats v. Republicans Debate 3-31",
     "Runners in Oakland Landscape 9-28",
     "Spooky Market 10-4",
-    "Steelhacks XII",
+    {
+      "name": "Steelhacks XII",
+      "imported": "2025-09-21"
+    },
     "Supernova 8-10",
     "Swim and Dive 2-1",
     "Tariffs & Coffee 11-5",
     "The Pitt Stop 10-20",
-    "Traditional Japanese Noh Drama-M...",
+    {
+      "name": "Traditional Japanese Noh Drama-Movement and Chant Workshop for Students",
+      "imported": "2025-03-29"
+    },
     "VETO Project 2025 4-5",
     "WBB v. Virginia Tech 1-23",
-    "Wisdom + Unescapedly @ Redfish..."
+    "Wisdom + Unescapedly @ Redfishbowl 4-19"
   ],
   "2024": [
     "Anna Li Student Nobel Prize 9-18",
     "Asian Film Festival 9-26",
-    "Berlin",
+    {
+      "name": "Berlin",
+      "imported": "2024-05-25"
+    },
     "Charlie Kirk Brainwashed Tour 9-18",
     "Climbing Club 10-10",
-    "Democratic v. Republican Debate",
+    {
+      "name": "Democratic v. Republican Debate",
+      "imported": "2024-03-26"
+    },
     "Eclipse 4-8",
     "Fall Foliage 9-15",
     "Fall Music Showcase 10-28",
-    "Funky Lamp @ Panther Pit",
+    {
+      "name": "Funky Lamp @ Panther Pit",
+      "imported": "2024-03-08"
+    },
     "Game Jam 10-18 to 10-20",
-    "Guide to options for students with ...",
+    "Guide to options for students with dietary restrictions 8-26",
     "Heinz Chapel Choir 12-3",
     "Irish Festival 9-7",
     "Is Phat's Closing? 9-5",
@@ -101,38 +134,161 @@
     "Joy Zhang Grad Photos 4-24",
     "Katelyn Polantz Event 9-12",
     "Lantern Night 8-25",
-    "Magda Photoshoot",
+    {
+      "name": "Magda Photoshoot",
+      "imported": "2024-11-10"
+    },
     "McCormick Watch Party 11-5",
     "MSOC v. UVA 10-25",
-    "NCAA Volleyball - Kentucky v. Mizz...",
+    "NCAA Volleyball - Kentucky v. Mizzou 12-12",
     "One Minute Film Festival 9-12",
     "Otakon 8-3",
-    "Palestine Protest 9-3",
+    "Palestine Protest 9\uf0223",
     "Palestine Teach In 10-10",
-    "PG Church Show 1",
+    {
+      "name": "PG Church Show 1",
+      "imported": "2024-02-04"
+    },
     "PGH Glass Center 10-4",
     "Pitt MBB v. VMI 11-18",
     "Pitt SB v. Kent State 9-15",
     "Pitt SB v. RMU 10-5",
     "Pitt v. Cal 10-12",
     "Pitt v. UVA 11-9",
-    "Pitt VB v. ECU",
-    "Pitt Volleyball NCAA Championship...",
-    "Pitt Volleyball NCAA Championship...",
+    {
+      "name": "Pitt VB v. ECU",
+      "imported": "2024-09-20"
+    },
+    {
+      "name": "Pitt Volleyball NCAA Championships v. Oklahoma",
+      "imported": "2024-12-07"
+    },
+    "Pitt Volleyball NCAA Championships v. Oregon 12-12",
     "Pittsburgh Jazz Fest 9-22",
     "PittVotes Debate 9-10",
-    "Roma",
+    {
+      "name": "Roma",
+      "imported": "2024-07-22"
+    },
     "Self Portrait Gallery 11-4",
-    "Social Psych of Reality TV 9-3",
+    "Social Psych of Reality TV 9\uf0223",
     "Street Art Creating Legends 10-16",
     "Stress-Free Zone 10-13",
     "Student Employment Fair 9-5",
     "Summer Lee at Pitt 10-23",
-    "Supernova 2024",
-    "TPN Exit Polling",
+    {
+      "name": "Supernova 2024",
+      "imported": "2024-08-08"
+    },
+    {
+      "name": "TPN Exit Polling",
+      "imported": "2024-11-05"
+    },
     "VB v. Notre Dame 10-27",
     "Wrestling v. Navy 11-2",
-    "Writing Center Feature 9-26"
+    "Writing Center Feature 9-26",
+    {
+      "name": "Bigelow Bash 4-7",
+      "root": "TPN Sophomore Year"
+    },
+    {
+      "name": "BRIGID 2-3",
+      "root": "TPN Sophomore Year"
+    },
+    {
+      "name": "Chesterfield Rats 3-1",
+      "root": "TPN Sophomore Year"
+    },
+    {
+      "name": "Digital Composition Showcase 2-5",
+      "root": "TPN Sophomore Year"
+    },
+    {
+      "name": "EcoArtisans 4-11",
+      "root": "TPN Sophomore Year"
+    },
+    {
+      "name": "EV Chargers on Campus 2-1",
+      "root": "TPN Sophomore Year"
+    },
+    {
+      "name": "Free The Facts - Medicare 4-8",
+      "root": "TPN Sophomore Year"
+    },
+    {
+      "name": "Israel v. Palestine Protest 3-29",
+      "root": "TPN Sophomore Year"
+    },
+    {
+      "name": "MBB v. Virginia Tech 2-24",
+      "root": "TPN Sophomore Year"
+    },
+    {
+      "name": "Mr. Trombone Jazz 2-14",
+      "root": "TPN Sophomore Year"
+    },
+    {
+      "name": "Nandi Theunissen - Silhouettes",
+      "root": "TPN Sophomore Year",
+      "imported": "2024-03-01"
+    },
+    {
+      "name": "PGH Tattoo Expo 2-10",
+      "root": "TPN Sophomore Year"
+    },
+    {
+      "name": "PileZ Opens 1-15",
+      "root": "TPN Sophomore Year"
+    },
+    {
+      "name": "Pitt Factor 2-22",
+      "root": "TPN Sophomore Year"
+    },
+    {
+      "name": "Pitt WLAX v. Detroit Mercy 2-26",
+      "root": "TPN Sophomore Year"
+    },
+    {
+      "name": "Poetry Slam 1-24",
+      "root": "TPN Sophomore Year"
+    },
+    {
+      "name": "Schenley Plaza Liberation Zone 4-24",
+      "root": "TPN Sophomore Year"
+    },
+    {
+      "name": "SGB 3-5",
+      "root": "TPN Sophomore Year"
+    },
+    {
+      "name": "Spring Employment Cover Spring 2024",
+      "root": "TPN Sophomore Year",
+      "imported": "2024-01-28"
+    },
+    {
+      "name": "TPUSA Event 4-17",
+      "root": "TPN Sophomore Year"
+    },
+    {
+      "name": "Warhol Museum 1-28",
+      "root": "TPN Sophomore Year"
+    },
+    {
+      "name": "WBB v. NC State 2-11",
+      "root": "TPN Sophomore Year"
+    },
+    {
+      "name": "WLax v. UNC 4-13",
+      "root": "TPN Sophomore Year"
+    },
+    {
+      "name": "WPTS Showcase 2-9",
+      "root": "TPN Sophomore Year"
+    },
+    {
+      "name": "WPTS Winter Marathon 2-16",
+      "root": "TPN Sophomore Year"
+    }
   ],
   "2023": [
     "Ava Acosta 5-23",
@@ -140,13 +296,22 @@
     "Blacklodge 10-14",
     "BridgePittsburgh Jubilee 4-6",
     "Clay Coast Concert Shoot 2-25",
-    "Davos with Matthew",
+    {
+      "name": "Davos with Matthew",
+      "imported": "2023-07-31"
+    },
     "Diya Grad Shoot 4-21",
     "Funky Lamp Concert Shoot 2-26",
-    "Ireland with Family",
+    {
+      "name": "Ireland with Family",
+      "imported": "2023-08-07"
+    },
     "Jack Hopewell 7-22",
-    "KTP Headshots",
-    "Moab 3-3-9",
+    {
+      "name": "KTP Headshots",
+      "imported": "2023-09-06"
+    },
+    "Moab 3\uf0223-9",
     "Papercut Final Show 4-8",
     "Pitt Protest 4-14",
     "Pitt Protest 4-18",
@@ -154,7 +319,31 @@
     "Pitter Patter Concert Shoot 2-16",
     "Post Genre 10-21",
     "Self Portrait Session 5-29",
-    "Sophie 1-28"
+    "Sophie 1-28",
+    {
+      "name": "College Dems vs College Republicans who are they voting for (CANNED) 10-29",
+      "root": "TPN Sophomore Year"
+    },
+    {
+      "name": "MBB v Missouri 11-28",
+      "root": "TPN Sophomore Year"
+    },
+    {
+      "name": "Oakland vs Other Neighborhoods 11-12",
+      "root": "TPN Sophomore Year"
+    },
+    {
+      "name": "Pitt MSOC vs Duke 10-21",
+      "root": "TPN Sophomore Year"
+    },
+    {
+      "name": "SHEIN fucking sucks 10-26",
+      "root": "TPN Sophomore Year"
+    },
+    {
+      "name": "Unplugged PGH 10-21",
+      "root": "TPN Sophomore Year"
+    }
   ],
   "2022": [
     "2D Design",
@@ -163,7 +352,7 @@
     "Erin Hopewell Senior Photos 4-6",
     "Insecurity Shoot 5-17",
     "International Night 2-18-22",
-    "Jocelyn Pham Senior Portraits 3-6-...",
+    "Jocelyn Pham Senior Portraits 3-6-22",
     "Kate Bonifacic 12-3",
     "Leadership",
     "Samantha Kay 7-7",
@@ -193,9 +382,9 @@
     "Hayden 6-17",
     "Jack Hopewell 6-13",
     "Johnny Hanford 5-30",
-    "Madeline Kennedy + Kaitlyn Roux ...",
+    "Madeline Kennedy + Kaitlyn Roux 7-8",
     "Maysia Mateos 5-24",
-    "Meg MacIlvaine 8-1",
+    "Meg Macllvaine 8-1",
     "Roberto's Mile Time Trial 7-2",
     "Sophia Brush 7-28",
     "Tom Lockwood 6-27",
@@ -206,7 +395,7 @@
     "Amelia Harn 11-3",
     "Amelia Harn Skatepark 6-11",
     "Amelia Harn Studio 2-18 (Digital)",
-    "Arlington Magazine - Pizza Shoot 1...",
+    "Arlington Magazine - Pizza Shoot 1-18",
     "Ava Acosta 4-19",
     "Carolyn Adkins and Erin Mccray 3-9",
     "Cole Goco Arlington Magazine 4-29",
@@ -222,7 +411,7 @@
     "Neighborhood Barbershop 1-19",
     "Neighborhood Barbershop 10-12",
     "Vera Benson 1-13",
-    "Yosemite and San Francisco 8-14 t..."
+    "Yosemite and San Francisco 8-14 to 22"
   ],
   "2018": [
     "Alana Genevieve 5-12",
@@ -249,7 +438,7 @@
     "Max Duer Pics",
     "Mia Melchior 12-30",
     "Mika Perez 10-21",
-    "Paris and Amsterdam photos 8-9 t...",
+    "Paris and Amsterdam photos 8-9 to 17",
     "Self Portraits",
     "Sophia Brush and Jack Mahler 6-25",
     "Taste Of Arlington 5-20",
@@ -266,7 +455,7 @@
     "Elizabeth Lefebvre and Bevin Surbey",
     "Erin Hopewell and Shay Monty 12-23",
     "Glory Jeon + Eladia DiNicola 11-11",
-    "Isabel Arnez, Lauren Faulkner and Jocelyn Pham F...",
+    "Isabel Arnez, Lauren Faulkner and Jocelyn Pham Fall Pics 10-14",
     "Isabelle and Dean Grimes 12-23",
     "Kaylin Perks and Abbey Parker 10-15",
     "Rowan Clark 12-22",

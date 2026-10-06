@@ -9,9 +9,8 @@ import ProgressiveImage from "./ProgressiveImage";
 import TagMenu from "./TagMenu";
 import Loader from "./Loader";
 import AlbumCarousel from "./AlbumCarousel";
-import { toGalleryPhoto, type GalleryPhoto, type PhotoResource } from "../../lib/photos";
-import { albumExpression, type AlbumCard } from "../../lib/albums";
-import { publicCloudinarySearchUrl } from "../../lib/cloudinarySearchPolicy";
+import { shuffled, toGalleryPhoto, type GalleryPhoto, type PhotoResource } from "../../lib/photos";
+import type { AlbumCard } from "../../lib/albums";
 import { toSrcSet } from "../../lib/cloudinaryImage";
 import {
   CORRECT_MS,
@@ -58,7 +57,6 @@ import {
 // only happens for the next page, a new tag or an opened album.
 
 const PAGE_SIZE = 20;
-const ALBUM_PAGE_SIZE = 50; // the public search route's max
 const LIGHTBOX_MIN_ZOOM_HEADROOM = 2;
 
 // v2: the album's `sizes` describe the *container*; the album derives each
@@ -125,26 +123,20 @@ type Source = { kind: "tag"; tag: string } | { kind: "album"; slug: string };
 type Request = Source | { kind: "restore" };
 type Page = { photos: GalleryPhoto[]; cursor: string | null };
 
-function searchUrl(source: Source, cursor: string | null) {
-  return source.kind === "album"
-    ? publicCloudinarySearchUrl({
-        expression: albumExpression(source.slug),
-        max_results: ALBUM_PAGE_SIZE,
-        next_cursor: cursor,
-        sort: "asc",
-      })
-    : publicCloudinarySearchUrl({
-        expression: source.tag ? `resource_type:image AND tags=${source.tag}` : "resource_type:image",
-        max_results: PAGE_SIZE,
-        next_cursor: cursor,
-      });
+/** Every photo for a chip ("" = All), to shuffle (api/cloudinary/pool). */
+async function fetchTagPool(tag: string): Promise<GalleryPhoto[]> {
+  const response = await fetch(tag ? `/api/cloudinary/pool?tag=${encodeURIComponent(tag)}` : "/api/cloudinary/pool");
+  if (!response.ok) throw new Error(`Tag pool responded with ${response.status}`);
+  const data: { resources?: PhotoResource[] } = await response.json();
+  return (data.resources ?? []).map(toGalleryPhoto);
 }
 
-async function fetchPage(source: Source, cursor: string | null, signal?: AbortSignal): Promise<Page> {
-  const response = await fetch(searchUrl(source, cursor), { signal });
-  if (!response.ok) throw new Error(`Search responded with ${response.status}`);
-  const data: { resources?: PhotoResource[]; next_cursor?: string } = await response.json();
-  return { photos: (data.resources ?? []).map(toGalleryPhoto), cursor: data.next_cursor ?? null };
+/** An album's photos, all at once, in capture order (api/cloudinary/album). */
+async function fetchAlbumPage(slug: string, signal?: AbortSignal): Promise<Page> {
+  const response = await fetch(`/api/cloudinary/album?slug=${encodeURIComponent(slug)}`, { signal });
+  if (!response.ok) throw new Error(`Album responded with ${response.status}`);
+  const data: { resources?: PhotoResource[] } = await response.json();
+  return { photos: (data.resources ?? []).map(toGalleryPhoto), cursor: null };
 }
 
 const isReducedMotion = () =>
@@ -233,6 +225,36 @@ export default function PhotoGallery({ albums, tags, initialPhotos, initialCurso
     cursorRef.current = cursor;
   }, [photos, cursor]);
 
+  // A chip (All included) shows a random set: its whole pool is fetched once
+  // (one CDN-cached URL per chip), reshuffled on every selection, and paged
+  // locally, so infinite scroll costs no requests. The cursor is an offset
+  // into the shuffle. Picking up a page the server shuffled (the first All
+  // page), the photos already showing stay first and only the rest shuffle.
+  const poolsRef = useRef(new Map<string, Promise<GalleryPhoto[]>>());
+  const shuffleRef = useRef<{ tag: string; photos: GalleryPhoto[] } | null>(null);
+
+  const pageFor = useCallback(async (source: Source, cursor: string | null, signal?: AbortSignal): Promise<Page> => {
+    if (source.kind === "album") return fetchAlbumPage(source.slug, signal);
+    let order = shuffleRef.current;
+    if (cursor === null || order?.tag !== source.tag) {
+      let pool = poolsRef.current.get(source.tag);
+      if (!pool) {
+        pool = fetchTagPool(source.tag);
+        poolsRef.current.set(source.tag, pool);
+        pool.catch(() => poolsRef.current.delete(source.tag)); // retry on the next selection
+      }
+      const photos = await pool;
+      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+      const showing = cursor === null ? [] : photosRef.current;
+      const shown = new Set(showing.map((photo) => photo.key));
+      order = { tag: source.tag, photos: [...showing, ...shuffled(photos.filter((photo) => !shown.has(photo.key)))] };
+      shuffleRef.current = order;
+    }
+    const start = cursor === null ? 0 : Number(cursor);
+    const end = start + PAGE_SIZE;
+    return { photos: order.photos.slice(start, end), cursor: end < order.photos.length ? String(end) : null };
+  }, []);
+
   const loadPage = useCallback(async (nextSource: Source, nextCursor: string | null) => {
     requestRef.current?.abort();
     const controller = new AbortController();
@@ -240,7 +262,7 @@ export default function PhotoGallery({ albums, tags, initialPhotos, initialCurso
     setLoading(true);
     setError(false);
     try {
-      const page = await fetchPage(nextSource, nextCursor, controller.signal);
+      const page = await pageFor(nextSource, nextCursor, controller.signal);
       setPhotos((previous) => (nextCursor ? [...previous, ...page.photos] : page.photos));
       setCursor(page.cursor);
     } catch (err) {
@@ -253,7 +275,7 @@ export default function PhotoGallery({ albums, tags, initialPhotos, initialCurso
         setLoading(false);
       }
     }
-  }, []);
+  }, [pageFor]);
 
   // Infinite scroll: only ever fetches the *next* page, and never mid-transition.
   useEffect(() => {
@@ -333,7 +355,7 @@ export default function PhotoGallery({ albums, tags, initialPhotos, initialCurso
     if (current.kind === "tag") snapshotRef.current = { tag: current.tag, photos: photosRef.current, cursor: cursorRef.current };
     requestRef.current?.abort();
     const controller = new AbortController();
-    const pending = fetchPage({ kind: "album", slug }, null, controller.signal);
+    const pending = fetchAlbumPage(slug, controller.signal);
     pending.catch(() => {});
 
     // Press: acknowledge the click while the album loads.
@@ -518,7 +540,7 @@ export default function PhotoGallery({ albums, tags, initialPhotos, initialCurso
       setLoading(true);
       setError(false);
       try {
-        page = await fetchPage({ kind: "tag", tag }, null);
+        page = await pageFor({ kind: "tag", tag }, null);
       } catch (err) {
         console.error("PhotoGallery: failed to load photos", err);
         showSource({ kind: "tag", tag }, { photos: [], cursor: null }, () => {
