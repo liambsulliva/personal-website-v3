@@ -122,6 +122,13 @@ if (apply) {
   console.log("Dry run. Re-run with --apply to upload.");
 }
 
+// CMS uploads write ids that aren't in IMAGE_MAP. Keep them so a later seed
+// doesn't blank the covers the dashboard already published.
+const mapped = new Set(IMAGE_MAP.map((e) => e.id));
+for (const [id, size] of Object.entries(previous)) {
+  if (!mapped.has(id) && manifest[id] === undefined) manifest[id] = size;
+}
+
 const sorted = Object.fromEntries(Object.entries(manifest).sort(([a], [b]) => a.localeCompare(b)));
 writeFileSync(MANIFEST, JSON.stringify(sorted, null, 2) + "\n");
 console.log(`Wrote ${Object.keys(sorted).length} entries → src/data/cloudinary-manifest.json`);

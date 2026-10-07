@@ -1,9 +1,16 @@
-import manifest from "../data/cloudinary-manifest.json";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import bundled from "../data/cloudinary-manifest.json";
 
 /**
  * Cloudinary delivery URLs for site imagery (public_id under site/…, see
  * scripts/cloudinary-map.mjs). Every URL is f_auto,q_auto. Fixed slots use
  * c_fill + g_auto (smart crop); free-aspect figures use c_limit.
+ *
+ * CldImage skips ids that aren't in this file. The CMS writes new covers
+ * here on upload so `npm run cloudinary:seed` isn't required for dashboard
+ * imagery. Contract tests set CMS_CASES and re-read the file from disk so
+ * a case that stages the manifest is what CldImage sees.
  */
 
 export const CLOUD_NAME: string =
@@ -23,13 +30,26 @@ export type CldOptions = {
   blur?: number;
 };
 
-const sizes = manifest as Record<string, { width: number; height: number }>;
+type Sizes = Record<string, { width: number; height: number }>;
+const bundledSizes = bundled as Sizes;
+const MANIFEST_FILE = fileURLToPath(new URL("../data/cloudinary-manifest.json", import.meta.url));
 
-export const assetSize = (id: string) => sizes[id];
+function sizes(): Sizes {
+  if (typeof process !== "undefined" && process.env.CMS_CASES) {
+    try {
+      return JSON.parse(readFileSync(MANIFEST_FILE, "utf8")) as Sizes;
+    } catch {
+      return bundledSizes;
+    }
+  }
+  return bundledSizes;
+}
+
+export const assetSize = (id: string) => sizes()[id];
 
 /** Ratio as "w / h" for CSS aspect-ratio. */
 export const assetRatio = (id: string, fallback = "16 / 9") => {
-  const size = sizes[id];
+  const size = sizes()[id];
   return size ? `${size.width} / ${size.height}` : fallback;
 };
 
@@ -60,7 +80,7 @@ export const cldFromSecureUrl = (secureUrl: string, options: CldOptions = {}) =>
 export const DEFAULT_WIDTHS = [320, 480, 640, 800, 960, 1200, 1600, 2000];
 
 export function cldSrcSet(id: string, options: CldOptions = {}, widths = DEFAULT_WIDTHS) {
-  const max = sizes[id]?.width;
+  const max = sizes()[id]?.width;
   const usable = max ? widths.filter((w) => w <= max) : widths;
   const list = usable.length ? usable : [max ?? widths[0]];
   if (max && options.crop !== "fill" && !list.includes(max) && max < widths[widths.length - 1]) {
@@ -76,7 +96,7 @@ export const cldPlaceholder = (id: string, options: CldOptions = {}) =>
 /** react-photo-album photos (with srcSet) for Cloudinary site assets. */
 export function albumPhotos(items: { id: string; alt: string }[], widths = [480, 768, 1200, 1600]) {
   return items.map(({ id, alt }) => {
-    const size = sizes[id] ?? { width: 1600, height: 900 };
+    const size = sizes()[id] ?? { width: 1600, height: 900 };
     const usable = widths.filter((w) => w < size.width);
     const list = [...usable, Math.min(size.width, widths[widths.length - 1])];
     return {

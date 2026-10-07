@@ -4,7 +4,8 @@
  * LQIP, then the responsive srcset fades in (instant under zap). Ids that
  * aren't in the manifest yet (reserved slots, see scripts/cloudinary-map.mjs)
  * skip both requests and stay as a gray skeleton, which also covers assets
- * that fail to load.
+ * that fail to load. CMS uploads write the new id into the manifest on
+ * publish, so dashboard covers don't need `npm run cloudinary:seed`.
  */
 import { assetRatio, assetSize, cldPlaceholder, cldSrcSet, cldUrl, type CldOptions } from "../../lib/cloudinary";
 
