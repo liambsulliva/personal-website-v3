@@ -7,4 +7,3 @@ external: true
 kind: "Blog"
 image: "site/pieces/writing/featured/english-is-the-new-frontier"
 description: "Our newest abstraction is bridging a lot more than just programmers."
-featured: true
