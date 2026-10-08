@@ -1,0 +1,112 @@
+---
+/**
+ * The body of a wing page (/engineering, /design, /writing): the Featured!
+ * FeaturedArticle, then each section from src/content/sections/<wing>.yaml in
+ * its layout. Sections with nothing to show are left out.
+ *   list         one-column ProjectCards (Figma Subpage / Engineering 24:329)
+ *   grid-3       ArticleCards, 3-up
+ *   grid-2-wide  ArticleCards, 2-up with 16:9 media (Layouts)
+ *   hero         full-width FeaturedArticles (Case Studies)
+ *   feed         Study Abroad: the WordPress posts and the section's entries, newest first
+ */
+import ArticleCard from "../cards/ArticleCard.astro";
+import FeaturedArticle from "../cards/FeaturedArticle.astro";
+import ProjectCard from "../cards/ProjectCard.astro";
+import SectionLabel from "../cards/SectionLabel.astro";
+import { entryHref, entryMeta, isExternal, pieceMeta, type Entry, type Section, type Wing } from "../../lib/content";
+import type { BerlinPost } from "../../lib/berlin";
+
+interface Props {
+  wing: Wing;
+  featured?: Entry;
+  sections: Section[];
+  /** Posts for a `feed` section. */
+  feed?: BerlinPost[];
+  name: string;
+}
+
+const { wing, featured, sections, feed = [], name } = Astro.props;
+
+/** One card for Featured! and the hero layout, whatever the entry is. */
+const hero = (entry: Entry) => ({
+  title: entry.data.title,
+  description: entry.data.description,
+  meta: entryMeta(entry),
+  image: entry.data.image,
+  href: entryHref(entry),
+  external: isExternal(entry),
+  bare: entry.data.heroFit === "contain",
+});
+
+const article = (entry: Entry) => ({
+  title: entry.data.title,
+  meta: entryMeta(entry),
+  href: entryHref(entry),
+  image: entry.data.image,
+  external: isExternal(entry),
+});
+
+const feedItems = (section: Section) =>
+  [
+    ...feed.map((post) => ({ time: post.date.getTime(), card: { title: post.title, meta: pieceMeta("Blog", post.date), href: post.href, imageUrl: post.image } })),
+    ...section.entries.map((entry) => ({ time: entry.data.date?.getTime() ?? 0, card: article(entry) })),
+  ].sort((a, b) => b.time - a.time);
+
+const visible = sections.filter((s) => (s.layout === "feed" ? feedItems(s).length > 0 : s.entries.length > 0));
+// The first ProjectCards above the fold load eagerly, as on the old /engineering.
+const firstList = visible.find((s) => s.layout === "list");
+const eager = featured ? 1 : 2;
+---
+
+<div class="flex w-full flex-col items-start gap-12 overflow-clip px-6 py-6 md:px-16 md:py-12" data-name={name}>
+  {
+    featured && (
+      <section class="flex w-full flex-col items-start gap-3" aria-labelledby={`${wing}-featured`}>
+        <SectionLabel id={`${wing}-featured`} eyebrow>Featured!</SectionLabel>
+        <FeaturedArticle {...hero(featured)} />
+      </section>
+    )
+  }
+  {
+    visible.map((section) => (
+      <section
+        class="flex w-full flex-col items-start gap-3"
+        aria-labelledby={section.heading ? `${wing}-${section.key}` : undefined}
+        data-section={section.key}
+      >
+        {section.heading && <SectionLabel id={`${wing}-${section.key}`}>{section.heading}</SectionLabel>}
+        {section.layout === "list" && (
+          <div class="flex w-full flex-col items-start gap-6">
+            {section.entries.map((entry, index) => (
+              <ProjectCard
+                title={entry.data.title}
+                description={entry.data.description}
+                image={entry.data.image}
+                href={entryHref(entry)}
+                external={isExternal(entry)}
+                badges={entry.data.badges.slice(0, 3)}
+                languages={entry.data.languages}
+                loading={section === firstList && index < eager ? "eager" : "lazy"}
+              />
+            ))}
+          </div>
+        )}
+        {section.layout === "hero" && section.entries.map((entry) => <FeaturedArticle {...hero(entry)} loading="lazy" />)}
+        {(section.layout === "grid-3" || section.layout === "grid-2-wide") && (
+          <div class:list={["grid w-full grid-cols-1 gap-x-6 gap-y-3", section.layout === "grid-3" ? "sm:grid-cols-2 lg:grid-cols-3" : "sm:grid-cols-2"]}>
+            {section.entries.map((entry) => (
+              <ArticleCard {...article(entry)} media={section.layout === "grid-2-wide" ? "wide" : undefined} />
+            ))}
+          </div>
+        )}
+        {section.layout === "feed" && (
+          <div class="grid w-full grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+            {feedItems(section).map(({ card }) => (
+              <ArticleCard {...card} />
+            ))}
+          </div>
+        )}
+      </section>
+    ))
+  }
+</div>

@@ -133,7 +133,7 @@ describe.runIf(cases.length)("real Astro content sync", () => {
 
   // One retry: a genuine schema rejection fails both times; npx/cache hiccups don't.
   it("accepts one authored case per collection at once", { retry: 1, timeout: 120_000 }, () => {
-    const picked = ["projects.featured.engineering", "pieces.berlin", "career.text", "albums.cover"]
+    const picked = ["entries.featured.engineering", "entries.berlin", "sections.add", "career.text", "albums.cover"]
       .map((id) => cases.find((c) => c.id === id))
       .filter((c): c is ContractCase => !!c);
     expect(picked.length).toBeGreaterThan(0);

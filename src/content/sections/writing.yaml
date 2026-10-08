@@ -1,0 +1,32 @@
+# Sections on /writing, top to bottom. Entries join a section through their
+# `section` field, which holds its `key`; a key never changes once created.
+# `order` is the custom order (slugs); entries missing from it follow, newest first.
+# The `feed` layout is Study Abroad: the WordPress posts, plus any entries in it, newest first.
+sections:
+  - key: substack
+    heading: Substack
+    layout: grid-3
+    sort: custom
+    order:
+      - the-license-is-a-paper-tiger
+      - english-is-the-new-frontier
+  - key: cooking
+    heading: Cooking
+    layout: grid-3
+    sort: custom
+    order:
+      - pickled-onions
+      - hearts-of-palm
+      - tofu
+  - key: video
+    heading: Video Essays
+    layout: grid-3
+    sort: custom
+    order:
+      - defense-mechanisms
+      - ultimate-platform-fighter
+  - key: berlin
+    heading: Study Abroad
+    layout: feed
+    sort: newest
+    order: []

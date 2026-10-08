@@ -1,16 +1,15 @@
 ---
-import { getCollection, render } from "astro:content";
+import { render } from "astro:content";
 import WriteupLayout from "../../layouts/WriteupLayout.astro";
 import { mdxComponents } from "../../components/writeup/index";
-import { hasWriteup } from "../../lib/content";
+import { writeupPaths } from "../../lib/content";
 import { tocFromBody } from "../../lib/toc";
 import { cldUrl } from "../../lib/cloudinary";
 import Book from "../../components/islands/Book.svelte";
 import SwitchHud from "../../components/writeup/SwitchHud.astro";
 
 export async function getStaticPaths() {
-  const projects = await getCollection("projects", (p) => p.data.wing === "engineering");
-  return projects.filter(hasWriteup).map((entry) => ({ params: { slug: entry.id }, props: { entry } }));
+  return writeupPaths("engineering");
 }
 
 const { entry } = Astro.props;

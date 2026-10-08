@@ -1,0 +1,23 @@
+---
+/**
+ * /writing (Figma Subpage / Writing 28:811): Featured!, then the sections in
+ * src/content/sections/writing.yaml. Study Abroad is a `feed` section: the
+ * Berlin WordPress posts (SSR fetch, 300s cache) merged with its entries.
+ */
+import SubpageLayout from "../../layouts/SubpageLayout.astro";
+import WingBody from "../../components/sections/WingBody.astro";
+import { getWing } from "../../lib/content";
+import { getBerlinPosts } from "../../lib/berlin";
+import { PUBLIC_CACHE_CONTROL } from "../../lib/cloudinaryServer";
+
+export const prerender = false;
+
+Astro.response.headers.set("Cache-Control", PUBLIC_CACHE_CONTROL);
+
+const page = await getWing("writing");
+const feed = page.sections.some((s) => s.layout === "feed") ? await getBerlinPosts() : [];
+---
+
+<SubpageLayout title="Writing - Liam Sullivan" section="writing">
+  <WingBody wing="writing" name="WritingBody" feed={feed} {...page} />
+</SubpageLayout>

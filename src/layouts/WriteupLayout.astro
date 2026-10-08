@@ -15,7 +15,7 @@ import type { TocItem } from "../lib/toc";
 import type { CollectionEntry } from "astro:content";
 
 interface Props {
-  entry: CollectionEntry<"projects">;
+  entry: CollectionEntry<"entries">;
   toc: TocItem[];
   /** The route fills the "hero" slot with an island (Book, Switch HUD). */
   islandHero?: boolean;
@@ -29,7 +29,8 @@ const meta = [
   { label: "Team", items: data.team },
   { label: "Timeline", items: data.timeline },
 ].filter((column) => column.items && column.items.length > 0);
-const hasButtons = Boolean(data.github || data.demo);
+const hasButtons = Boolean(data.github || data.href);
+const heroId = data.hero ?? data.image;
 
 ---
 
@@ -46,9 +47,9 @@ const hasButtons = Boolean(data.github || data.demo);
       {
         islandHero ? (
           <slot name="hero" />
-        ) : (
+        ) : heroId && (
           <CldImage
-            id={data.hero ?? data.image}
+            id={heroId}
             alt={data.title}
             aspect="15:7"
             sizes="(min-width: 1028px) 900px, 100vw"
@@ -70,7 +71,7 @@ const hasButtons = Boolean(data.github || data.demo);
           {hasButtons && (
             <div class="flex shrink-0 items-center gap-4" data-name="buttons">
               {data.github && <WriteupButton href={data.github} variant="secondary" label="GitHub" />}
-              {data.demo && <WriteupButton href={data.demo} variant="primary" label="Live Demo" />}
+              {data.href && <WriteupButton href={data.href} variant="primary" label="Live Demo" />}
             </div>
           )}
         </div>

@@ -13,9 +13,7 @@ const PUBLIC = join(ROOT, "public");
 
 // Reserved slots in scripts/cloudinary-map.mjs that still need an upload.
 // The page shows the skeleton until then; remove an id once it's seeded.
-const PENDING_UPLOADS = new Set([
-  "site/projects/claudia-cooks/cover",
-]);
+const PENDING_UPLOADS = new Set<string>([]);
 
 const walk = (dir: string): string[] =>
   readdirSync(dir).flatMap((name) => {
@@ -59,7 +57,7 @@ describe("Cloudinary site imagery", () => {
 describe("local links in content", () => {
   const content = walk(join(SRC, "content"));
   const writeups = new Set(
-    walk(join(SRC, "content/projects"))
+    walk(join(SRC, "content/entries"))
       .filter((path) => read(path).split(/^---$/m)[2]?.trim())
       .map((path) => {
         const wing = read(path).match(/^wing:\s*(\w+)/m)?.[1];
@@ -107,8 +105,34 @@ describe("local links in content", () => {
   });
 });
 
+describe("sections", () => {
+  const sections = Object.fromEntries(
+    walk(join(SRC, "content/sections")).map((path) => {
+      const wing = path.split("/").pop()!.replace(/\.ya?ml$/, "");
+      const keys = [...read(path).matchAll(/^\s+- key:\s*(\S+)/gm)].map(([, key]) => key);
+      return [wing, keys];
+    }),
+  );
+
+  it("every wing has a sections file", () => {
+    expect(Object.keys(sections).sort()).toEqual(["design", "engineering", "writing"]);
+  });
+
+  it("every entry sits in a section of its own wing", () => {
+    const stray = walk(join(SRC, "content/entries"))
+      .map((path) => {
+        const text = read(path);
+        const wing = text.match(/^wing:\s*(\w+)/m)?.[1] ?? "";
+        const section = text.match(/^section:\s*["']?([\w-]+)/m)?.[1] ?? "";
+        return { file: relative(ROOT, path), wing, section };
+      })
+      .filter(({ wing, section }) => !sections[wing]?.includes(section));
+    expect(stray).toEqual([]);
+  });
+});
+
 describe("write-up TOC anchors", () => {
-  for (const path of walk(join(SRC, "content/projects")).filter((p) =>
+  for (const path of walk(join(SRC, "content/entries")).filter((p) =>
     p.endsWith(".mdx"),
   )) {
     const ids = [

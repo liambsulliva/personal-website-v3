@@ -13,8 +13,8 @@ import Icon from "../icons/Icon.astro";
 
 interface Props {
   title: string;
-  description: string;
-  image: string;
+  description?: string;
+  image?: string;
   href: string;
   external?: boolean;
   badges?: string[];
@@ -39,14 +39,18 @@ const {
     class="relative h-[178px] w-full shrink-0 overflow-clip rounded-md bg-skeleton md:h-auto md:min-h-[270px] md:w-[480px] md:self-stretch"
     data-name="media"
   >
-    <CldImage
-      id={image}
-      alt=""
-      aspect="16:9"
-      fill
-      sizes="(min-width: 768px) 480px, 100vw"
-      loading={loading}
-    />
+    {
+      image && (
+        <CldImage
+          id={image}
+          alt=""
+          aspect="16:9"
+          fill
+          sizes="(min-width: 768px) 480px, 100vw"
+          loading={loading}
+        />
+      )
+    }
   </div>
   <div class="flex min-w-px flex-[1_0_0] flex-col items-start gap-3 overflow-clip md:gap-4 md:self-stretch md:py-3 md:pr-3" data-name="content">
     {
@@ -67,7 +71,7 @@ const {
         </h3>
         {external && <Icon name="external-link" size={14} class="text-fg" />}
       </div>
-      <p class="m-0 w-full text-[16px] leading-[1.5] text-muted">{description}</p>
+      {description && <p class="m-0 w-full text-[16px] leading-[1.5] text-muted">{description}</p>}
       {
         languages && languages.length > 0 && (
           <div class="my-2 w-full">

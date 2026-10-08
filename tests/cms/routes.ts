@@ -11,11 +11,12 @@ type PageModule = { default: unknown; getStaticPaths?: () => Promise<Array<{ par
 const PAGES: Record<string, () => Promise<PageModule>> = {
   "/engineering": () => import("../../src/pages/engineering/index.astro"),
   "/design": () => import("../../src/pages/design/index.astro"),
-  "/writing": () => import("../../src/pages/writing.astro"),
+  "/writing": () => import("../../src/pages/writing/index.astro"),
   "/career": () => import("../../src/pages/career.astro"),
   "/photography": () => import("../../src/pages/photography.astro"),
   "/engineering/[slug]": () => import("../../src/pages/engineering/[slug].astro"),
   "/design/[slug]": () => import("../../src/pages/design/[slug].astro"),
+  "/writing/[slug]": () => import("../../src/pages/writing/[slug].astro"),
 };
 
 let container: AstroContainer | null = null;
@@ -71,7 +72,7 @@ export async function renderRoute(route: string): Promise<Rendered> {
     return { status: res.status, body: await res.text() };
   }
 
-  const dynamic = path.match(/^\/(engineering|design)\/([^/]+)$/);
+  const dynamic = path.match(/^\/(engineering|design|writing)\/([^/]+)$/);
   const key = dynamic ? `/${dynamic[1]}/[slug]` : path;
   const load = PAGES[key];
   if (!load) throw new Error(`No page mapped for ${route}`);

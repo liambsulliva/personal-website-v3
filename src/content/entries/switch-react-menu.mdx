@@ -1,0 +1,253 @@
+---
+title: Switch React Menu
+description: A minimalist home menu for the Nintendo Switch, built with React. Uses react-tela to render React components to a canvas, allowing nx.js to natively render elements to the Switch's screen.
+wing: engineering
+section: projects
+image: site/projects/switch-react-menu/cover
+badges: [nx.js, React, TypeScript]
+languages:
+  - { name: TypeScript, pct: 99.3 }
+  - { name: HTML, pct: 0.7 }
+github: https://github.com/liambsulliva/switch-react-menu
+role: [Mobile Development, UI + UX Design]
+team: [Solo]
+tools: [React, TypeScript, nx.js, react-tela, Vite, esbuild]
+timeline: ["Started: Dec 2024", "Expanded: May–Jun 2026"]
+subtitle: A Minimalist Home Menu for Nintendo Switch - December 2024
+---
+
+export const overviewCopy = [
+  {
+    label: "Low-Level Control",
+    body: "The framework gave me shockingly low-level access to the hardware. Through the Canvas API, I was able to draw pixels and shapes directly to the screen instead of interacting with a Document Object Model (DOM), like in traditional JavaScript.",
+  },
+  {
+    label: "TypeScript Support",
+    body: "Coming from a Java background, I'm a big fan of what TypeScript brings to JavaScript. Adding type safety to code is a common sense addition to any language, and it's become so ingrained in my workflow that I can't really live without it.",
+  },
+  {
+    label: "React Tooling",
+    body: "React's declarative UI feels like a natural fit for a quick and dirty app like this. Reacting to state changes felt far more natural to work with than manually updating the UI, especially when it came to handling controller input.",
+  },
+];
+
+export const overviewStats = [
+  { value: "92", label: "total commits" },
+  { value: "4", label: "total bursts of freeform work" },
+  { value: "1", label: "UI shared between the Nintendo Switch and browser" },
+];
+
+export const pipelineNodes = [
+  {
+    step: "01 - Source",
+    title: "React Components",
+    body: `Components like <code>Rect</code>, <code>Text</code>, and <code>Image</code> from <a href="https://github.com/TooTallNate/react-tela" target="_blank" rel="noopener noreferrer">react-tela</a> act as the building blocks of the UI.`,
+  },
+  {
+    step: "02 - Reconciler",
+    title: "react-tela",
+    body: "The Custom React renderer walks through the elements and queues them to be painted to the screen with the Canvas2D API.",
+  },
+  {
+    step: "03 - Screen",
+    title: "Canvas2D",
+    body: "The <code>render</code> function paints straight onto the Switch's screen.",
+  },
+];
+
+export const phases = [
+  {
+    date: "December 2024",
+    label: "First build",
+    title: "A launcher over the holiday break",
+    commitCount: "26 commits",
+    whatIBuilt:
+      "The initial base of the project that pulls from the Switch's app catalog to draw icons to the screen and launch apps via A-press. It displays a row of apps in pages, using the L and R shoulder buttons to skip between pages.",
+    consequence: "Controller-based browsing and app launching",
+    whyItMattered:
+      "Without the basic rendering loop and app launching functionality, there would be no project to build upon.",
+    subjects: [
+      "skeleton nxjs base",
+      "app launching functionality",
+      "shoulder buttons pagination",
+      "selections via dpad",
+      "automate font bundling",
+    ],
+  },
+  {
+    date: "May 2026",
+    label: "Off-console iteration",
+    title: "Move iteration off the console",
+    commitCount: "21 commits",
+    whatIBuilt:
+      "This sprint focused on implementing the Vite pipeline, allowing for the React component tree to be fully device-agnostic and render in the browser. It also added a set of comprehensive settings to mutate the UI's appearance and behavior.",
+    consequence: "Testing without Switch hardware",
+    whyItMattered:
+      "Testing in the browser proved to be a huge time saving measure, as I could patch the UI in real-time without having to build and deploy to the console every time I wanted to test a change.",
+    subjects: [
+      "implement vite pipeline with browser preview",
+      "implement pagination dots",
+      "implement last played tracking",
+      "implement compact view",
+      "implement custom sort mode",
+    ],
+  },
+  {
+    date: "May 2026",
+    label: "Growing the surface",
+    title: "Turn a launcher into a navigable home surface",
+    commitCount: "40 commits",
+    whatIBuilt:
+      "This turned the launcher from a basic interface with Switch home menu feature parity into a fully-featured home surface with search, tags, and a photo album. This iteration used a local database compiled at build metadata for each game to display metadata for each game in a rich detail view.",
+    consequence: "Providing context and aesthetic appeal",
+    whyItMattered:
+      "This iteration allowed the project to differentiate itself from the original menu and give it functionality more akin to a <a href='https://platform.theverge.com/wp-content/uploads/sites/2/chorus/uploads/chorus_asset/file/21960886/Screen_Shot_2020_10_15_at_9.16.51_AM.png?quality=90&strip=all&crop=0%2C0%2C100%2C100&w=1440' target='_blank' rel='noopener noreferrer'>PlayStation</a> home menu. The gradients and colors were a nice touch, and the rich detail panel was a nice touch to add some visual flair to the project without adding too much technical overhead.",
+    subjects: [
+      "implement showing page #s feature",
+      "add album page",
+      "implement web applet",
+      "implement cached loads with manual invalidation",
+      "implement game tagging with badge display",
+      "add search bar functionality",
+      "implement tag autocomplete in search",
+    ],
+  },
+  {
+    date: "June 2026",
+    label: "Cleanup",
+    title: "Stabilize on console hardware",
+    commitCount: "4 commits",
+    whatIBuilt:
+      "This sprint focused on cleaning up documentation, squashing bugs, and migrating the static database to dynamic RAWG fetching. By this time, I had worked out how to use fetch and a simple proxy to get game metadata without having to deal with a pre-generated database.",
+    consequence: "15.2 MB catalog removed; measured romfs ≈91% smaller",
+    whyItMattered:
+      "Migrating the database to dynamic fetching massively reduces the bundle size and allows the project to include future titles that may not have been available at the time of the initial build.",
+    subjects: [
+      "Expand README.md",
+      "replace mockup img referenced in README",
+      "prune legacy igdb database (commit reports 64% smaller bundle)",
+      "fix virtual-keyboard lifecycle crash after RAWG loading",
+    ],
+  },
+];
+
+export const architectureCopy = [
+  {
+    label: "Catalog and layout",
+    body: "I also had to become familiar with the Switch.Application API. It reads the switch's app titles, authors, and box art from the Switch's app catalog. Each image renders exactly 40 pixels away from each other so that the grid can fit exactly 4 apps across the Switch's 1280 pixel width screen.",
+  },
+  {
+    label: "Input and selection chrome",
+    body: "Controller inputs are handled by a custom hook that listens for button presses and updates the UI accordingly. It listens for both left and right directional inputs on the stick and D-pad, as well as detecting shoulder buttons to quickly swap pages. It also listens for the A button to launch whatever app is selected.",
+  },
+];
+
+export const completedFeatures = [
+  { title: "Grid + compact list", description: "Controller, touch, and shoulder-button navigation" },
+  { title: "Search + tags", description: "Full-text filtering, tag chips, and autocomplete" },
+  { title: "Metadata cache + editing", description: "Offline resume, refresh, and per-title overrides" },
+  { title: "Settings + sorting", description: "Recent, alphabetical, release, launch count, and custom order" },
+  { title: "Photo album", description: "Grid browsing, lightbox navigation, and delete confirmation" },
+  { title: "Web shortcut", description: "System browser handoff through the Switch's native web browser shortcut" },
+  { title: "Browser preview", description: "Vite, nx.js port, keyboard gamepad, and mouse touch" },
+];
+
+export const interactionIdeas = [
+  {
+    number: "01",
+    title: "Keyboard as gamepad",
+    keys: ["←", "→", "Q", "E", "Enter"],
+    subject: "Rehearse console navigation in the browser preview.",
+    detail:
+      "By mapping keyboard keys to gamepad controls in the browser, developers can simulate authentic console navigation without having to touch bare-metal hardware.",
+  },
+  {
+    number: "02",
+    title: "Searching and sorting",
+    keys: ["↑", "↓", "#tag", "X"],
+    subject:
+      "Full-text filtering, tag chips, and autocomplete, with a custom sort mode in the settings.",
+    detail:
+      "The search bar allows users to filter down games based on key characteristics like title, genre, and tag.",
+  },
+  {
+    number: "03",
+    title: "Progressive game detail",
+    keys: ["↓", "A", "Edit"],
+    subject: "Access game metadata right from the menu itself.",
+    detail:
+      "The rich detail panel gives the menu some color, while giving users more information about the game(s) they're playing.",
+  },
+];
+
+<SectionHeading id="overview" eyebrow="Overview" title="A minimalist home menu for Nintendo Switch" />
+
+This Nintendo Switch App Launcher is a minimalist implementation of a traditional home menu. It relies on the JavaScript library nx.js, built by TooTallNate, to render React components to a generic canvas element through the react-tela library.
+
+While the react-tela framework itself is runtime-agnostic, it was the only way I could find to run the JSX runtime on the Nintendo Switch. Even though this interface relies on minimal reactivity, I thought the concept of running a React app on a console was interesting enough to be worth exploring.
+
+<CopyGrid items={overviewCopy} />
+
+<StatsGrid stats={overviewStats} note="(as of June 2026)" />
+
+<SectionHeading id="context" eyebrow="Context" title="The React I remember, but without strings attached" />
+
+In the Winter of 2024, I found myself with a full break from school for the holidays and a lot of time to kill. It made sense to start working on something new that I could show off, while also keeping the scope small enough that I could realistically finish the thing by the end of the break.
+
+I had already been pretty invested in the world of Nintendo homebrew by this point. I had custom firmware running on not just my switch, but pretty much every Nintendo console I owned (Wii, DSI, 3DS, and Wii U). So I really liked the idea of taking a stab at building an app for a Nintendo console. However, I found the typical options to be a little lacking. Working with C/C++ seemed like it would be too much of a pain to get started, and I didn't want to spend too much time tinkering with the low-level details of the console's APIs in order to build a simple app.
+
+While JavaScript may not be an obvious choice, it's actually relatively fast compared to other high level options like Python, and its frontend ecosystem plays well with UI development. Ultimately, nx.js ended up being amazing for those reasons.
+
+<Pipeline nodes={pipelineNodes} ariaLabel="React tree rendered by react-tela directly to a Canvas2D screen surface, with no browser DOM">
+  <CodeExampleGrid>
+    <CodeExample label="Data model" title="Iterating through the Switch's app catalog" lede="The launcher reads the Switch's app catalog and filters out any apps that don't have an icon pre-defined, as those applications are likely corrupt or missing.">
+
+```javascript
+const switchApps = Array.from(Switch.Application).filter(
+  (app) => app.icon
+);
+```
+
+    </CodeExample>
+    <CodeExample label="Bitmap icons" title="Decoding individual box art for the canvas" lede="The launcher then decodes the box art for each app and stores it in a bitmap for the Canvas API to render onto the screen.">
+
+```javascript
+for (const app of switchApps) {
+  let img;
+  if (app.icon) {
+    img = await createImageBitmap(new Blob([app.icon]));
+  }
+  if (!img) continue;
+  //...
+}
+```
+
+    </CodeExample>
+  </CodeExampleGrid>
+</Pipeline>
+
+<SectionHeading id="timeline" eyebrow="Project timeline" toc="Timeline" title="Four bursts across 92 commits" />
+
+This timeline groups the four biggest sprints of the project with the features that were shipped in each.
+
+<PhaseTimeline phases={phases} />
+
+<SectionHeading id="development" eyebrow="Development" title="One interface pipeline, two execution environments" />
+
+The development process was a bit of a rollercoaster. I started out by trying to use the Canvas API directly, but it was a bit of a pain to work with. I ended up using the react-tela library to render the React components to a canvas, which was a lot easier to work with.
+
+The same React tree that runs on Switch is available in the interactive browser preview at the top of this page. Game metadata is fetched through a server-side RAWG proxy, so the API key never ships to the browser.
+
+<ArchitectureFigure />
+
+<CopyGrid items={architectureCopy} columns={2} />
+
+<SectionHeading id="final-build" eyebrow="Final Build" title="What the project supports today" />
+
+The project leads with a modular presentation, giving the user options to switch between different views. Users can display their games in a row, a grid, or a list. They can also search for games by title, genre, or tag. While the rich details panel is the highlighted feature, it can be freely disabled if the user prefers a more minimal approach.
+
+<FeatureInventory features={completedFeatures} />
+
+<Figure id="site/projects/switch-react-menu/rich-details" alt="Nintendo Switch mockup showing the completed rich-details interface" caption="The rich-details view allows users to see more information about the given game they're playing, courtesy of RAWG." />
+
+<InteractionGrid items={interactionIdeas} />

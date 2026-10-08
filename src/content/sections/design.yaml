@@ -1,0 +1,38 @@
+# Sections on /design, top to bottom. Entries join a section through their
+# `section` field, which holds its `key`; a key never changes once created.
+# `order` is the custom order (slugs); entries missing from it follow, newest first.
+sections:
+  - key: case-studies
+    heading: Case Studies
+    layout: hero
+    sort: custom
+    order:
+      - kingdra-case-study
+  - key: graphic-design
+    heading: Graphic Design
+    layout: grid-3
+    sort: custom
+    order:
+      - from-pop-to-personal
+      - do-you-not-get-the-concept
+      - mock-pitt-post
+  - key: layouts
+    heading: Layouts
+    layout: grid-2-wide
+    sort: custom
+    order:
+      - portrait-tutorial
+      - wii-manual
+      - beer-and-wine-edition
+      - march-madness-edition
+  - key: design-club
+    heading: Design Club
+    layout: grid-3
+    sort: custom
+    order:
+      - clubmeeting1
+      - clubmeeting2
+      - clubmeeting3
+      - clubmeeting4
+      - clubmeeting5
+      - clubmeeting6

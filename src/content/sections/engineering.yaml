@@ -1,0 +1,17 @@
+# Sections on /engineering, top to bottom. Entries join a section through their
+# `section` field, which holds its `key`; a key never changes once created.
+# `order` is the custom order (slugs); entries missing from it follow, newest first.
+sections:
+  - key: projects
+    heading: ""
+    layout: list
+    sort: custom
+    order:
+      - kingdra-app
+      - switch-react-menu
+      - herl-app
+      - the-invisible-hand-of-ux
+      - bridge-app
+      - claudia-cooks
+      - how-expensive-is-fruit
+      - compression-wars

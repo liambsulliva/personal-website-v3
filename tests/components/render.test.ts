@@ -106,7 +106,7 @@ describe("CldImage", () => {
   it("unseeded ids stay a gray skeleton with no coming-soon copy", async () => {
     const html = await container.renderToString(CldImage, {
       props: {
-        id: "site/projects/claudia-cooks/cover",
+        id: "site/entries/not-uploaded-yet",
         alt: "Claudia Cooks cover",
         aspect: "16:9",
       },

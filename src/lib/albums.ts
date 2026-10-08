@@ -17,11 +17,14 @@ export type Album = {
   photos: string[];
 };
 
-/** Every album, newest first (undated ones as January 1st of their year). */
+export const MIN_ALBUM_PHOTOS = 5;
+
+/** Shown albums (≥ MIN_ALBUM_PHOTOS), newest first (undated ones as January 1st of their year). */
 export async function listAlbums(): Promise<Album[]> {
   const entries = await getCollection("albums");
   return entries
     .map(({ id, data }) => ({ ...data, slug: id, date: data.date ? data.date.toISOString().slice(0, 10) : null }))
+    .filter((album) => album.count >= MIN_ALBUM_PHOTOS)
     .sort((a, b) => (b.date ?? `${b.year}-01-01`).localeCompare(a.date ?? `${a.year}-01-01`) || a.title.localeCompare(b.title));
 }
 

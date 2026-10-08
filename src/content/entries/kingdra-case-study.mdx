@@ -1,0 +1,137 @@
+---
+title: The Journey to Mobile
+description: Rebuilding Kingdra for phones first.
+wing: design
+section: case-studies
+kind: Case Study
+image: site/projects/kingdra-case-study/cover
+hero: site/projects/kingdra-case-study/hero-phone
+heroFit: contain
+badges: []
+role: [Software Engineering, Product Design]
+team: [Solo]
+tools: [Figma, Photoshop]
+timeline: [1 Month]
+subtitle: Kingdra Pokemon Teambuilder - October 2024
+date: 2024-10-01
+featured: true
+---
+
+<SectionHeading id="overview" eyebrow="Overview" title="Rebuilding Kingdra for phones first" />
+
+Following the creation of my Pokemon Teambuilder in June, users testing the web app on their phone ran into a significantly higher rate of bugs and grievances compared to their peers on desktop platforms. Mobile was an afterthought during the initial development process.
+
+I tasked myself with rebuilding the UI for mobile devices, reducing the cost of interaction and easing the cognitive load for users that want to use the application on the go.
+
+These improvements reduced the overall scrolling time between UI elements and significantly reduced time to select Pokémon for a given team.
+
+<SectionHeading id="context" eyebrow="Context" title="Desktop-first development left mobile users stranded" />
+
+<SplitContext>
+  <Fragment slot="aside">
+    <CaptionedFigure caption="The initial mobile UI. Look at how long it takes to scroll!">
+      <PhoneMockup content="site/projects/kingdra-case-study/mobile-view" frame="site/ui/iphone-frame" alt="The original Kingdra mobile UI, showing a long scroll of Pokémon" />
+
+    </CaptionedFigure>
+  </Fragment>
+
+In June of 2024, I started development for this Pokémon Teambuilder project as a way to learn [Next.js](https://nextjs.org/) and build my first real full-stack application. The project was a lot of trial and error, and I spent a ton of time linking up database schemas, calling APIs, and writing the core logic.
+
+All of which allowing the Teambuilder to [mimic the math](https://bulbapedia.bulbagarden.net/wiki/Stat#Determination_of_stats) that the core Pokémon games use to calculate stats. After deploying the app, I enlisted the help of my Pokémon fan friends to test the app. One problem was clear immediately.
+
+<BlockQuote>The mobile experience was absolutely horrendous.</BlockQuote>
+
+They initially tested the app on their phones, because why wouldn't they? Mobile users make up [over 60% of global internet traffic](https://explodingtopics.com/blog/mobile-internet-traffic#mobile-internet-top-stats). Many of them were running errands when I posted the question in the Discord, and thought they could check it out really quick on their break.
+
+The interface forced them to scroll for entire seconds to find the Pokémon they were looking to find, and the infinite scrolling feature significantly favored desktop users, who could leverage the width of the screen to quickly scan for the Pokémon they wanted.
+
+The message was loud and clear. The UI needed to be rebuilt with portable devices in mind.
+
+</SplitContext>
+
+<SectionHeading id="roadblocks" eyebrow="Roadblocks" title="Libraries, S-curves, and missing depth" />
+
+There were a few issues right out the gate...
+
+<CaseStudyCardGrid columns={3}>
+  <CaseStudyCard title="Component Libraries" icon="Books">Using the [Flowbite](https://flowbite.com/) component library saved initial development time but locked me into an inflexible ecosystem. The cost of switching was too high, so I had to work within their framework for the redesign.</CaseStudyCard>
+  <CaseStudyCard title="The S-Curve Design" icon="SnakeArrow">The S-Curve UI design worked well for desktop users but proved problematic on screens with limited horizontal space, making it a poor choice for mobile devices.</CaseStudyCard>
+  <CaseStudyCard title="Lack of Dimensionality" icon="XYZ">Web apps lack native gesture support without heavy JavaScript use, making it challenging to implement the stacked UI elements and navigation that mobile apps typically use.</CaseStudyCard>
+</CaseStudyCardGrid>
+
+<Callout label="The goal?">Take a dense UI, even by desktop standards, and make it feel at home on smaller devices.</Callout>
+
+<SectionHeading id="considerations" eyebrow="Considerations" title="Hover, feedback, and hierarchy on a small screen" />
+
+Interacting with the web is radically different on mobile devices.
+
+<CaseStudyCardGrid columns={1}>
+  <CaseStudyCard variant="row" title="Hover State Alternatives" icon="TrackpadClick">Hover states don't work on touch devices, requiring alternative ways to show interactivity. I looked into implementing explicit visual indicators to replace hover previews, like using a tappable information button for speed stat calculations instead of hovering over the stat itself. This ensured mobile users could access the same information as desktop users through more touch-friendly interactions.</CaseStudyCard>
+  <CaseStudyCard variant="row" title="Interactive Feedback" icon="DangerPopup">While desktop interfaces rely on cursor feedback and hover states, touch interfaces needed a different approach. I explored options ensuring all elements remained within comfortable thumb reach for right-handed users, like placing all Pokemon on the team in a scrolling vertical list.</CaseStudyCard>
+  <CaseStudyCard variant="row" title="Information Hierarchy" icon="Adjustment">The desktop's expansive layout had to be rethought for mobile to prevent cognitive overload. I planned to prioritize information through modals and strategic button placement, with special attention to the Pokemon selection interface where quick filtering through dropdowns became essential.</CaseStudyCard>
+</CaseStudyCardGrid>
+
+<SectionHeading id="navigation" eyebrow="Navigation" title="Two prototype directions that never fully landed" />
+
+After brainstorming a bit, I started prototyping some layouts, neither of which I fully loved.
+
+<FigureGrid columns={2}>
+  <ProsConsCard title="Bottom Tab Bar" image="site/projects/kingdra-case-study/menubar" imageAlt="Bottom Tab Bar" pros={["Easily accessible for one-handed use, familiar to iOS users, clean and minimalist glassy interface"]} cons={["Can't see added Pokémon without switching tabs, not enough features to justify multiple tabs"]} />
+  <ProsConsCard title="Icons Up Top" image="site/projects/kingdra-case-study/iconbar" imageAlt="Icons along the top navigation" pros={["Keeps bottom navigation clear for content and eliminates need for sidebars or nested menus"]} cons={["Hard to reach with one hand, confusing to new users who may not know what the icons do"]} />
+</FigureGrid>
+
+<SectionHeading id="adaptations" eyebrow="Adaptations" title="Concrete UI moves that reduced scroll and friction" />
+
+After settling on a layout that worked, I immediately jumped into Tailwind to make some adjustments.
+
+<CaseStudyCardGrid columns={2}>
+  <CaseStudyCard title="Hamburger Menu">
+    <BeforeAfter slot="lead" before="site/projects/kingdra-case-study/hamburger-before" after="site/projects/kingdra-case-study/hamburger-after" beforeAlt="Navigation before hamburger menu" afterAlt="Navigation after hamburger menu" />
+    Replaced the fixed infinite scrolling navigation with a collapsible hamburger menu to save valuable screen space. This mobile pattern is familiar, while maintaining full functionality.
+  </CaseStudyCard>
+  <CaseStudyCard title="Margins">
+    <BeforeAfter slot="lead" before="site/projects/kingdra-case-study/margins-before" after="site/projects/kingdra-case-study/margins-after" beforeAlt="UI before margin adjustments" afterAlt="UI after margin adjustments" />
+    Optimized margins for mobile screens while preserving touch targets and readability. This allowed for more content to be visible at once, especially within modal interfaces.
+  </CaseStudyCard>
+  <CaseStudyCard title="Convert Tabs to Dropdowns">
+    <BeforeAfter slot="lead" before="site/projects/kingdra-case-study/tabs-before" after="site/projects/kingdra-case-study/tabs-after" beforeAlt="Navigation before tab conversion" afterAlt="Navigation after tab conversion" />
+    Transformed the horizontal tab system into dropdown menus to prevent line breaks and maintain filtering options in a mobile-friendly format, which was particularly useful for the Pokemon selection interface.
+  </CaseStudyCard>
+  <CaseStudyCard title="PWA Migration">
+    <BeforeAfter slot="lead" before="site/projects/kingdra-case-study/pwa-before" after="site/projects/kingdra-case-study/pwa-after" beforeAlt="App before PWA implementation" afterAlt="App after PWA implementation" />
+    Enhanced the mobile experience through PWA implementation, enabling app installation, faster loading times through caching, and improved performance with reduced server-side operations.
+  </CaseStudyCard>
+  <CaseStudyCard title={`"Add Pokemon" Button + Modal`}>
+    <BeforeAfter slot="lead" before="site/projects/kingdra-case-study/modal-before" after="site/projects/kingdra-case-study/modal-after" beforeAlt="UI before modal implementation" afterAlt="UI after modal implementation" />
+    Replaced the spread-out Pokemon selection interface with a focused full-screen modal, accessible via a single "Add Pokemon" button. Features touch-optimized controls for filtering and searching.
+  </CaseStudyCard>
+  <CaseStudyCard title="Horizontal Pokemon Slots">
+    <BeforeAfter slot="lead" before="site/projects/kingdra-case-study/horizontal-slots-before" after="site/projects/kingdra-case-study/horizontal-slots-after" beforeAlt="Pokemon slots before horizontal layout" afterAlt="Pokemon slots after horizontal layout" />
+    Converted the grid layout to a horizontal list, making team management more intuitive on mobile and increasing the Pokemon editor's touch target. Provides a natural scanning experience from top to bottom.
+  </CaseStudyCard>
+</CaseStudyCardGrid>
+
+<SectionHeading id="flow" eyebrow="Flow" title="How the rebuilt mobile experience comes together" />
+
+So how does this all come together?
+
+<FigureGrid columns={4}>
+  <Figure id="site/projects/kingdra-case-study/flow-1" alt="Vertical team landing page with import and export controls">A vertical landing page layout lets users easily browse their Pokemon team. Teams can be imported from or exported to [Pokemon Showdown](https://play.pokemonshowdown.com/).</Figure>
+  <Figure id="site/projects/kingdra-case-study/flow-2" alt="Hamburger menu showing game modes, team options, and account settings">The hamburger menu provides quick access to game modes, team options, and account settings. The login button transforms into a user icon when signed in.</Figure>
+  <Figure id="site/projects/kingdra-case-study/flow-3" alt="Pokémon details modal showing stats and moves">Pokemon details appear in a space-efficient modal. Competitive mode shows stats and moves, while casual mode displays encounter locations and alternate forms.</Figure>
+  <Figure id="site/projects/kingdra-case-study/flow-4" alt="Full-screen Add Pokémon modal with search and filters">The "Add Pokemon" button opens a full-screen modal with filtering options by tier, generation, and name search. Multiple Pokemon can be added in succession.</Figure>
+</FigureGrid>
+
+<SectionHeading id="retrospective" eyebrow="Retrospective" title="Lessons from converting a desktop tool to mobile" />
+
+Converting the Kingdra Teambuilder to mobile revealed valuable lessons about responsive design. What began as a simple port evolved into an exploration of mobile UX patterns and the complexities of adapting desktop functionality to smaller screens.
+
+<CaseStudyCardGrid columns={3}>
+  <CaseStudyCard title="The Component Library Dilemma" icon="Books">Flowbite's rigid structure, while perfect for desktop, required creative CSS solutions to adapt to mobile. In the future, I will build out components from scratch to give me a greater degree of control.</CaseStudyCard>
+  <CaseStudyCard title="Rethinking Touch Navigation" icon="TrackpadClick">Replacing the desktop sidebar with a hamburger menu proved to be more than just a space-saving measure. The new navigation system made for a much more intuitive mobile experience.</CaseStudyCard>
+  <CaseStudyCard title="The PWA Game-Changer" icon="Phone">The Progressive Web App implementation brought a lot of benefits. Caching brought significant improvements in load times and performance that didn't exist in the original web implementation.</CaseStudyCard>
+</CaseStudyCardGrid>
+
+Going forward, the type coverage module needs to be re-implemented. In the current horizontal list implementation, displaying it on mobile is simply not feasible yet. A gesture-based system could make this desktop-optimized tool more accessible on mobile devices. Enhanced filtering options by types, stats, and moves would improve the user experience, especially on mobile and tablets where screen space is limited and only two columns of Pokemon can be shown at one time.
+
+Future development will focus on replacing Flowbite components with custom, device-agnostic solutions to improve flexibility and maintainability. By removing these dependencies, I'll have much more freedom in creating custom layouts.

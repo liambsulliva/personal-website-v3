@@ -9,8 +9,8 @@ import bundled from "../data/cloudinary-manifest.json";
  *
  * CldImage skips ids that aren't in this file. The CMS writes new covers
  * here on upload so `npm run cloudinary:seed` isn't required for dashboard
- * imagery. Contract tests set CMS_CASES and re-read the file from disk so
- * a case that stages the manifest is what CldImage sees.
+ * imagery. Vitest re-reads the file from disk so a contract case that
+ * stages the manifest is what CldImage sees.
  */
 
 export const CLOUD_NAME: string =
@@ -35,7 +35,7 @@ const bundledSizes = bundled as Sizes;
 const MANIFEST_FILE = fileURLToPath(new URL("../data/cloudinary-manifest.json", import.meta.url));
 
 function sizes(): Sizes {
-  if (typeof process !== "undefined" && process.env.CMS_CASES) {
+  if (typeof process !== "undefined" && (process.env.CMS_CASES || process.env.VITEST)) {
     try {
       return JSON.parse(readFileSync(MANIFEST_FILE, "utf8")) as Sizes;
     } catch {

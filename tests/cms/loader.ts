@@ -17,8 +17,8 @@ export const ROOT = join(import.meta.dirname, "../..");
 export const CONTENT = join(ROOT, "src/content");
 
 const EXTENSIONS: Record<string, RegExp> = {
-  projects: /\.mdx?$/,
-  pieces: /\.(ya?ml|md)$/,
+  entries: /\.mdx?$/,
+  sections: /\.ya?ml$/,
   career: /\.(ya?ml|md)$/,
   albums: /\.ya?ml$/,
 };

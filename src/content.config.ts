@@ -20,60 +20,59 @@ const career = defineCollection({
   }),
 });
 
+export const WINGS = ["engineering", "design", "writing"] as const;
+export const LAYOUTS = ["list", "grid-3", "grid-2-wide", "hero", "feed"] as const;
+
 /**
- * Projects: one collection for both wings. A body is a write-up; no body ⇒
- * the card is outbound only (external icon). Images are Cloudinary public_ids
- * (see scripts/cloudinary-map.mjs).
+ * Entries: everything on /engineering, /design and /writing. Each one sits in
+ * a section of its wing's page, and the section's layout decides which card it
+ * renders as. A body is a write-up at /<wing>/<slug>; no body ⇒ the card links
+ * to `href` (or `github`). Every field is open to every entry; the layouts
+ * use what they need. Images are Cloudinary public_ids.
  */
-const projects = defineCollection({
-  loader: glob({ pattern: "**/*.{md,mdx}", base: "./src/content/projects" }),
+const entries = defineCollection({
+  loader: glob({ pattern: "**/*.{md,mdx}", base: "./src/content/entries" }),
   schema: z.object({
     title: z.string(),
-    description: z.string(),
-    wing: z.enum(["engineering", "design"]),
-    image: z.string(),
+    description: z.string().optional(),
+    wing: z.enum(WINGS),
+    section: z.string(), // a `key` in src/content/sections/<wing>.yaml
+    kind: z.string().optional(), // meta label: "Case Study", "Logo", "Blog", …
+    date: z.coerce.date().optional(),
+    href: z.string().optional(), // card link without a write-up; the write-up's demo button with one
+    external: z.boolean().default(true),
+    github: z.string().url().optional(),
+    image: z.string().optional(),
     hero: z.string().optional(), // write-up hero when different from image
-    heroFit: z.enum(["cover", "contain"]).default("cover"), // contain: transparent art, no crop
-    badges: z.array(z.string()).max(3),
+    heroFit: z.enum(["cover", "contain"]).default("cover"), // contain: transparent art, no crop or frame
+    badges: z.array(z.string()).default([]), // cards show the first three
     languages: z
       .array(z.object({ name: z.string(), pct: z.number() }))
       .optional(), // Figma LanguageBar; omit component if empty
-    github: z.string().url().optional(),
-    demo: z.string().optional(),
     role: z.array(z.string()).optional(),
     team: z.array(z.string()).optional(),
     tools: z.array(z.string()).optional(),
     timeline: z.array(z.string()).optional(),
     subtitle: z.string().optional(),
-    date: z.coerce.date().optional(), // case-study card meta ("Case Study • Oct 2024")
     featured: z.boolean().default(false), // the FeaturedArticle atop its wing's page (one per page)
-    order: z.number().default(0),
   }),
 });
 
-/** Pieces: ArticleCard data for /design and /writing. */
-const pieces = defineCollection({
-  loader: glob({ pattern: "**/*.{md,yaml,yml}", base: "./src/content/pieces" }),
+/** Sections: one file per wing (sections/<wing>.yaml), top to bottom. */
+const sections = defineCollection({
+  loader: glob({ pattern: "*.{yaml,yml}", base: "./src/content/sections" }),
   schema: z.object({
-    title: z.string(),
-    gallery: z.enum(["design", "writing"]),
-    section: z.enum([
-      "graphic-design",
-      "layouts",
-      "design-club",
-      "substack",
-      "video",
-      "cooking",
-      "berlin",
-    ]),
-    date: z.coerce.date(),
-    href: z.string(),
-    external: z.boolean().default(true),
-    image: z.string().optional(),
-    description: z.string().optional(), // FeaturedArticle dek
-    kind: z.string().optional(), // meta label: "Logo", "Cover", "Blog", …
-    featured: z.boolean().default(false), // the FeaturedArticle atop its gallery's page (one per page)
-    order: z.number().default(0),
+    sections: z
+      .array(
+        z.object({
+          key: z.string().regex(/^[a-z0-9]+(?:[-_][a-z0-9]+)*$/),
+          heading: z.string(), // "" renders no label
+          layout: z.enum(LAYOUTS),
+          sort: z.enum(["custom", "oldest", "newest"]).default("custom"),
+          order: z.array(z.string()).default([]), // custom order (entry slugs)
+        }),
+      )
+      .refine((list) => new Set(list.map((s) => s.key)).size === list.length, { message: "section keys must be unique" }),
   }),
 });
 
@@ -97,4 +96,4 @@ const albums = defineCollection({
     .refine((album) => album.count === album.photos.length, { message: "count must match photos" }),
 });
 
-export const collections = { career, projects, pieces, albums };
+export const collections = { career, entries, sections, albums };
