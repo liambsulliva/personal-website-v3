@@ -4,7 +4,7 @@
 # The `feed` layout is Study Abroad: the WordPress posts, plus any entries in it, newest first.
 sections:
   - key: substack
-    heading: Substack
+    heading: Articles
     layout: grid-3
     sort: custom
     order:
