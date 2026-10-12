@@ -6,12 +6,18 @@
  * yields both the chips and the page. One island holds the stacks and the
  * gallery, since opening an album fills the gallery; it starts above the
  * fold, so it hydrates on load.
+ *
+ * A shared link (`?album=<slug>` / `?tag=<tag>`, lib/photoShare) arrives with
+ * that album open or that chip selected: its first page is rendered here (one
+ * more Search pass, the same one the album/pool endpoints make), and so is its
+ * link preview. A link to nothing shown renders All; the island says so.
  */
 import SubpageLayout from "../layouts/SubpageLayout.astro";
 import PhotoGallery from "../components/islands/PhotoGallery.tsx";
-import { listAlbums, toAlbumCard } from "../lib/albums";
-import { photoExpression, PUBLIC_CACHE_CONTROL, searchAllPhotos } from "../lib/cloudinaryServer";
+import { albumDetails, listAlbums, toAlbumCard, toOgImage } from "../lib/albums";
+import { photoExpression, PUBLIC_CACHE_CONTROL, searchAlbumPhotos, searchAllPhotos } from "../lib/cloudinaryServer";
 import { shuffled, toGalleryPhoto } from "../lib/photos";
+import { photographyTitle, shareHref, sourceFromParams } from "../lib/photoShare";
 
 export const prerender = false;
 
@@ -20,20 +26,46 @@ Astro.response.headers.set("Cache-Control", PUBLIC_CACHE_CONTROL);
 const FIRST_PAGE = 20; // PhotoGallery's PAGE_SIZE
 
 const all = await searchAllPhotos(photoExpression());
-const albums = (await listAlbums()).map(toAlbumCard);
-const photos = shuffled(all.resources).slice(0, FIRST_PAGE).map(toGalleryPhoto);
-// The island carries on through its own shuffle of All, after these 20.
-const initialCursor = all.resources.length > FIRST_PAGE ? String(FIRST_PAGE) : null;
+const shown = await listAlbums();
+const albums = shown.map(toAlbumCard);
+const { source, missing } = sourceFromParams(Astro.url.searchParams, {
+  albums: shown.map(({ slug }) => slug),
+  tags: all.tags,
+});
+const album = source.kind === "album" ? shown.find(({ slug }) => slug === source.slug) : undefined;
+
+// An album shows whole, in its own order; a chip shows a random first page
+// and the island carries on through its own shuffle of the rest.
+const pool = album
+  ? await searchAlbumPhotos(album.photos)
+  : source.kind === "tag" && source.tag
+    ? await searchAllPhotos(photoExpression(source.tag))
+    : all;
+const resources = album ? pool.resources : shuffled(pool.resources).slice(0, FIRST_PAGE);
+const photos = resources.map(toGalleryPhoto);
+const initialCursor = !album && pool.resources.length > FIRST_PAGE ? String(FIRST_PAGE) : null;
+
+const shared = source.kind === "album" || source.tag !== "";
+const origin = Astro.site ?? Astro.url;
 ---
 
-<SubpageLayout title="Photography - Liam Sullivan" section="photography">
+<SubpageLayout
+  title={photographyTitle(source, shown)}
+  description={album ? albumDetails(album) : undefined}
+  ogUrl={shared ? shareHref(source, new URL(Astro.url.pathname, origin)) : undefined}
+  ogImage={album ? toOgImage(album.photos[0]) : undefined}
+  section="photography"
+>
   <div class="flex w-full min-w-0 flex-col items-stretch gap-8 overflow-x-clip px-6 py-6 md:px-16 md:py-12" data-name="Content">
     <PhotoGallery
       client:load
       albums={albums}
       tags={all.tags}
+      initialSource={source}
       initialPhotos={photos}
       initialCursor={initialCursor}
+      initialError={shared && !pool.ok}
+      missing={missing}
     />
   </div>
 </SubpageLayout>

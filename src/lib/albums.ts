@@ -64,3 +64,8 @@ export const toAlbumCard = (album: Album): AlbumCard => ({
   details: albumDetails(album),
   previews: album.photos.slice(0, 3).map((id) => toStackPhoto(id)),
 });
+
+/** A shared album link's preview image: the cover, cropped to the 1200×630
+ *  Open Graph card. JPEG, since link scrapers don't all take WebP/AVIF. */
+export const toOgImage = (publicId: string, cloudName = CLOUD_NAME): string =>
+  cloudinaryTransform(`https://res.cloudinary.com/${cloudName}/image/upload/${publicId}`, "c_fill,g_auto,w_1200,h_630,f_jpg,q_auto");

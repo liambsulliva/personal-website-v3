@@ -9,6 +9,12 @@ import ProgressiveImage from "./ProgressiveImage";
 import TagMenu from "./TagMenu";
 import Loader from "./Loader";
 import AlbumCarousel from "./AlbumCarousel";
+import Glyph from "./Glyph";
+import Toast, { type ToastMessage } from "./Toast";
+import shareIcon from "../icons/svg/share.svg?raw";
+import checkIcon from "../icons/svg/check.svg?raw";
+import spinnerIcon from "../icons/svg/spinner.svg?raw";
+import { photographyTitle, shareHref, type GallerySource } from "../../lib/photoShare";
 import { shuffled, toGalleryPhoto, type GalleryPhoto, type PhotoResource } from "../../lib/photos";
 import type { AlbumCard } from "../../lib/albums";
 import { toSrcSet } from "../../lib/cloudinaryImage";
@@ -45,6 +51,7 @@ import {
   createCardFlyer,
   fadeIn,
   flyCard,
+  swiftFadeOut,
   mark as albumMark,
   redirect,
   sleep,
@@ -111,13 +118,19 @@ function LightboxSlide({
 type Props = {
   albums: AlbumCard[];
   tags: string[];
+  /** What the URL asked for (lib/photoShare), already checked by the page. */
+  initialSource: Source;
   initialPhotos: GalleryPhoto[];
   initialCursor: string | null;
+  /** The shared album/tag's first page failed: show Try again, not "No photos". */
+  initialError?: boolean;
+  /** The URL's album/tag param matched nothing shown, so All fills the gallery. */
+  missing?: "album" | "tag" | null;
 };
 
-// What fills the gallery: a tag ("" = All) or an album. Plain data, so it can
-// back a `?album=` URL later.
-type Source = { kind: "tag"; tag: string } | { kind: "album"; slug: string };
+// What fills the gallery: a tag ("" = All) or an album. Plain data that backs
+// the `?album=` / `?tag=` URL (lib/photoShare).
+type Source = GallerySource;
 // A chip or stack click. `restore`: the open stack's empty slot, back to the
 // tag the album replaced.
 type Request = Source | { kind: "restore" };
@@ -138,6 +151,35 @@ async function fetchAlbumPage(slug: string, signal?: AbortSignal): Promise<Page>
   const data: { resources?: PhotoResource[] } = await response.json();
   return { photos: (data.resources ?? []).map(toGalleryPhoto), cursor: null };
 }
+
+/** Scrolls `scroller` sideways, instantly, so `item` sits `inset` px in from
+ *  its left edge (clear of edge fades), unless it already shows clear of both.
+ *  Only the scroller moves, never the page. */
+function revealSideways(scroller: HTMLElement | null, item: HTMLElement | null, inset: number) {
+  if (!scroller || !item) return;
+  const outer = scroller.getBoundingClientRect();
+  const box = item.getBoundingClientRect();
+  if (box.left >= outer.left + inset && box.right <= outer.right - inset) return;
+  scroller.scrollLeft += box.left - outer.left - inset;
+}
+
+/** Writes text that's still on its way. ClipboardItem takes a promise, so the
+ *  write starts inside the click and keeps its user activation however long
+ *  the text takes (Safari refuses a write made after an await). */
+async function writeClipboard(text: Promise<string>) {
+  if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+    const blob = text.then((value) => new Blob([value], { type: "text/plain" }));
+    return navigator.clipboard.write([new ClipboardItem({ "text/plain": blob })]);
+  }
+  return navigator.clipboard.writeText(await text);
+}
+
+/** How long a share click waits for the gallery before copying anyway. */
+const SHARE_WAIT_MS = 10000;
+/** How long the share button shows its check. */
+const SHARE_CHECK_MS = 2000;
+/** The tag row's edge fades (TagMenu's w-24). */
+const TAG_FADE_PX = 96;
 
 const isReducedMotion = () =>
   typeof document !== "undefined" && document.documentElement.hasAttribute("data-reduced-motion");
@@ -185,16 +227,26 @@ type CardFlight = { index: number; tile: HTMLElement | null; flyer: HTMLElement;
  *  album's first three photos, the rest leave from the top card. */
 const stackCardFor = (cards: HTMLElement[], photoIndex: number) => cards[photoIndex] ?? cards[0];
 
-export default function PhotoGallery({ albums, tags, initialPhotos, initialCursor }: Props) {
-  const [source, setSource] = useState<Source>({ kind: "tag", tag: "" });
+export default function PhotoGallery({
+  albums,
+  tags,
+  initialSource,
+  initialPhotos,
+  initialCursor,
+  initialError = false,
+  missing = null,
+}: Props) {
+  // A shared album arrives open (its stack already the empty slot), the
+  // state an explode ends in; a shared tag arrives with its chip selected.
+  const [source, setSource] = useState<Source>(initialSource);
   // The selected chip: "" = All, null = none (an album fills the gallery).
-  const [chip, setChip] = useState<string | null>("");
-  const [openSlug, setOpenSlug] = useState<string | null>(null);
+  const [chip, setChip] = useState<string | null>(initialSource.kind === "tag" ? initialSource.tag : null);
+  const [openSlug, setOpenSlug] = useState<string | null>(initialSource.kind === "album" ? initialSource.slug : null);
   const [transitioning, setTransitioning] = useState(false);
   const [photos, setPhotos] = useState(initialPhotos);
   const [cursor, setCursor] = useState<string | null>(initialCursor);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState(initialError);
   const [index, setIndex] = useState(-1);
   const [handoff, setHandoff] = useState<{ key: string; src: string } | null>(null);
   // false from mount until the handoff: transparent backdrop, hidden chrome,
@@ -217,6 +269,9 @@ export default function PhotoGallery({ albums, tags, initialPhotos, initialCurso
   const transitionRef = useRef<AlbumTransition | null>(null);
   const cardsRef = useRef<CardFlight[]>([]);
   const clearRef = useRef<Animation | null>(null); // the gallery is faded back while set
+  // false while the gallery is stepped out (album clear, chip swap): the share
+  // button goes with it rather than floating over the gap.
+  const [galleryShown, setGalleryShown] = useState(true);
   // The tag page an album replaced, so its empty slot restores it unfetched.
   const snapshotRef = useRef<{ tag: string } & Page | null>(null);
 
@@ -328,6 +383,7 @@ export default function PhotoGallery({ albums, tags, initialPhotos, initialCurso
     if (!gallery || clearRef.current || isReducedMotion()) return;
     const clear = clearOut(gallery);
     clearRef.current = clear;
+    setGalleryShown(false);
     await clear.finished.catch(() => {});
   };
 
@@ -338,6 +394,7 @@ export default function PhotoGallery({ albums, tags, initialPhotos, initialCurso
     if (!clear) return;
     clear.cancel();
     clearRef.current = null;
+    setGalleryShown(true);
     if (fade && albumRef.current) await fadeIn(albumRef.current).finished.catch(() => {});
   };
 
@@ -517,7 +574,7 @@ export default function PhotoGallery({ albums, tags, initialPhotos, initialCurso
   };
 
   /** Fills the gallery with tag `tag`. From an album (gallery cleared), the
-   *  page fades in; tag → tag keeps the original instant swap + loader. */
+   *  page fades in; tag → tag is a swift fade out, the loader, and a fade in. */
   const fill = async (tag: string) => {
     transitionRef.current = { phase: "fill", slug: null, reversed: false };
     albumMark("C3-fill");
@@ -530,8 +587,17 @@ export default function PhotoGallery({ albums, tags, initialPhotos, initialCurso
     }
     const snapshot = current.kind === "album" && snapshotRef.current?.tag === tag ? snapshotRef.current : null;
     if (!cleared && !snapshot) {
+      const gallery = albumRef.current;
+      const fade = gallery && !isReducedMotion() && photosRef.current.length > 0 ? swiftFadeOut(gallery) : null;
+      if (fade) setGalleryShown(false);
+      await fade?.finished.catch(() => {});
       showSource({ kind: "tag", tag }, { photos: [], cursor: null });
       await loadPage({ kind: "tag", tag }, null);
+      if (fade && gallery) {
+        fade.cancel(); // same task as the fade in: no opaque frame between
+        setGalleryShown(true);
+        await fadeIn(gallery).finished.catch(() => {});
+      }
       return;
     }
     let page: Page | null = snapshot;
@@ -601,6 +667,81 @@ export default function PhotoGallery({ albums, tags, initialPhotos, initialCurso
   const selectTag = (next: string) => request({ kind: "tag", tag: next });
   const selectAlbum = (album: AlbumCard) =>
     request(album.slug === openSlugRef.current ? { kind: "restore" } : { kind: "album", slug: album.slug });
+
+  // ── Share link ────────────────────────────────────────────────
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+  const toastIdRef = useRef(0);
+  const notify = useCallback((text: string) => setToast({ id: ++toastIdRef.current, text }), []);
+
+  // The address bar follows the gallery (replaceState, so Back still leaves
+  // the page): it's always the link the share button copies.
+  useEffect(() => {
+    const href = shareHref(source, new URL(window.location.href));
+    if (href !== window.location.href) window.history.replaceState(window.history.state, "", href);
+    document.title = photographyTitle(source, albums);
+  }, [source, albums]);
+
+  // Arriving on a shared link: the open stack / selected chip is brought into
+  // its scroller, and a link to nothing shown says so (the effect above has
+  // already dropped its param).
+  useEffect(() => {
+    const root = rootRef.current;
+    if (initialSource.kind === "album") {
+      const track = root?.querySelector<HTMLElement>(".album-track") ?? null;
+      const stack = root?.querySelector<HTMLElement>(`[data-album-stack="${CSS.escape(initialSource.slug)}"]`) ?? null;
+      revealSideways(track, stack, track ? parseFloat(getComputedStyle(track).scrollPaddingLeft) || 0 : 0);
+    } else if (initialSource.tag) {
+      const row = root?.querySelector<HTMLElement>(".tag-menu") ?? null;
+      revealSideways(row, row?.querySelector<HTMLElement>('[aria-pressed="true"]') ?? null, TAG_FADE_PX);
+    }
+    if (missing) notify(`That ${missing} isn't available`);
+  }, []); // arrival only
+
+  // A click while an album is still opening or a chip's first page is still
+  // loading spins until the gallery settles, then copies where it landed.
+  const [share, setShare] = useState<"idle" | "pending" | "copied">("idle");
+  const sharingRef = useRef(false);
+  const shareTimerRef = useRef<number | undefined>(undefined);
+  const settled = !transitioning && !(loading && photos.length === 0);
+  const settledRef = useRef(settled);
+  const settleWaitersRef = useRef<Array<() => void>>([]);
+  useEffect(() => {
+    settledRef.current = settled;
+    if (settled) settleWaitersRef.current.splice(0).forEach((resolve) => resolve());
+  }, [settled]);
+  useEffect(() => () => window.clearTimeout(shareTimerRef.current), []);
+
+  const isSettled = () => settledRef.current && !queueRef.current.running;
+  const whenSettled = () =>
+    isSettled() ? Promise.resolve() : new Promise<void>((resolve) => settleWaitersRef.current.push(resolve));
+
+  const copyLink = async () => {
+    if (sharingRef.current) return;
+    sharingRef.current = true;
+    window.clearTimeout(shareTimerRef.current);
+    if (!isSettled()) setShare("pending");
+    const link = Promise.race([whenSettled(), sleep(SHARE_WAIT_MS)]).then(() => {
+      const landed = sourceRef.current;
+      return { source: landed, href: shareHref(landed, new URL(window.location.href)) };
+    });
+    try {
+      await writeClipboard(link.then(({ href }) => href));
+      const { source: copied } = await link;
+      setShare("copied");
+      notify(copied.kind === "album" ? "Album sharing link copied!" : copied.tag ? "Tag sharing link copied!" : "Gallery link copied!");
+      shareTimerRef.current = window.setTimeout(() => setShare("idle"), SHARE_CHECK_MS);
+    } catch (err) {
+      console.error("PhotoGallery: failed to copy the share link", err);
+      setShare("idle");
+      notify("Couldn't copy link");
+    } finally {
+      sharingRef.current = false;
+    }
+  };
+  const filtered = source.kind === "album" || source.tag !== "";
+  // Shown with a filtered gallery that has photos on screen; a click in
+  // progress keeps it (spinner, check) whatever the gallery does.
+  const shareable = (filtered && galleryShown && photos.length > 0) || share !== "idle";
 
   const slides = useMemo(
     () =>
@@ -824,6 +965,34 @@ export default function PhotoGallery({ albums, tags, initialPhotos, initialCurso
 
       <TagMenu tags={tags} selected={chip} onSelect={selectTag} />
 
+      {/* An album or a tag gets a taller gap above its masonry (32 → 44px)
+          for the share button; All keeps 32. It changes with the source,
+          while the gallery is cleared or empty, and isn't tweened: the
+          explode measures tiles the frame after the swap. */}
+      <div className={`relative w-full min-w-0 ${filtered ? "mt-3" : ""}`}>
+      {/* Sits low in that gap, near the masonry it shares, taking no space
+          of its own, so nothing shifts as it fades with the selection
+          (visibility rides the fade, so a hidden button can't take focus).
+          Quiet by default: muted ink washed toward the page, full muted on
+          hover. The glyph sits 8px in from the content edge. */}
+      <div className="absolute right-0 bottom-full flex h-8 items-center" data-name="ShareRow">
+        <button
+          type="button"
+          onClick={copyLink}
+          aria-label={source.kind === "album" ? "Copy link to this album" : "Copy link to this tag"}
+          aria-busy={share === "pending"}
+          aria-hidden={!shareable}
+          tabIndex={shareable ? undefined : -1}
+          className={`share-button squishy mr-px flex size-8 shrink-0 items-center justify-center ${
+            shareable ? "visible opacity-100" : "invisible opacity-0"
+          }`}
+        >
+          <span className={share === "pending" ? "flex animate-spin" : "flex"}>
+            <Glyph svg={share === "pending" ? spinnerIcon : share === "copied" ? checkIcon : shareIcon} size={18} />
+          </span>
+        </button>
+      </div>
+
       <div ref={galleryRef} className="w-full min-w-0" data-name="Gallery" aria-busy={loading}>
         {/* What an album transition fades back and brings forward. */}
         <div ref={albumRef} className="w-full min-w-0 origin-top">
@@ -867,6 +1036,7 @@ export default function PhotoGallery({ albums, tags, initialPhotos, initialCurso
           </div>
         )}
       </div>
+      </div>
 
       <Lightbox
         plugins={[Zoom]}
@@ -890,6 +1060,8 @@ export default function PhotoGallery({ albums, tags, initialPhotos, initialCurso
           },
         }}
       />
+
+      <Toast message={toast} />
     </div>
   );
 }

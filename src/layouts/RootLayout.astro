@@ -10,17 +10,21 @@ import martianLatin from "@fontsource-variable/martian-mono/files/martian-mono-l
 interface Props {
   title?: string;
   description?: string;
+  /** Link previews: og:url when it isn't the canonical path (a shared album
+   *  keeps its `?album=`), and an image other than the banner. */
+  ogUrl?: string;
+  ogImage?: string;
 }
 
 const DEFAULT_DESCRIPTION =
   "Developer, designer, photographer, and a few other things picked up along the way.";
 
-const { title = "Liam Sullivan", description = DEFAULT_DESCRIPTION } =
+const { title = "Liam Sullivan", description = DEFAULT_DESCRIPTION, ogUrl, ogImage: ogImageOverride } =
   Astro.props;
 // Canonical and share URLs are absolute; without `site`, fall back to the request origin.
 const origin = Astro.site ?? Astro.url;
 const canonical = new URL(Astro.url.pathname, origin);
-const ogImage = new URL("/banner.jpg", origin);
+const ogImage = ogImageOverride ?? new URL("/banner.jpg", origin);
 // Favicons follow the browser's color scheme (its tab strip), not the site theme.
 const FAVICON_SCHEMES = ["light", "dark"] as const;
 const FAVICON_SIZES = [16, 32, 64, 128, 256, 512];
@@ -79,7 +83,7 @@ const criticalFontFaces = [
     <meta property="og:description" content={description} />
     <meta property="og:image" content={ogImage} />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content={canonical} />
+    <meta property="og:url" content={ogUrl ?? canonical} />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />

@@ -9,6 +9,8 @@ import { sectionByKey, type SectionKey } from "../lib/sections";
 interface Props {
   title: string;
   description?: string;
+  ogUrl?: string;
+  ogImage?: string;
   section?: SectionKey;
   /** Header title override (write-ups) */
   heading?: string;
@@ -18,14 +20,14 @@ interface Props {
   back?: { href: string; label: string };
 }
 
-const { title, description, section, heading, headingColor, showHeading, subheading, back } = Astro.props;
+const { title, description, ogUrl, ogImage, section, heading, headingColor, showHeading, subheading, back } = Astro.props;
 // The Me variant omits the title row; so do pages with nothing to title.
 const titled = (showHeading ?? section !== "me") && Boolean(heading ?? section);
 // Section accent for in-page labels (SectionLabel eyebrow); write-ups set their own.
 const wing = section ? sectionByKey(section).color : undefined;
 ---
 
-<RootLayout title={title} description={description}>
+<RootLayout title={title} description={description} ogUrl={ogUrl} ogImage={ogImage}>
   <slot name="head" slot="head" />
   <div class="flex min-h-dvh flex-col">
     <SubpageHeader section={section} titled={titled} />

@@ -2,7 +2,7 @@ export const prerender = false;
 
 import type { APIRoute } from "astro";
 import { listAlbums } from "../../../lib/albums";
-import { idsExpression, searchAllPhotos } from "../../../lib/cloudinaryServer";
+import { searchAlbumPhotos } from "../../../lib/cloudinaryServer";
 
 // One album's photos, in capture order. Membership is the `albums` content
 // collection, so the only input is a known slug (no expression from
@@ -21,9 +21,7 @@ export const GET: APIRoute = async ({ request }) => {
   }
 
   try {
-    const { ok, status, resources } = await searchAllPhotos(idsExpression(album.photos));
-    const order = new Map(album.photos.map((id, index) => [id, index]));
-    resources.sort((a, b) => (order.get(a.public_id) ?? 0) - (order.get(b.public_id) ?? 0));
+    const { ok, status, resources } = await searchAlbumPhotos(album.photos);
     return new Response(JSON.stringify({ resources }), {
       status,
       headers: { ...JSON_HEADERS, "Cache-Control": ok ? ALBUM_CACHE_CONTROL : "no-store" },

@@ -122,6 +122,14 @@ export async function searchAllPhotos(
   return { ok: true, status: 200, resources, tags: publicTags(tags) };
 }
 
+/** An album's photos in the album's own order (Search returns its own). */
+export async function searchAlbumPhotos(ids: readonly string[]): ReturnType<typeof searchAllPhotos> {
+  const result = await searchAllPhotos(idsExpression(ids));
+  const order = new Map(ids.map((id, index) => [id, index]));
+  result.resources.sort((a, b) => (order.get(a.public_id) ?? 0) - (order.get(b.public_id) ?? 0));
+  return result;
+}
+
 /**
  * Tags for the chip row, read off the photos in PHOTO_SCOPE so a chip never
  * filters to an empty grid (the cloud-wide tag list includes tags that only

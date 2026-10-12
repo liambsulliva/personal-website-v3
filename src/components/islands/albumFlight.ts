@@ -12,6 +12,7 @@ import { EASE_OUT, PRESS_MS, STRETCH_MS, flightEasings, type Box } from "./light
 export const STAGGER_MS = 20;
 export const MAX_FLYERS = 12;
 export const CLEAR_MS = 150; // gallery fade out / in around a swap
+export const SWAP_MS = 100; // tag → tag: the gallery steps out before the next chip's page
 const STACK_PRESS = 0.96; // .squishy-stack --press-scale
 
 /** A box plus the tilt it's drawn at, and its white print border (stack
@@ -145,6 +146,10 @@ export const clearOut = (gallery: HTMLElement) =>
 
 export const fadeIn = (element: HTMLElement) =>
   element.animate([{ opacity: 0 }, { opacity: 1 }], { duration: CLEAR_MS, easing: EASE_OUT });
+
+/** A chip swap's quick step out (opacity only; the album clear also shrinks). */
+export const swiftFadeOut = (element: HTMLElement) =>
+  element.animate([{ opacity: 1 }, { opacity: 0 }], { duration: SWAP_MS, easing: EASE_OUT, fill: "forwards" });
 
 export const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 

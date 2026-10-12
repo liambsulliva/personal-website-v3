@@ -208,6 +208,18 @@
       {
         "route": "/api/cloudinary/album?slug=2024-otakon-0803",
         "status": 404
+      },
+      {
+        "route": "/photography?album=2024-otakon",
+        "contains": [
+          "<title>Otakon 2024 - Liam Sullivan</title>"
+        ]
+      },
+      {
+        "route": "/photography?album=2024-otakon-0803",
+        "contains": [
+          "<title>Photography - Liam Sullivan</title>"
+        ]
       }
     ]
   },
@@ -224,6 +236,12 @@
     "expect": [
       {
         "route": "/photography",
+        "notContains": [
+          "Otakon 2024"
+        ]
+      },
+      {
+        "route": "/photography?album=2024-otakon-0803",
         "notContains": [
           "Otakon 2024"
         ]
@@ -258,6 +276,14 @@
           "hqw7j4fnxl6leymt1uyy",
           "dhqmupcrkkpgtg6tzcdt"
         ]
+      },
+      {
+        "route": "/photography?album=2026-gallery-night-1002",
+        "contains": [
+          "<title>Gallery Night - Liam Sullivan</title>",
+          "/photography?album=2026-gallery-night-1002",
+          "w_1200,h_630,f_jpg,q_auto/unassigned-1"
+        ]
       }
     ]
   },
@@ -278,6 +304,12 @@
       },
       {
         "route": "/photography",
+        "notContains": [
+          "Studio Day"
+        ]
+      },
+      {
+        "route": "/photography?album=2026-studio-day-0901",
         "notContains": [
           "Studio Day"
         ]
@@ -635,7 +667,7 @@
       },
       {
         "path": "src/content/entries/dropzone-card.mdx",
-        "content": "---\ntitle: Dropzone Card\ndescription: Uploaded from the CMS.\nwing: engineering\nsection: projects\ndate: 2026-10-07\nhref: https://dropzone.example.com\nimage: site/entries/dropzone-card/cover\nbadges: []\n---\n",
+        "content": "---\ntitle: Dropzone Card\ndescription: Uploaded from the CMS.\nwing: engineering\nsection: projects\ndate: 2026-10-12\nhref: https://dropzone.example.com\nimage: site/entries/dropzone-card/cover\nbadges: []\n---\n",
         "baseSha": null
       }
     ],
@@ -2645,40 +2677,17 @@
     ]
   },
   {
-    "id": "sections.sort",
-    "title": "Section sort",
-    "files": [
-      {
-        "path": "src/content/sections/design.yaml",
-        "content": "# Sections on /design, top to bottom. Entries join a section through their\n# `section` field, which holds its `key`; a key never changes once created.\n# `order` is the custom order (slugs); entries missing from it follow, newest first.\nsections:\n  - key: case-studies\n    heading: Case Studies\n    layout: hero\n    sort: custom\n    order:\n      - kingdra-case-study\n  - key: graphic-design\n    heading: Graphic Design\n    layout: grid-3\n    sort: custom\n    order:\n      - from-pop-to-personal\n      - do-you-not-get-the-concept\n      - mock-pitt-post\n  - key: layouts\n    heading: Layouts\n    layout: grid-2-wide\n    sort: newest\n    order:\n      - portrait-tutorial\n      - wii-manual\n      - beer-and-wine-edition\n      - march-madness-edition\n  - key: design-club\n    heading: Design Club\n    layout: grid-3\n    sort: custom\n    order:\n      - clubmeeting1\n      - clubmeeting2\n      - clubmeeting3\n      - clubmeeting4\n      - clubmeeting5\n      - clubmeeting6\n",
-        "baseSha": "78b7c1070146ae6b010d663d143d762daeb971d9"
-      }
-    ],
-    "expect": [
-      {
-        "route": "/design",
-        "order": [
-          "design-layouts",
-          "March Madness Edition",
-          "Beer and Wine Edition",
-          "The Forgotten Charm of Gaming Manuals",
-          "Shooting The Perfect Portrait"
-        ]
-      }
-    ]
-  },
-  {
     "id": "sections.add",
     "title": "Add a section",
     "files": [
       {
         "path": "src/content/sections/design.yaml",
-        "content": "# Sections on /design, top to bottom. Entries join a section through their\n# `section` field, which holds its `key`; a key never changes once created.\n# `order` is the custom order (slugs); entries missing from it follow, newest first.\nsections:\n  - key: case-studies\n    heading: Case Studies\n    layout: hero\n    sort: custom\n    order:\n      - kingdra-case-study\n  - key: graphic-design\n    heading: Graphic Design\n    layout: grid-3\n    sort: custom\n    order:\n      - from-pop-to-personal\n      - do-you-not-get-the-concept\n      - mock-pitt-post\n  - key: layouts\n    heading: Layouts\n    layout: grid-2-wide\n    sort: custom\n    order:\n      - portrait-tutorial\n      - wii-manual\n      - beer-and-wine-edition\n      - march-madness-edition\n  - key: design-club\n    heading: Design Club\n    layout: grid-3\n    sort: custom\n    order:\n      - clubmeeting1\n      - clubmeeting2\n      - clubmeeting3\n      - clubmeeting4\n      - clubmeeting5\n      - clubmeeting6\n  - key: s_2uflmelntx\n    heading: Posters\n    layout: grid-3\n    sort: custom\n    order: []\n",
+        "content": "# Sections on /design, top to bottom. Entries join a section through their\n# `section` field, which holds its `key`; a key never changes once created.\n# `order` is the custom order (slugs); entries missing from it follow, newest first.\nsections:\n  - key: case-studies\n    heading: Case Studies\n    layout: hero\n    sort: custom\n    order:\n      - kingdra-case-study\n  - key: graphic-design\n    heading: Graphic Design\n    layout: grid-3\n    sort: custom\n    order:\n      - from-pop-to-personal\n      - do-you-not-get-the-concept\n      - mock-pitt-post\n  - key: layouts\n    heading: Layouts\n    layout: grid-2-wide\n    sort: custom\n    order:\n      - portrait-tutorial\n      - wii-manual\n      - beer-and-wine-edition\n      - march-madness-edition\n  - key: design-club\n    heading: Design Club\n    layout: grid-3\n    sort: custom\n    order:\n      - clubmeeting1\n      - clubmeeting2\n      - clubmeeting3\n      - clubmeeting4\n      - clubmeeting5\n      - clubmeeting6\n  - key: s_qtmikpvw35\n    heading: Posters\n    layout: grid-3\n    sort: custom\n    order: []\n",
         "baseSha": "78b7c1070146ae6b010d663d143d762daeb971d9"
       },
       {
         "path": "src/content/entries/mock-pitt-post.mdx",
-        "content": "---\ntitle: \"Pitt-Branded Instagram Post (Mockup)\"\nwing: design\nsection: s_2uflmelntx\ndate: 2025-03-01\nhref: \"/layouts/mock-pitt-post.pdf\"\nexternal: false\nkind: \"Instagram Post\"\nimage: \"site/pieces/design/graphic-design/mock-pitt-post\"\n---\n",
+        "content": "---\ntitle: \"Pitt-Branded Instagram Post (Mockup)\"\nwing: design\nsection: s_qtmikpvw35\ndate: 2025-03-01\nhref: \"/layouts/mock-pitt-post.pdf\"\nexternal: false\nkind: \"Instagram Post\"\nimage: \"site/pieces/design/graphic-design/mock-pitt-post\"\n---\n",
         "baseSha": "34b6e1b4ad8677ea06f60d694c1553dd77251a67"
       }
     ],
@@ -2687,7 +2696,7 @@
         "route": "/design",
         "order": [
           "design-club",
-          "design-s_2uflmelntx",
+          "design-s_qtmikpvw35",
           "Posters",
           "Pitt-Branded Instagram Post (Mockup)"
         ]

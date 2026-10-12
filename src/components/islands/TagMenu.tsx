@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import Glyph from "./Glyph";
 import chevronLeft from "../icons/svg/chevron-left.svg?raw";
 import chevronRight from "../icons/svg/chevron-right.svg?raw";
+import { tagLabel } from "../../lib/photoShare";
 
 // v2 CloudinaryMenu: one horizontally scrolling row of Figma Chips, with
 // edge fades + chevron buttons that appear only while there is overflow.
@@ -12,12 +13,6 @@ type Props = {
   selected: string | null;
   onSelect: (tag: string) => void;
 };
-
-const titleCase = (tag: string) =>
-  tag
-    .split(" ")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
 
 function Chip({ label, selected, onSelect }: { label: string; selected: boolean; onSelect: () => void }) {
   return (
@@ -92,7 +87,7 @@ export default function TagMenu({ tags, selected, onSelect }: Props) {
       >
         <Chip label="All" selected={selected === ""} onSelect={() => onSelect("")} />
         {tags.map((tag) => (
-          <Chip key={tag} label={titleCase(tag)} selected={selected === tag} onSelect={() => onSelect(tag)} />
+          <Chip key={tag} label={tagLabel(tag)} selected={selected === tag} onSelect={() => onSelect(tag)} />
         ))}
       </div>
       {canRight && <ScrollButton direction="right" onClick={() => scrollBy(200)} />}
