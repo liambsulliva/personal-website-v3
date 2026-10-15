@@ -1,10 +1,10 @@
 ---
 /**
  * Inline accent chip from Figma /me (mark/*): semibold accent word(s) with a
- * 16px glyph in a padded slot. Links to the v2 reference. The link is a
- * plain inline run, so long titles (DNID) break mid-sentence like the rest of
- * the paragraph; the last word and glyph stay together so the glyph never
- * starts a line on its own.
+ * 16px glyph in a padded slot. External links open in a new tab; site paths
+ * stay in-tab. The link is a plain inline run, so long titles (DNID) break
+ * mid-sentence like the rest of the paragraph; the last word and glyph stay
+ * together so the glyph never starts a line on its own.
  */
 import Icon from "../icons/Icon.astro";
 
@@ -16,6 +16,7 @@ interface Props {
 }
 
 const { href, color, icon, image } = Astro.props;
+const external = /^https?:\/\//.test(href);
 const label = (await Astro.slots.render("default")).trim();
 const cut = Math.max(0, label.search(/\S+$/));
 const head = label.slice(0, cut);
@@ -41,7 +42,7 @@ const last = label.slice(cut);
   }
 </style>
 
-<a href={href} target="_blank" rel="noopener noreferrer" class="mark font-semibold no-underline" style={`color:${color}`}
+<a href={href} target={external ? "_blank" : undefined} rel={external ? "noopener noreferrer" : undefined} class="mark font-semibold no-underline" style={`color:${color}`}
   ><span class="mark__text"><Fragment set:html={head} /><span class="mark__keep"><Fragment set:html={last} />{
     icon && (
       <span class="mark__glyph" aria-hidden="true">
