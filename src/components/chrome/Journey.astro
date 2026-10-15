@@ -1,0 +1,269 @@
+---
+/**
+ * "Virginia to Pittsburgh" with a road trip on hover, after the flight arc on
+ * mirayavandiepen.com/about. A dashed road draws itself behind a car that
+ * bumps along an arc from one place to the other, then a pill names the
+ * drive. The arc is measured from the words on each hover, so it follows
+ * wrapping; if the places land on different lines it becomes an S-curve
+ * between them. Touch has no hover, so a tap on the phrase toggles it.
+ * Motion=Off skips straight to the finished road and pill.
+ */
+interface Props {
+  from: string;
+  to: string;
+  time: string;
+  distance: string;
+}
+
+const { from, to, time, distance } = Astro.props;
+---
+
+<span class="journey" data-journey
+  ><span class="journey__place">{from}</span> to <span class="journey__place">{to}</span><span
+    class="journey__overlay"
+    aria-hidden="true"
+    ><svg class="journey__svg" width="1" height="1"
+      ><defs
+        ><mask maskUnits="userSpaceOnUse" x="-4000" y="-4000" width="8000" height="8000" data-journey-mask
+          ><path class="journey__reveal" fill="none" stroke="#fff" stroke-width="4" pathLength="1" data-journey-reveal
+          ></path></mask
+        ></defs
+      ><path class="journey__road" fill="none" data-journey-road></path><g class="journey__car" data-journey-car
+        ><g data-journey-body
+          ><path
+            fill-rule="evenodd"
+            d="M-10 -3.2V-6.5Q-10 -8 -8.6 -8.2L-6 -8.5L-3.6 -11.6Q-3 -12.3 -2 -12.3H2.6Q3.5 -12.3 4.1 -11.6L6.8 -8.6L8.8 -8.2Q10 -7.9 10 -6.6V-3.2Q10 -2.6 9.4 -2.6H-9.4Q-10 -2.6 -10 -3.2ZM-2.4 -11.2H-0.2V-8.8H-4.6ZM0.9 -11.2H2.5Q3 -11.2 3.3 -10.8L5 -8.8H0.9Z"
+          ></path></g
+        ><circle cx="-5.5" cy="-2.2" r="2.2"></circle><circle cx="5.5" cy="-2.2" r="2.2"></circle></g
+      ></svg
+    ><span class="journey__label" data-journey-label
+      ><svg class="journey__label-icon" viewBox="-10.6 -13 21.2 13"
+        ><path
+          fill-rule="evenodd"
+          d="M-10 -3.2V-6.5Q-10 -8 -8.6 -8.2L-6 -8.5L-3.6 -11.6Q-3 -12.3 -2 -12.3H2.6Q3.5 -12.3 4.1 -11.6L6.8 -8.6L8.8 -8.2Q10 -7.9 10 -6.6V-3.2Q10 -2.6 9.4 -2.6H-9.4Q-10 -2.6 -10 -3.2ZM-2.4 -11.2H-0.2V-8.8H-4.6ZM0.9 -11.2H2.5Q3 -11.2 3.3 -10.8L5 -8.8H0.9Z"
+        ></path><circle cx="-5.5" cy="-2.2" r="2.2"></circle><circle cx="5.5" cy="-2.2" r="2.2"></circle></svg
+      >{time}<span class="journey__distance">{distance}</span></span
+    ></span
+  ></span
+>
+
+<style>
+  .journey__place {
+    font-weight: 600;
+    color: var(--accent-walnut);
+  }
+  /* Absolute with no offsets: sits at its static position at the end of the
+     phrase without touching the line, and doubles as the measuring origin. */
+  .journey__overlay {
+    position: absolute;
+    z-index: 1;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 60ms ease-out;
+  }
+  .journey[data-open] .journey__overlay {
+    opacity: 1;
+    transition-duration: 70ms;
+  }
+  .journey__svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    overflow: visible;
+  }
+  .journey__road {
+    stroke: color-mix(in srgb, var(--accent-walnut) 50%, transparent);
+    stroke-width: 1.5;
+    stroke-dasharray: 2 4;
+    stroke-linecap: round;
+  }
+  .journey__car {
+    fill: var(--accent-walnut);
+    opacity: 0;
+  }
+  /* A background ring keeps the tyres from merging into the body. */
+  .journey__car circle {
+    stroke: var(--bg);
+    stroke-width: 1.2;
+    paint-order: stroke;
+  }
+  /* The Toast / Chip pill's border and fill at tooltip size; padding gives
+     back the border's pixel so the box stays 22px tall. */
+  .journey__label {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px 2px 5px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--control);
+    color: var(--fg);
+    font-size: 12px;
+    line-height: 16px;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translate(-50%, -100%);
+  }
+  .journey__label-icon {
+    width: 14px;
+    height: 9px;
+    fill: currentColor;
+  }
+  .journey__label-icon circle {
+    stroke: var(--control);
+    stroke-width: 1.2;
+    paint-order: stroke;
+  }
+  .journey__distance {
+    color: var(--fg-muted);
+  }
+</style>
+
+<script>
+  const DURATION = 900;
+  // Distance between bumps along the road, and how much of each stretch the
+  // hop takes; the rest is flat so the bumps read as potholes, not a wave.
+  const BUMP_EVERY = 26;
+  const BUMP_SPAN = 0.4;
+
+  const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+  const ramp = (t: number, a: number, b: number) => Math.min(Math.max((t - a) / (b - a), 0), 1);
+  const reduced = () => document.documentElement.hasAttribute("data-reduced-motion");
+
+  let uid = 0;
+
+  for (const journey of document.querySelectorAll<HTMLElement>("[data-journey]")) {
+    const [fromWord, toWord] = journey.querySelectorAll<HTMLElement>(".journey__place");
+    const overlay = journey.querySelector<HTMLElement>(".journey__overlay")!;
+    const mask = journey.querySelector<SVGMaskElement>("[data-journey-mask]")!;
+    const reveal = journey.querySelector<SVGPathElement>("[data-journey-reveal]")!;
+    const road = journey.querySelector<SVGPathElement>("[data-journey-road]")!;
+    const car = journey.querySelector<SVGGElement>("[data-journey-car]")!;
+    const body = journey.querySelector<SVGGElement>("[data-journey-body]")!;
+    const label = journey.querySelector<HTMLElement>("[data-journey-label]")!;
+
+    mask.id = `journey-mask-${uid++}`;
+    road.setAttribute("mask", `url(#${mask.id})`);
+
+    let open = false;
+    let carScale = 0.85;
+    let frame = 0;
+    let hideTimer: ReturnType<typeof setTimeout> | undefined;
+    let pointerType = "mouse";
+
+    /** Arc over the line, or an S-curve through the gap when the words wrap. */
+    const layout = () => {
+      const origin = overlay.getBoundingClientRect();
+      const a = fromWord.getClientRects()[0];
+      const toRects = toWord.getClientRects();
+      const b = toRects[toRects.length - 1];
+      const x1 = a.left + a.width / 2 - origin.left;
+      const x2 = b.left + b.width / 2 - origin.left;
+      let d: string;
+      let labelX: number;
+      let labelY: number;
+
+      if (b.top - a.top > a.height) {
+        const y1 = a.bottom - origin.top + 2;
+        const y2 = b.top - origin.top - 2;
+        const mid = (y1 + y2) / 2;
+        d = `M${x1} ${y1}C${x1} ${mid} ${x2} ${mid} ${x2} ${y2}`;
+        labelX = (x1 + x2) / 2;
+        labelY = a.top - origin.top - 6;
+        carScale = 0.65;
+      } else {
+        const y1 = a.top - origin.top - 1;
+        const y2 = b.top - origin.top - 1;
+        const lift = Math.min(Math.max(0.16 * Math.hypot(x2 - x1, y2 - y1), 18), 44);
+        const cx = (x1 + x2) / 2;
+        const cy = Math.min(y1, y2) - lift;
+        d = `M${x1} ${y1}Q${cx} ${cy} ${x2} ${y2}`;
+        // Apex of the quadratic, just clearing the car roof (and a bump) there.
+        labelX = (x1 + 2 * cx + x2) / 4;
+        labelY = (y1 + 2 * cy + y2) / 4 - 14;
+        carScale = 0.85;
+      }
+
+      road.setAttribute("d", d);
+      reveal.setAttribute("d", d);
+      label.style.left = `${labelX}px`;
+      label.style.top = `${labelY}px`;
+    };
+
+    const draw = (t: number) => {
+      const length = road.getTotalLength();
+      const at = t * length;
+      const p = road.getPointAtLength(at);
+      const behind = road.getPointAtLength(Math.max(at - 1, 0));
+      const ahead = road.getPointAtLength(Math.min(at + 1, length));
+      const angle = (Math.atan2(ahead.y - behind.y, ahead.x - behind.x) * 180) / Math.PI;
+      // Heading left would drive upside down; mirror so the wheels stay under.
+      const flip = Math.abs(angle) > 90 ? -1 : 1;
+
+      // Bumps follow distance, so they bunch up as the car slows at each end.
+      const stretch = (at / BUMP_EVERY) % 1;
+      const hop = stretch < BUMP_SPAN ? stretch / BUMP_SPAN : 0;
+      const big = Math.floor(at / BUMP_EVERY) % 2 === 0 ? 1 : 0.6;
+      const rise = Math.sin(Math.PI * hop) * 1.8 * big;
+      const pitch = -Math.sin(2 * Math.PI * hop) * 5 * big;
+
+      reveal.style.strokeDasharray = `${t} 1`;
+      car.setAttribute(
+        "transform",
+        `translate(${p.x} ${p.y}) rotate(${angle}) scale(${carScale} ${carScale * flip})`,
+      );
+      body.setAttribute("transform", `translate(0 ${-rise}) rotate(${pitch} 0 -6)`);
+      car.style.opacity = String(Math.min(ramp(t, 0, 0.06), 1 - ramp(t, 0.88, 1)));
+      const shown = ramp(t, 0.2, 0.42);
+      label.style.opacity = String(shown);
+      label.style.transform = `translate(-50%, calc(-100% + ${4 * (1 - shown)}px))`;
+    };
+
+    const show = () => {
+      clearTimeout(hideTimer);
+      if (open) return;
+      open = true;
+      layout();
+      journey.toggleAttribute("data-open", true);
+      cancelAnimationFrame(frame);
+      if (reduced()) return draw(1);
+      const start = performance.now();
+      const tick = (now: number) => {
+        const t = Math.min((now - start) / DURATION, 1);
+        draw(ease(t));
+        if (t < 1 && open) frame = requestAnimationFrame(tick);
+      };
+      draw(0);
+      frame = requestAnimationFrame(tick);
+    };
+
+    const hide = (delay = 0) => {
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => {
+        open = false;
+        cancelAnimationFrame(frame);
+        journey.toggleAttribute("data-open", false);
+      }, delay);
+    };
+
+    journey.addEventListener("pointerdown", (event) => (pointerType = event.pointerType));
+    journey.addEventListener("pointerenter", (event) => {
+      if (event.pointerType !== "touch") show();
+    });
+    journey.addEventListener("pointerleave", (event) => {
+      if (event.pointerType !== "touch") hide(40);
+    });
+    journey.addEventListener("click", () => {
+      if (pointerType !== "touch") return;
+      if (open) hide();
+      else show();
+    });
+    document.addEventListener("pointerdown", (event) => {
+      if (open && event.pointerType === "touch" && !journey.contains(event.target as Node)) hide();
+    });
+  }
+</script>
