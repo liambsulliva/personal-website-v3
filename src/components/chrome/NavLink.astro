@@ -3,8 +3,10 @@
  * Figma NavLink (4:118). Lobby stair-step link.
  * Default → Hover/press (underline). Color only; press scale comes from `.squishy`.
  * The glyph is larger than its slot and anchored top-left (Me: centered), as in Figma.
+ * It plays its /me move (icons/MotionIcon.astro) on hover, or on touch
+ * screens once on arrival, staggered down the stairs.
  */
-import Icon from "../icons/Icon.astro";
+import MotionIcon from "../icons/MotionIcon.astro";
 import type { Section } from "../../lib/sections";
 
 interface Props {
@@ -31,10 +33,11 @@ const vars = [
   class="navlink squishy squishy-lg flex shrink-0 items-center"
   style={vars}
   data-centered={section.key === "me" ? "" : undefined}
+  data-navlink
 >
   <span class="navlink__text font-semibold leading-none whitespace-nowrap">{section.label}</span>
   <span class="navlink__slot relative shrink-0">
-    <Icon name={section.icon} size="var(--glyph-size)" class="navlink__glyph" />
+    <MotionIcon name={section.icon} size="var(--glyph-size)" class="navlink__glyph" />
   </span>
 </a>
 
@@ -99,3 +102,15 @@ const vars = [
     text-decoration-line: underline;
   }
 </style>
+
+<script>
+  import { playOnArrival, playOnHover } from "../../scripts/glyph-play";
+
+  const glyphs: HTMLElement[] = [];
+  for (const link of document.querySelectorAll<HTMLElement>("[data-navlink]")) {
+    const glyph = link.querySelector<HTMLElement>("[data-glyph]")!;
+    playOnHover(link, glyph);
+    glyphs.push(glyph);
+  }
+  playOnArrival(glyphs);
+</script>

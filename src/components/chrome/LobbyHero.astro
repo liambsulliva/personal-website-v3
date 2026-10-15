@@ -3,7 +3,9 @@
  * Lobby hero (Figma 16:175 desktop / 19:467 mobile). The finished three lines
  * are SSR'd for LCP, SEO and no-JS. scripts/typer.ts types them in once per
  * session — quick character steps with a held beat at each line break, and
- * v2 DescriptionTyper's blinking terminal cursor.
+ * v2 DescriptionTyper's blinking terminal cursor. Like the /me chips
+ * (scripts/glyph-play.ts), the Analyst chart hops and the PNC logo flips on
+ * hover, or once they're in on touch screens.
  */
 import Icon from "../icons/Icon.astro";
 
@@ -36,7 +38,7 @@ const words = (text: string) => text.split(" ");
           ))
         }<span class="hero__keep"
           ><span data-tok class="hero__strong">Analyst</span><span class="hero__pop" data-pop="Analyst" style="--pop:var(--bsa)"
-            ><span class="hero__chair"><Icon name="chart-column" class="hero__bsa" size="var(--bsa)" /></span></span
+            ><span class="hero__chair" data-glyph="hop"><Icon name="chart-column" class="hero__bsa" size="var(--bsa)" /></span></span
           ></span
         ></a
       ></span
@@ -51,7 +53,7 @@ const words = (text: string) => text.split(" ");
         style="color:var(--accent-pnc)"
         ><span class="hero__keep"
           ><span data-tok class="hero__strong">PNC</span><span class="hero__pop" data-pop="PNC" style="--pop:var(--pnc)"
-            ><span class="hero__ball"
+            ><span class="hero__ball" data-glyph="coin"
               ><img src="/brand/pnc.png" alt="" width="36" height="36" class="hero__pnc block object-cover" /></span
             ></span
           ></span
@@ -214,6 +216,10 @@ const words = (text: string) => text.split(" ");
   .hero__chair {
     display: block;
   }
+  /* The /me chips flip 16px under 48px of perspective; keep that depth. */
+  .hero__ball {
+    perspective: calc(var(--pnc) * 3);
+  }
 
   /* v2 DescriptionTyper cursor: an inline pipe that hard-blinks. It sits in
      the line (baseline, wraps with the word) but the negative margin keeps
@@ -251,3 +257,18 @@ const words = (text: string) => text.split(" ");
     }
   }
 </style>
+
+<script>
+  import { playOnArrival, playOnHover } from "../../scripts/glyph-play";
+
+  const typing = document.documentElement.classList.contains("typing");
+  for (const glyph of document.querySelectorAll<HTMLElement>("[data-hero] [data-glyph]")) {
+    playOnHover(glyph.closest<HTMLElement>(".hero__link")!, glyph);
+    // While the hero types in, wait for the mark to pop in first.
+    if (typing) {
+      glyph.closest("[data-pop]")!.addEventListener("animationend", () => playOnArrival([glyph]), { once: true });
+    } else {
+      playOnArrival([glyph]);
+    }
+  }
+</script>

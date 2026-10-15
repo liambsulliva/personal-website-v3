@@ -1,0 +1,303 @@
+---
+/**
+ * Peelable photo. Hovering the bottom-left corner lifts it under the cursor,
+ * and creeping up from there folds it back: the fold is the perpendicular
+ * bisector between the corner and the cursor, the photo is clipped on the
+ * corner side, and that piece is mirrored across the fold as a quiet,
+ * theme-toned back. Past LATCH it gives way and stays open a little on a link
+ * underneath until the pointer leaves. Touch drags from the corner; keyboard
+ * focus on the link opens it. Motion=Off jumps between poses.
+ */
+import BrandGlyph from "../icons/BrandGlyph.astro";
+import Icon from "../icons/Icon.astro";
+
+interface Props {
+  href: string;
+  label: string;
+}
+
+const { href, label } = Astro.props;
+---
+
+<div class="peel" data-peel>
+  <a class="peel__under" href={href} target="_blank" rel="noopener noreferrer">
+    <span class="peel__note">
+      <BrandGlyph brand="Figma" scale={0.375} />
+      <span class="peel__label">{label}</span>
+      <Icon name="external-link" size={12} />
+    </span>
+  </a>
+  <div class="peel__sheet">
+    <div class="peel__photo" data-peel-photo><slot /></div>
+  </div>
+  <svg class="peel__flap" aria-hidden="true">
+    <defs>
+      <linearGradient gradientUnits="userSpaceOnUse" data-peel-shade>
+        <stop offset="0" stop-color="var(--control-hover)"></stop>
+        <stop offset="1" stop-color="var(--surface)"></stop>
+      </linearGradient>
+      <filter x="-50%" y="-50%" width="200%" height="200%" data-peel-shadow>
+        <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="#000" flood-opacity="0.16"></feDropShadow>
+      </filter>
+    </defs>
+    <polygon data-peel-back></polygon>
+  </svg>
+  <span class="peel__grip" aria-hidden="true" data-peel-grip></span>
+</div>
+
+<style>
+  .peel {
+    position: absolute;
+    inset: 0;
+  }
+  .peel__under {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-start;
+    padding: 10px;
+    background: var(--card);
+    color: var(--fg-muted);
+    text-decoration: none;
+    outline: none;
+  }
+  .peel__note {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    line-height: 16px;
+    white-space: nowrap;
+    border-radius: var(--radius-sm);
+  }
+  .peel__under:focus-visible .peel__note {
+    outline: 2px solid var(--fg);
+    outline-offset: 3px;
+  }
+  @media (hover: hover) {
+    .peel__under:hover .peel__label {
+      color: var(--fg);
+      text-decoration: underline;
+      text-decoration-thickness: from-font;
+      text-underline-position: from-font;
+    }
+  }
+  .peel__sheet,
+  .peel__photo {
+    position: absolute;
+    inset: 0;
+  }
+  /* Only the clipped photo takes hits, so the revealed corner reaches the link. */
+  .peel__sheet {
+    pointer-events: none;
+  }
+  .peel__photo {
+    pointer-events: auto;
+  }
+  /* The lifted edge shades the link underneath; only while peeled, so the
+     flat photo isn't re-rasterized through a filter. */
+  .peel[data-peeled] .peel__sheet {
+    filter: drop-shadow(0 0 3px rgb(0 0 0 / 0.16));
+  }
+  .peel__flap {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+  }
+  .peel__grip {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 48px;
+    height: 48px;
+    touch-action: none;
+  }
+  .peel[data-open] .peel__grip {
+    pointer-events: none;
+  }
+</style>
+
+<script>
+  type Vec = { x: number; y: number };
+  type Pt = [number, number];
+
+  // Corner zone that picks the photo up, in px from the bottom-left corner.
+  const GRAB = 48;
+  // How far the corner travels before it gives way, and where it settles once
+  // open: steep, so the fold stays a sliver that just clears the link.
+  const LATCH = 110;
+  const OPEN = 170;
+  const OPEN_ANGLE = 66;
+  // The corner stays a corner: steeper or flatter pulls fold a whole strip.
+  const MIN_ANGLE = 22;
+  const MAX_ANGLE = 68;
+  // Time constants for the corner chasing its target: a little drag while
+  // held, a softer settle when it gives way or falls back.
+  const FOLLOW = 60;
+  const SETTLE = 110;
+
+  const reduced = () => document.documentElement.hasAttribute("data-reduced-motion");
+  const rad = (deg: number) => (deg * Math.PI) / 180;
+
+  /** Sutherland–Hodgman against one half-plane: keeps points where side(p) ≤ 0. */
+  const clip = (poly: Pt[], side: (p: Pt) => number): Pt[] => {
+    const out: Pt[] = [];
+    for (let i = 0; i < poly.length; i++) {
+      const a = poly[i];
+      const b = poly[(i + 1) % poly.length];
+      const sa = side(a);
+      const sb = side(b);
+      if (sa <= 0) out.push(a);
+      if (sa <= 0 !== sb <= 0) {
+        const t = sa / (sa - sb);
+        out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+      }
+    }
+    return out;
+  };
+
+  let uid = 0;
+
+  for (const peel of document.querySelectorAll<HTMLElement>("[data-peel]")) {
+    const photo = peel.querySelector<HTMLElement>("[data-peel-photo]")!;
+    const back = peel.querySelector<SVGPolygonElement>("[data-peel-back]")!;
+    const shade = peel.querySelector<SVGLinearGradientElement>("[data-peel-shade]")!;
+    const shadow = peel.querySelector<SVGFilterElement>("[data-peel-shadow]")!;
+    const grip = peel.querySelector<HTMLElement>("[data-peel-grip]")!;
+    const link = peel.querySelector<HTMLAnchorElement>(".peel__under")!;
+
+    const id = uid++;
+    shade.id = `peel-shade-${id}`;
+    shadow.id = `peel-shadow-${id}`;
+    back.setAttribute("fill", `url(#${shade.id})`);
+    back.setAttribute("filter", `url(#${shadow.id})`);
+
+    // Corner offsets: how far the corner sits up and right of where it belongs.
+    const lift: Vec = { x: 0, y: 0 };
+    let target: Vec = { x: 0, y: 0 };
+    let held = false;
+    let open = false;
+    let frame = 0;
+    let last = 0;
+
+    const render = () => {
+      const d = Math.hypot(lift.x, lift.y);
+      if (d < 0.5) {
+        photo.style.clipPath = "";
+        back.removeAttribute("points");
+        peel.toggleAttribute("data-peeled", false);
+        return;
+      }
+      const w = peel.clientWidth;
+      const h = peel.clientHeight;
+      const tip: Pt = [lift.x, h - lift.y];
+      const mid: Pt = [lift.x / 2, h - lift.y / 2];
+      const nx = -lift.x / d;
+      const ny = lift.y / d;
+      const side = (p: Pt) => (p[0] - mid[0]) * nx + (p[1] - mid[1]) * ny;
+      const rect: Pt[] = [
+        [0, 0],
+        [w, 0],
+        [w, h],
+        [0, h],
+      ];
+      const kept = clip(rect, side);
+      const flap = clip(rect, (p) => -side(p)).map(([x, y]): Pt => {
+        const s = 2 * side([x, y]);
+        return [x - s * nx, y - s * ny];
+      });
+
+      photo.style.clipPath = `polygon(${kept.map(([x, y]) => `${x}px ${y}px`).join(",")})`;
+      back.setAttribute("points", flap.map(([x, y]) => `${x},${y}`).join(" "));
+      shade.setAttribute("x1", String(mid[0]));
+      shade.setAttribute("y1", String(mid[1]));
+      shade.setAttribute("x2", String(tip[0]));
+      shade.setAttribute("y2", String(tip[1]));
+      peel.toggleAttribute("data-peeled", true);
+    };
+
+    const tick = (now: number) => {
+      const dt = Math.min(now - last, 64);
+      last = now;
+      const k = 1 - Math.exp(-dt / (held ? FOLLOW : SETTLE));
+      lift.x += (target.x - lift.x) * k;
+      lift.y += (target.y - lift.y) * k;
+      const done = Math.hypot(target.x - lift.x, target.y - lift.y) < 0.3;
+      if (done) Object.assign(lift, target);
+      render();
+      frame = done ? 0 : requestAnimationFrame(tick);
+    };
+
+    const aim = (next: Vec) => {
+      target = next;
+      if (reduced()) {
+        cancelAnimationFrame(frame);
+        frame = 0;
+        Object.assign(lift, target);
+        return render();
+      }
+      if (!frame) {
+        last = performance.now();
+        frame = requestAnimationFrame(tick);
+      }
+    };
+
+    const latch = () => {
+      held = false;
+      open = true;
+      peel.toggleAttribute("data-open", true);
+      aim({ x: OPEN * Math.cos(rad(OPEN_ANGLE)), y: OPEN * Math.sin(rad(OPEN_ANGLE)) });
+    };
+
+    const release = () => {
+      held = false;
+      open = false;
+      peel.toggleAttribute("data-open", false);
+      aim({ x: 0, y: 0 });
+    };
+
+    /** The corner goes where the pointer is, kept to a corner-shaped fold. */
+    const follow = (event: PointerEvent) => {
+      const box = peel.getBoundingClientRect();
+      const ax = Math.max(event.clientX - box.left, 0);
+      const ay = Math.max(box.bottom - event.clientY, 0);
+      if (!held && !open && event.pointerType === "mouse" && ax < GRAB && ay < GRAB) held = true;
+      if (!held) return;
+      const d = Math.hypot(ax, ay);
+      if (d >= LATCH) return latch();
+      const angle = Math.min(Math.max(Math.atan2(ay, ax), rad(MIN_ANGLE)), rad(MAX_ANGLE));
+      aim({ x: d * Math.cos(angle), y: d * Math.sin(angle) });
+    };
+
+    peel.addEventListener("pointermove", follow);
+    peel.addEventListener("pointerleave", (event) => {
+      if (event.pointerType === "mouse") release();
+    });
+    grip.addEventListener("pointerdown", (event) => {
+      if (event.pointerType === "mouse" || open) return;
+      held = true;
+      grip.setPointerCapture(event.pointerId);
+      follow(event);
+    });
+    grip.addEventListener("pointerup", () => {
+      if (held) release();
+    });
+    grip.addEventListener("pointercancel", () => {
+      if (held) release();
+    });
+    document.addEventListener("pointerdown", (event) => {
+      if (open && event.pointerType !== "mouse" && !peel.contains(event.target as Node)) release();
+    });
+    link.addEventListener("focus", () => {
+      if (!open) latch();
+    });
+    link.addEventListener("blur", () => {
+      if (!peel.matches(":hover")) release();
+    });
+    window.addEventListener("resize", render);
+  }
+</script>

@@ -1,0 +1,187 @@
+---
+/**
+ * Icon with a one-shot move (scripts/glyph-play.ts), shared by the /me Marks
+ * and the lobby NavLinks so each section's glyph moves the same everywhere:
+ * the pen scribbles, the monitor shows a terminal prompt, the camera flashes,
+ * and anything else hops (global.css). The wrapper hugs the glyph and carries
+ * data-glyph; the caller decides when it plays.
+ */
+import Icon from "./Icon.astro";
+
+interface Props {
+  name: string;
+  size?: number | string;
+  class?: string;
+}
+
+const { name, size, class: className } = Astro.props;
+const motions: Record<string, string> = { pen: "scribble", monitor: "terminal", camera: "flash" };
+const motion = motions[name] ?? "hop";
+---
+
+<span class:list={["motion-icon", className]} data-glyph={motion}
+  ><Icon name={name} size={size} />{
+    motion === "terminal" && (
+      <svg class="motion-icon__screen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M7 7.5l2.5 2.5L7 12.5" />
+        <path class="motion-icon__cursor" d="M12 12.5h4" />
+      </svg>
+    )
+  }</span
+>
+
+<style>
+  .motion-icon {
+    position: relative;
+    display: block;
+  }
+
+  /* Scribble: the pen wiggles its way to the right, eating into its line
+     from the left as it goes, then glides back as the line runs out again.
+     Units are the glyph's 24-unit viewBox; the pen may poke past it. */
+  [data-glyph="scribble"] :global(svg) {
+    overflow: visible;
+  }
+  [data-glyph="scribble"][data-playing] :global(path:nth-child(1)) {
+    stroke-dasharray: 9 9;
+    animation: scribble-line 1200ms both;
+  }
+  [data-glyph="scribble"][data-playing] :global(path:nth-child(2)) {
+    transform-origin: 3px 20px;
+    animation: scribble-pen 1200ms both;
+  }
+  @keyframes scribble-line {
+    0% {
+      stroke-dashoffset: 0;
+    }
+    70% {
+      stroke-dashoffset: -7;
+      animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+    }
+    100% {
+      stroke-dashoffset: 0;
+    }
+  }
+  @keyframes scribble-pen {
+    0%,
+    100% {
+      translate: 0 0;
+      rotate: 0deg;
+    }
+    10% {
+      translate: 1px -1.5px;
+      rotate: -5deg;
+    }
+    20% {
+      translate: 2px 0.5px;
+      rotate: 4deg;
+    }
+    30% {
+      translate: 3px -1.5px;
+      rotate: -5deg;
+    }
+    40% {
+      translate: 4px 0.5px;
+      rotate: 4deg;
+    }
+    50% {
+      translate: 5px -1.5px;
+      rotate: -5deg;
+    }
+    60% {
+      translate: 6px 0.5px;
+      rotate: 4deg;
+    }
+    70% {
+      translate: 7px 0;
+      rotate: 0deg;
+      animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+    }
+  }
+
+  /* Terminal: a ">" prompt on the monitor's screen whose cursor blinks at
+     the lobby caret's pace (~0.75s), twice, then the screen clears. */
+  .motion-icon__screen {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    overflow: visible;
+  }
+  [data-glyph="terminal"][data-playing] .motion-icon__screen {
+    animation: terminal-screen 2000ms both;
+  }
+  [data-glyph="terminal"][data-playing] .motion-icon__cursor {
+    animation: terminal-cursor 2000ms step-end both;
+  }
+  @keyframes terminal-screen {
+    0% {
+      opacity: 0;
+    }
+    5%,
+    92% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+  @keyframes terminal-cursor {
+    0%,
+    37%,
+    74% {
+      opacity: 1;
+    }
+    18%,
+    55% {
+      opacity: 0;
+    }
+  }
+
+  /* Flash: the lens fires and a glow bursts out around the camera. */
+  [data-glyph="flash"]::before {
+    content: "";
+    position: absolute;
+    inset: -31%;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, color-mix(in srgb, currentColor 45%, transparent), transparent);
+    opacity: 0;
+    pointer-events: none;
+  }
+  [data-glyph="flash"][data-playing]::before {
+    animation: flash-glow 550ms both;
+  }
+  [data-glyph="flash"] :global(path:nth-child(2)) {
+    fill: currentColor;
+    fill-opacity: 0;
+  }
+  [data-glyph="flash"][data-playing] :global(path:nth-child(2)) {
+    animation: flash-lens 550ms both;
+  }
+  @keyframes flash-glow {
+    0% {
+      opacity: 0;
+      scale: 0.4;
+    }
+    12% {
+      opacity: 1;
+      scale: 1;
+      animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    100% {
+      opacity: 0;
+      scale: 1.5;
+    }
+  }
+  @keyframes flash-lens {
+    0% {
+      fill-opacity: 0;
+    }
+    10% {
+      fill-opacity: 1;
+      animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    100% {
+      fill-opacity: 0;
+    }
+  }
+</style>

@@ -1,13 +1,15 @@
 ---
 /**
  * /me (Figma Subpage / Me 28:940). Static copy from v2 ui/Background.astro.
- * Portrait is a Cloudinary slot (site/me/portrait).
+ * Portrait is a Cloudinary slot (site/me/portrait) that peels back to the
+ * Figma file behind the site.
  */
 import SubpageLayout from "../layouts/SubpageLayout.astro";
 import CldImage from "../components/media/CldImage.astro";
 import Icon from "../components/icons/Icon.astro";
 import Mark from "../components/chrome/Mark.astro";
 import Journey from "../components/chrome/Journey.astro";
+import Peel from "../components/chrome/Peel.astro";
 ---
 
 <SubpageLayout title="Me - Liam Sullivan" section="me">
@@ -16,7 +18,9 @@ import Journey from "../components/chrome/Journey.astro";
     data-name="Content"
   >
     <div class="relative aspect-[4/5] w-full max-w-[400px] shrink-0 overflow-clip rounded-md bg-skeleton md:h-[500px] md:w-[400px]" data-name="portrait">
-      <CldImage id="site/me/portrait" alt="Liam Sullivan" aspect="4:5" gravity="face" fill sizes="(min-width: 768px) 400px, 100vw" loading="eager" fetchpriority="high" />
+      <Peel href="https://www.figma.com/design/qG8iY9Elr0VlGXyjC84hSX/personal-website-v3?node-id=0-1&t=RrUMWIwBvNHPcAsX-1" label="Designed in Figma">
+        <CldImage id="site/me/portrait" alt="Liam Sullivan" aspect="4:5" gravity="face" fill sizes="(min-width: 768px) 400px, 100vw" loading="eager" fetchpriority="high" />
+      </Peel>
     </div>
 
     <div class="flex w-full max-w-[680px] min-w-0 flex-col items-start gap-6" data-name="Prose">

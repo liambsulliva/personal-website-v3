@@ -184,6 +184,80 @@ body {
   flex-shrink: 0;
 }
 
+/* Coin (scripts/glyph-play.ts): one flip end over end, in place, for logo
+   marks. */
+[data-glyph="coin"] {
+  perspective: 48px;
+}
+[data-glyph="coin"][data-playing] > * {
+  animation: coin-flip 600ms cubic-bezier(0.65, 0, 0.35, 1);
+}
+@keyframes coin-flip {
+  from {
+    rotate: x 0deg;
+  }
+  to {
+    rotate: x 360deg;
+  }
+}
+
+/* Hop (scripts/glyph-play.ts): a small jump that tips the glyph up on its
+   bottom-left corner, then two smaller ones on its bottom-right, after the
+   sushi on mirayavandiepen.com. The pivot only switches at rest. Lifts are
+   % of the glyph so the 16px chips and the larger lobby chart match. */
+[data-glyph="hop"][data-playing] > * {
+  animation: glyph-hop 900ms both;
+}
+@keyframes glyph-hop {
+  0% {
+    transform-origin: 0 100%;
+    translate: 0 0;
+    rotate: 0deg;
+    animation-timing-function: cubic-bezier(0.33, 1, 0.68, 1);
+  }
+  18% {
+    transform-origin: 0 100%;
+    translate: 0 -12%;
+    rotate: -10deg;
+    animation-timing-function: cubic-bezier(0.32, 0, 0.67, 0);
+  }
+  34% {
+    transform-origin: 0 100%;
+    translate: 0 0;
+    rotate: 0deg;
+  }
+  34.01% {
+    transform-origin: 100% 100%;
+    translate: 0 0;
+    rotate: 0deg;
+    animation-timing-function: cubic-bezier(0.33, 1, 0.68, 1);
+  }
+  47% {
+    transform-origin: 100% 100%;
+    translate: 0 -9%;
+    rotate: 8deg;
+    animation-timing-function: cubic-bezier(0.32, 0, 0.67, 0);
+  }
+  60% {
+    transform-origin: 100% 100%;
+    translate: 0 0;
+    rotate: 0deg;
+    animation-timing-function: cubic-bezier(0.33, 1, 0.68, 1);
+  }
+  71% {
+    transform-origin: 100% 100%;
+    translate: 0 -6%;
+    rotate: 5deg;
+    animation-timing-function: cubic-bezier(0.32, 0, 0.67, 0);
+  }
+  82%,
+  100% {
+    transform-origin: 100% 100%;
+    translate: 0 0;
+    rotate: 0deg;
+  }
+}
+
 /* Hover lighten/darken for card surfaces (§15). */
 .hover-surface {
   transition: background-color var(--motion-fast) var(--ease-out);
