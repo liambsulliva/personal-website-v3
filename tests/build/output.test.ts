@@ -12,16 +12,32 @@ const built = existsSync(CONFIG);
 
 type Route = { src?: string; dest?: string; status?: number; headers?: Record<string, string>; handle?: string };
 
-/** Every write-up in the content as its static page, e.g. "engineering/<id>/index.html". */
+const entryFile = (id: string) => join(import.meta.dirname, "../../src/content/entries", `${id}.mdx`);
+
+/** Frontmatter of an entry file, split the same way Astro splits `---`. */
+const entryParts = (file: string) => {
+  const [, frontmatter = "", body = ""] = readFileSync(file, "utf8").split(/^---\s*$/m);
+  return { frontmatter, body };
+};
+
+/** `hidden: true` stays in the repo and has no card, write-up, or sitemap URL. */
+const isHidden = (frontmatter: string) => /^hidden:\s*true\s*$/m.test(frontmatter);
+
+/** Every published write-up as its static page, e.g. "engineering/<id>/index.html". */
 const writeupPages = () => {
   const dir = join(import.meta.dirname, "../../src/content/entries");
   return readdirSync(dir)
     .filter((file) => /\.mdx?$/.test(file))
     .map((file) => {
-      const [, frontmatter = "", body = ""] = readFileSync(join(dir, file), "utf8").split(/^---\s*$/m);
-      return { id: file.replace(/\.mdx?$/, ""), wing: frontmatter.match(/^wing:\s*(\S+)/m)?.[1], body };
+      const { frontmatter, body } = entryParts(join(dir, file));
+      return {
+        id: file.replace(/\.mdx?$/, ""),
+        wing: frontmatter.match(/^wing:\s*(\S+)/m)?.[1],
+        hidden: isHidden(frontmatter),
+        body,
+      };
     })
-    .filter((entry) => entry.wing && entry.body.trim())
+    .filter((entry) => entry.wing && !entry.hidden && entry.body.trim())
     .map((entry) => `${entry.wing}/${entry.id}/index.html`);
 };
 const FIRST_WRITEUP = writeupPages()[0] ?? "index.html";
@@ -47,10 +63,12 @@ describe.skipIf(!built)("Vercel build output", () => {
       const target = redirect.headers!.Location!;
       expect(resolve(from)?.status, from).toBe(301);
       expect(resolve(from)?.headers?.Location, from).toBe(target);
-      // A target is a write-up page, or an entry whose card links out (its write-up, if any, is an unused draft).
+      // A target is a write-up page, or a published entry whose card links out.
+      // A hidden entry has neither, so its file does not count.
       const id = target.split("/")[2];
       const page = existsSync(join(OUTPUT, "static", target, "index.html"));
-      const card = Boolean(id) && existsSync(join(import.meta.dirname, "../../src/content/entries", `${id}.mdx`));
+      const file = id ? entryFile(id) : "";
+      const card = Boolean(file && existsSync(file) && !isHidden(entryParts(file).frontmatter));
       expect(page || card, target).toBe(true);
     });
   }

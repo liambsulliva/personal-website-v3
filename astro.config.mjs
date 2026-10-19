@@ -30,7 +30,6 @@ export default defineConfig({
     "/projects/herl-app": { status: 301, destination: "/engineering/herl-app" },
     "/projects/switch-react-menu": { status: 301, destination: "/engineering/switch-react-menu" },
     "/projects/the-invisible-hand-of-ux": { status: 301, destination: "/engineering/the-invisible-hand-of-ux" },
-    "/projects/bridge-app": { status: 301, destination: "/engineering/bridge-app" },
     "/ux/kingdra-case-study": { status: 301, destination: "/design/kingdra-case-study" },
   },
   vite: {
