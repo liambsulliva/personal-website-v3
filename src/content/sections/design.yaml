@@ -3,10 +3,13 @@
 # `order` is the custom order (slugs); entries missing from it follow, newest first.
 sections:
   - key: case-studies
-    heading: Case Studies
-    layout: hero
+    heading: UI
+    layout: grid-2-wide
     sort: custom
     order:
+      - routelette-prototype
+      - personal-website-v3-prototype
+      - kingdra-redesign
       - kingdra-case-study
   - key: graphic-design
     heading: Graphic Design
