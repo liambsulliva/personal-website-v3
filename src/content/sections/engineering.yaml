@@ -8,10 +8,10 @@ sections:
     sort: custom
     order:
       - kingdra-app
-      - switch-react-menu
-      - herl-app
-      - the-invisible-hand-of-ux
       - routelette
+      - switch-react-menu
+      - the-invisible-hand-of-ux
+      - herl-app
       - how-expensive-is-fruit
       - compression-wars
       - claudia-cooks
