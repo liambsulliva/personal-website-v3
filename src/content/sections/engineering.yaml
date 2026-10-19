@@ -11,7 +11,8 @@ sections:
       - switch-react-menu
       - herl-app
       - the-invisible-hand-of-ux
-      - bridge-app
-      - claudia-cooks
+      - routelette
       - how-expensive-is-fruit
       - compression-wars
+      - claudia-cooks
+      - bridge-app
