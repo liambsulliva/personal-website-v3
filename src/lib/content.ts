@@ -53,11 +53,12 @@ export function sortSection(section: SectionConfig, entries: Entry[]) {
 /**
  * A wing page: its sections in order with their entries, and the one
  * FeaturedArticle that leads it — the first entry (in page order) flagged
- * `featured`, pulled out of its section so it never shows twice.
+ * `featured`, pulled out of its section so it never shows twice. Hidden
+ * entries are left out entirely.
  */
 export async function getWing(wing: Wing) {
   const [entries, config] = await Promise.all([
-    getCollection("entries", ({ data }) => data.wing === wing),
+    getCollection("entries", ({ data }) => data.wing === wing && !data.hidden),
     getEntry("sections", wing),
   ]);
   const configs = config?.data.sections ?? [];
@@ -76,8 +77,8 @@ export async function getWing(wing: Wing) {
   };
 }
 
-/** Write-up routes for one wing's [slug] page. */
+/** Write-up routes for one wing's [slug] page. A hidden entry has no route. */
 export async function writeupPaths(wing: Wing) {
-  const entries = await getCollection("entries", ({ data }) => data.wing === wing);
+  const entries = await getCollection("entries", ({ data }) => data.wing === wing && !data.hidden);
   return entries.filter(hasWriteup).map((entry) => ({ params: { slug: entry.id }, props: { entry } }));
 }

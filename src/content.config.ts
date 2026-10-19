@@ -55,6 +55,8 @@ const entries = defineCollection({
     timeline: z.array(z.string()).optional(),
     subtitle: z.string().optional(),
     featured: z.boolean().default(false), // the FeaturedArticle atop its wing's page (one per page)
+    // Kept in the repo but off the site: no card, no write-up page, not in the sitemap.
+    hidden: z.boolean().default(false),
   }),
 });
 

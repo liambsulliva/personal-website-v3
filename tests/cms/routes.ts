@@ -58,12 +58,12 @@ const ENTITIES: Record<string, string> = { "&amp;": "&", "&quot;": '"', "&#39;":
 export const normalize = (html: string) => html.replace(/&(?:amp|quot|lt|gt|#39|#x27|#34);/g, (e) => ENTITIES[e]!);
 
 export async function renderRoute(route: string): Promise<Rendered> {
-  const url = new URL(route, "https://liambsullivan.com");
+  const url = new URL(route, "https://example.test");
   const path = url.pathname.replace(/\/$/, "") || "/";
 
   if (path === "/sitemap.xml") {
     const { GET } = await import("../../src/pages/sitemap.xml.ts");
-    const res = await GET({ site: new URL("https://liambsullivan.com") } as never);
+    const res = await GET({ site: new URL("https://example.test") } as never);
     return { status: res.status, body: await res.text() };
   }
   if (path === "/api/cloudinary/album") {

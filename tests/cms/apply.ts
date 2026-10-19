@@ -6,9 +6,8 @@
 //   - originals are restored after every case, and on SIGINT/SIGTERM;
 //   - the suite ends by asserting `git status src/content` is what it was.
 import { createHash } from "node:crypto";
-import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join, normalize } from "node:path";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { dirname, join, normalize, relative } from "node:path";
 import { ROOT } from "./loader";
 
 export type CaseFile = { path: string; content: string | null; baseSha: string | null };
@@ -24,8 +23,18 @@ function abs(path: string) {
   return join(ROOT, clean);
 }
 
+const walk = (dir: string): string[] =>
+  readdirSync(dir).flatMap((name) => {
+    const path = join(dir, name);
+    return statSync(path).isDirectory() ? walk(path) : [path];
+  });
+
+/** A fingerprint of the content folder and manifest, so a run can prove it left them as it found them. */
 export const contentStatus = () =>
-  execFileSync("git", ["status", "--porcelain", "--", "src/content", "src/data/cloudinary-manifest.json"], { cwd: ROOT, encoding: "utf8" });
+  [...walk(join(ROOT, "src/content")), join(ROOT, "src/data/cloudinary-manifest.json")]
+    .map((path) => `${relative(ROOT, path)} ${blobSha(readFileSync(path))}`)
+    .sort()
+    .join("\n");
 
 /** Fails (without writing anything) if any file moved on since the CMS authored the case. */
 export function checkBase(files: CaseFile[]) {
@@ -37,7 +46,7 @@ export function checkBase(files: CaseFile[]) {
   if (stale.length) {
     throw new Error(
       `The site's content changed since the CMS fixtures were taken (${stale.map((f) => f.path).join(", ")}). ` +
-        "Run `npm run test:fixtures` in cms-dashboard, then rerun the contract.",
+        "The contract's baseline is the dashboard's sample content; rerun `npm run test:contract` in cms-dashboard.",
     );
   }
 }

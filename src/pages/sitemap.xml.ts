@@ -8,7 +8,7 @@ import { hasWriteup } from "../lib/content";
 const WINGS = ["/", "/me/", "/career/", "/engineering/", "/design/", "/photography/", "/writing/"];
 
 export const GET: APIRoute = async ({ site }) => {
-  const writeups = (await getCollection("entries"))
+  const writeups = (await getCollection("entries", ({ data }) => !data.hidden))
     .filter(hasWriteup)
     .map((entry) => `/${entry.data.wing}/${entry.id}/`);
 

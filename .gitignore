@@ -13,7 +13,7 @@ node_modules/
 # Build output
 dist/
 dist-ssr/
-build/
+/build/
 out/
 .output/
 .vercel/
@@ -75,6 +75,10 @@ Desktop.ini
 .claude/
 .agents/
 .playwright-mcp/
+AGENTS.md
 
 # Optional local debug
 *.local
+
+# Scratch copy the dashboard's contract runner builds (npm run test:contract)
+.contract/

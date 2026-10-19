@@ -75,17 +75,17 @@ describe("ArticleCard", () => {
 
 describe("ProjectCard", () => {
   const base = {
-    title: "Kingdra",
+    title: "Sample Project",
     description: "Teambuilder",
-    image: "site/projects/kingdra-app/cover",
+    image: "site/sample/projects/project/cover",
     badges: ["React"],
   };
 
   it("write-up cards stay on site", async () => {
     const html = await container.renderToString(ProjectCard, {
-      props: { ...base, href: "/engineering/kingdra-app" },
+      props: { ...base, href: "/engineering/sample-project" },
     });
-    expect(html).toContain('href="/engineering/kingdra-app"');
+    expect(html).toContain('href="/engineering/sample-project"');
     expect(html).not.toContain(EXTERNAL_ICON);
   });
 
@@ -93,7 +93,7 @@ describe("ProjectCard", () => {
     const html = await container.renderToString(ProjectCard, {
       props: {
         ...base,
-        href: "https://github.com/liambsulliva/x",
+        href: "https://github.com/example/x",
         external: true,
       },
     });
@@ -170,14 +170,14 @@ describe("BrandGlyph", () => {
 });
 
 describe("TimelineRow", () => {
-  it("flags the Pitt wordmark to render white in dark mode", async () => {
+  it("flags a wordmark to render white in dark mode", async () => {
     const html = await container.renderToString(TimelineRow, {
       props: {
-        company: "University of Pittsburgh",
+        company: "Sample University",
         role: "BS",
         dates: "2022 – 2026",
-        href: "https://www.pitt.edu",
-        logo: "site/career/pitt",
+        href: "https://example.com/university",
+        logo: "site/sample/career/school",
         whiteLogoOnDark: true,
       },
     });
@@ -187,11 +187,11 @@ describe("TimelineRow", () => {
   it("leaves color logos alone", async () => {
     const html = await container.renderToString(TimelineRow, {
       props: {
-        company: "PNC",
+        company: "Sample Company",
         role: "Analyst",
         dates: "2025",
-        href: "https://www.pnc.com",
-        logo: "site/career/pnc",
+        href: "https://example.com/job",
+        logo: "site/sample/career/job",
       },
     });
     expect(html).not.toContain("timeline-row__logo--white");
@@ -273,16 +273,16 @@ describe("Socials", () => {
 });
 
 describe("Mark", () => {
-  it("lets the /me DNID degree title wrap on narrow screens", async () => {
+  it("lets a long degree title wrap on narrow screens", async () => {
     const html = await container.renderToString(Mark, {
       props: {
-        href: "https://www.sci.pitt.edu/academics/undergraduate-majors/digital-narrative-and-interactive-design",
+        href: "https://example.com/program",
         color: "var(--accent-design)",
         icon: "palette",
       },
-      slots: { default: "Digital Narrative and Interactive Design (DNID)" },
+      slots: { default: "A Sample Long Degree Title (SLDT)" },
     });
-    expect(html.replace(/<[^>]+>/g, "")).toContain("Digital Narrative and Interactive Design (DNID)");
+    expect(html.replace(/<[^>]+>/g, "")).toContain("A Sample Long Degree Title (SLDT)");
     const open = html.match(/<a\b[^>]*>/)?.[0] ?? "";
     expect(open).not.toContain("whitespace-nowrap");
     expect(open).not.toContain("inline-flex");
@@ -290,23 +290,23 @@ describe("Mark", () => {
     expect(html).not.toMatch(/height:\s*26px/);
     // Only the last word rides with the glyph; the rest flows with the prose.
     const keep = html.match(/class="mark__keep"[^>]*>([\s\S]*?)<\/span><\/span><\/a>/)?.[1] ?? "";
-    expect(keep).toMatch(/^\(DNID\)/);
+    expect(keep).toMatch(/^\(SLDT\)/);
     expect(keep).toContain("palette");
   });
 });
 
 describe("PhoneMockup", () => {
-  it("clips the Kingdra screenshot inside the frame instead of translating it to the viewport top", async () => {
+  it("clips the screenshot inside the frame instead of translating it to the viewport top", async () => {
     const html = await container.renderToString(PhoneMockup, {
       props: {
-        content: "site/projects/kingdra-case-study/mobile-view",
+        content: "site/sample/studies/case/mobile-view",
         frame: "site/ui/iphone-frame",
-        alt: "The original Kingdra mobile UI, showing a long scroll of Pokémon",
+        alt: "The original mobile UI, showing a long scroll",
       },
     });
     const shell = html.match(/<div class="phone-mockup[^"]*"/)?.[0] ?? "";
     const screen = html.match(/class="phone-mockup__screen[^"]*"/)?.[0] ?? "";
-    expect(html).toContain("kingdra-case-study/mobile-view");
+    expect(html).toContain("case/mobile-view");
     expect(shell).toMatch(/overflow-(hidden|clip)/);
     expect(screen).not.toContain("-translate-y-1/2");
     expect(screen).not.toContain("top-1/2");
@@ -318,42 +318,34 @@ describe("LobbyHero", () => {
   it("SSRs the finished three lines for no-JS, zap and crawlers", async () => {
     const html = await container.renderToString(LobbyHero);
     const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
-    expect(text).toContain("I'm Liam .");
-    expect(text).toContain("Business Systems Analyst");
+    expect(text).toMatch(/I'm \S+ \./);
     expect(text).toContain("This is my virtual museum.");
     expect(html).toContain('href="/me"');
   });
 
-  it("does not repeat 'PNC' in the heading's accessible name", async () => {
+  it("keeps the marks decorative, so the heading reads as text", async () => {
     const html = await container.renderToString(LobbyHero);
-    expect(html).not.toMatch(/<img[^>]*alt="PNC"/);
+    expect(html).not.toMatch(/<img[^>]*alt="[^"]+"/);
   });
 
-  it("keeps Analyst+chart and PNC+mark together inside their links", async () => {
+  it("keeps each mark together with its text inside its link", async () => {
     const html = await container.renderToString(LobbyHero);
-    const analyst = html.match(
-      /<a[^>]*tealhq\.com[^>]*>([\s\S]*?)<\/a>/,
-    )?.[1];
-    const pnc = html.match(/<a[^>]*pnc\.com[^>]*>([\s\S]*?)<\/a>/)?.[1];
-    expect(analyst).toContain("Analyst");
-    expect(analyst).toContain("chart-column");
-    expect(analyst).toContain("hero__keep");
-    expect(pnc).toContain("PNC");
-    expect(pnc).toContain("/brand/pnc.png");
-    expect(pnc).toContain("hero__keep");
+    const links = [...html.matchAll(/<a[^>]*href="https?:\/\/[^"]*"[^>]*>([\s\S]*?)<\/a>/g)].map((m) => m[1]!);
+    expect(links.length).toBeGreaterThan(0);
+    for (const link of links) expect(link).toContain("hero__keep");
   });
 });
 
 describe("Breadcrumb", () => {
   it("links every path segment and marks the last one current", async () => {
     const html = await container.renderToString(Breadcrumb, {
-      props: { path: "/engineering/kingdra-app/" },
+      props: { path: "/engineering/sample-project/" },
     });
     expect(html).toContain('href="/engineering"');
     expect(html).toMatch(
-      /href="\/engineering\/kingdra-app"[^>]*aria-current="page"/,
+      /href="\/engineering\/sample-project"[^>]*aria-current="page"/,
     );
-    expect(html).toContain('aria-label="Liam Sullivan, home"');
+    expect(html).toMatch(/aria-label="[^"]+, home"/);
   });
 
   it("keeps the path segments in mono (only eyebrows moved to Geist)", async () => {
@@ -395,7 +387,7 @@ describe("Logomark", () => {
 describe("RootLayout", () => {
   it("puts the skip link first and ships absolute share images", async () => {
     const html = await container.renderToString(RootLayout, {
-      props: { title: "Me - Liam Sullivan" },
+      props: { title: "Sample Page" },
     });
     const body = html.slice(html.indexOf("<body"));
     expect(body.match(/<a\b[^>]*>/)?.[0]).toContain('href="#main"');
@@ -404,7 +396,7 @@ describe("RootLayout", () => {
         new RegExp(`${property} content="https?://[^"]+/banner\\.jpg"`),
       );
     }
-    expect(html).toContain("<title>Me - Liam Sullivan</title>");
+    expect(html).toContain("<title>Sample Page</title>");
   });
 
   it("applies theme and motion before first paint, defaulting to system", async () => {

@@ -199,6 +199,6 @@ describe("site chrome data", () => {
     for (const social of SOCIALS) expect(social.href).toMatch(/^https:\/\//);
     expect(VERSIONS[0].href).toBeNull();
     for (const version of VERSIONS.slice(1))
-      expect(version.href).toMatch(/^https:\/\/v\d\.liambsullivan\.com$/);
+      expect(version.href).toMatch(/^https:\/\/v\d\.[^/]+$/);
   });
 });

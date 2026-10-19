@@ -1,12 +1,14 @@
 // The CMS contract: every field the cms-dashboard can author, applied to the
-// real src/content and checked against what the real pages render.
+// site's src/content and checked against what the real pages render.
 //
 // Cases come from the dashboard's Vitest suite, which drives its editors and
 // records the exact file bytes it would publish plus what the site should
 // show for them (CMS_CASES=<path>, set by `npm run test:contract` in
-// cms-dashboard). Without CMS_CASES, the committed snapshot in cases.json runs.
-// Every case is reverted when it finishes, and the suite asserts the content
-// folder ends exactly as it started.
+// cms-dashboard). That run swaps in the dashboard's sample content as the
+// baseline, so this suite never depends on the live site's entries. Without
+// CMS_CASES there are no cases and the suite is skipped. Every case is
+// reverted when it finishes, and the suite asserts the content folder ends
+// exactly as it started.
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -143,9 +145,9 @@ describe.runIf(cases.length)("real Astro content sync", () => {
   });
 
   it("rejects a file the CMS would refuse", { timeout: 120_000 }, () => {
-    const pnc = cases.find((c) => c.files.some((f) => f.path === "src/content/career/pnc.yaml" && f.content));
-    expect(pnc).toBeDefined();
-    const file = pnc!.files.find((f) => f.path === "src/content/career/pnc.yaml")!;
+    const career = cases.find((c) => c.files.some((f) => f.path.startsWith("src/content/career/") && f.content));
+    expect(career).toBeDefined();
+    const file = career!.files.find((f) => f.path.startsWith("src/content/career/") && f.content)!;
     apply([{ ...file, content: file.content!.replace(/^href: .*$/m, "href: not a url") }]);
     expect(sync().status).not.toBe(0);
   });

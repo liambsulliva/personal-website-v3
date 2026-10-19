@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getBerlinPosts } from "../../src/lib/berlin";
 import { publicTags } from "../../src/lib/cloudinaryServer";
@@ -40,7 +42,7 @@ describe("getBerlinPosts", () => {
               ID: 7,
               title: "Week one &amp; <b>Berlin</b>",
               date: "2024-06-01T10:00:00+00:00",
-              URL: "https://pittbusinesstotheworld.com/week-one",
+              URL: "https://example.com/week-one",
               featured_image:
                 "https://i0.wp.com/example.com/a.jpg?fit=1200%2C800",
             },
@@ -52,7 +54,7 @@ describe("getBerlinPosts", () => {
     expect(post).toMatchObject({
       id: 7,
       title: "Week one & Berlin",
-      href: "https://pittbusinesstotheworld.com/week-one",
+      href: "https://example.com/week-one",
     });
     expect(post.image).toContain("resize=720%2C384");
     expect(post.image).not.toContain("fit=");
@@ -73,7 +75,7 @@ describe("getBerlinPosts", () => {
 });
 
 describe("Switch embed guards", () => {
-  const origin = "https://liambsullivan.com";
+  const origin = "https://example.test";
 
   it("treats only the bare /switch-menu document as the embed page", () => {
     expect(isSwitchMenuDocumentPath("/switch-menu")).toBe(true);
@@ -82,7 +84,10 @@ describe("Switch embed guards", () => {
   });
 
   it("recognises iframe loads from the write-up and sends direct visits to it", () => {
-    expect(SWITCH_MENU_PROJECT_URL).toBe("/engineering/switch-react-menu/");
+    // The embed links to whichever write-up the constant names; this only checks it's a write-up that exists.
+    expect(SWITCH_MENU_PROJECT_URL).toMatch(/^\/engineering\/[a-z0-9-]+\/$/);
+    const slug = SWITCH_MENU_PROJECT_URL.split("/")[2];
+    expect(existsSync(join(import.meta.dirname, "../../src/content/entries", `${slug}.mdx`))).toBe(true);
     expect(
       isSwitchMenuEmbedRequest(
         new Request(`${origin}/switch-menu/`, {
@@ -93,7 +98,7 @@ describe("Switch embed guards", () => {
     expect(
       isSwitchMenuEmbedRequest(
         new Request(`${origin}/switch-menu/`, {
-          headers: { referer: `${origin}/engineering/switch-react-menu` },
+          headers: { referer: `${origin}${SWITCH_MENU_PROJECT_URL}` },
         }),
       ),
     ).toBe(true);
@@ -104,7 +109,7 @@ describe("Switch embed guards", () => {
       isSwitchMenuEmbedRequest(
         new Request(`${origin}/switch-menu/`, {
           headers: {
-            referer: "https://evil.example/engineering/switch-react-menu",
+            referer: `https://evil.example${SWITCH_MENU_PROJECT_URL}`,
           },
         }),
       ),

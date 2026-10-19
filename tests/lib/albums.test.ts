@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import realFolders from "../../scripts/album-folders.json";
+// A folder list shaped like the photo library's export (year → folder names), with the
+// cases the parser handles: same-day shoots, plain and punctuated titles, and a year range.
+const realFolders: Record<string, string[]> = {
+  2024: ["Sample Cafe 9-5", "Sample's Closing? 9-5", "Sample Talk 11-5", "Sample Pet 6-1"],
+  2025: ["Sample Cosplay 2025", "Sample Concert 3-29", "Sample Trip 2025 - Sample Day 1-2"],
+  2026: ["Sample Bash 4-11", "Sample's Car Show 4-11", "Sample Pet 4-25", "Sample Headshots 2-8", "Sample Hockey Photoshoot 1-9"],
+};
 import {
   MIN_ALBUM_PHOTOS,
   flickrIdOf,
@@ -38,12 +44,12 @@ const assigned = (proposal: ReturnType<typeof proposeAlbums>) =>
 
 describe("parseFolderName", () => {
   it.each([
-    ["Amelia Harn Bookstore 5-30", 2026, "Amelia Harn Bookstore", "2026-05-30"],
-    ["Ava Acosta Cottagecore 6-01", 2026, "Ava Acosta Cottagecore", "2026-06-01"],
-    ["Sex and Love Cover Photoshoot 2-8", 2026, "Sex and Love Cover Photoshoot", "2026-02-08"],
-    ["Drag Me To Bingo! 11-9", 2025, "Drag Me To Bingo!", "2025-11-09"],
-    ["VETO Project 2025 4-5", 2025, "VETO Project 2025", "2025-04-05"],
-    ["Social Psych of Reality TV 9□3", 2024, "Social Psych of Reality TV", "2024-09-03"],
+    ["Sample Event One 5-30", 2026, "Sample Event One", "2026-05-30"],
+    ["Sample Event Two 6-01", 2026, "Sample Event Two", "2026-06-01"],
+    ["Sample Event Three 2-8", 2026, "Sample Event Three", "2026-02-08"],
+    ["Sample Event Four! 11-9", 2025, "Sample Event Four!", "2025-11-09"],
+    ["Sample Project 2025 4-5", 2025, "Sample Project 2025", "2025-04-05"],
+    ["Sample Event Five 9□3", 2024, "Sample Event Five", "2024-09-03"],
   ])("reads M-DD: %s", (raw, year, title, day) => {
     expect(parseFolderName(raw, year)).toEqual({ title, start: day, end: day });
   });
@@ -58,7 +64,7 @@ describe("parseFolderName", () => {
   });
 
   it("reads M-D-D as a day range", () => {
-    expect(parseFolderName("Moab 3-3-9", 2023)).toEqual({ title: "Moab", start: "2023-03-03", end: "2023-03-09" });
+    expect(parseFolderName("Sample Canyon 3-3-9", 2023)).toEqual({ title: "Sample Canyon", start: "2023-03-03", end: "2023-03-09" });
   });
 
   it("reads an M-DD to M-DD range", () => {
@@ -111,8 +117,8 @@ describe("parseFolderName", () => {
   });
 
   it("keeps a complete first date before a cut-off", () => {
-    expect(parseFolderName("Jocelyn Pham Senior Portraits 3-6-...", 2022)).toEqual({
-      title: "Jocelyn Pham Senior Portraits...",
+    expect(parseFolderName("Sample Senior Portraits 3-6-...", 2022)).toEqual({
+      title: "Sample Senior Portraits...",
       start: "2022-03-06",
       end: "2022-03-06",
     });
@@ -137,9 +143,9 @@ describe("parseFolderName", () => {
 
   it.each([
     ["Berlin", 2024],
-    ["Otakon 2025", 2025],
+    ["Sample Cosplay 2025", 2025],
     ["Steelhacks XII", 2025],
-    ["PG Church Show 1", 2024],
+    ["Sample Show 1", 2024],
     ["Hang 5 Headshots", 2019],
     ["Grad Photos - By Jon Guo", 2026],
     ["Forrest and MJ March idk", 2018],
@@ -157,14 +163,14 @@ describe("parseFolders", () => {
   it("builds slugs, years and hint tags", () => {
     expect(
       parseFolders({
-        2026: ["Bigelow Bash 4-11", { name: "Nala 4-25", tags: ["pets"] }, "Iceland 2026"],
-        2023: ["Moab 3-3-9"],
+        2026: ["Sample Bash 4-11", { name: "Sample Pet 4-25", tags: ["pets"] }, "Sample Trip 2026"],
+        2023: ["Sample Canyon 3-3-9"],
       }),
     ).toMatchObject([
       {
-        slug: "2023-moab-0303",
-        folder: "Moab 3-3-9",
-        title: "Moab",
+        slug: "2023-sample-canyon-0303",
+        folder: "Sample Canyon 3-3-9",
+        title: "Sample Canyon",
         year: 2023,
         start: "2023-03-03",
         end: "2023-03-09",
@@ -172,9 +178,9 @@ describe("parseFolders", () => {
         tags: [],
       },
       {
-        slug: "2026-bigelow-bash-0411",
-        folder: "Bigelow Bash 4-11",
-        title: "Bigelow Bash",
+        slug: "2026-sample-bash-0411",
+        folder: "Sample Bash 4-11",
+        title: "Sample Bash",
         year: 2026,
         start: "2026-04-11",
         end: "2026-04-11",
@@ -182,9 +188,9 @@ describe("parseFolders", () => {
         tags: ["music"],
       },
       {
-        slug: "2026-nala-0425",
-        folder: "Nala 4-25",
-        title: "Nala",
+        slug: "2026-sample-pet-0425",
+        folder: "Sample Pet 4-25",
+        title: "Sample Pet",
         year: 2026,
         start: "2026-04-25",
         end: "2026-04-25",
@@ -192,9 +198,9 @@ describe("parseFolders", () => {
         tags: ["pets"],
       },
       {
-        slug: "2026-iceland-2026",
-        folder: "Iceland 2026",
-        title: "Iceland 2026",
+        slug: "2026-sample-trip-2026",
+        folder: "Sample Trip 2026",
+        title: "Sample Trip 2026",
         year: 2026,
         start: null,
         end: null,
@@ -205,15 +211,15 @@ describe("parseFolders", () => {
   });
 
   it("kebabs punctuation, & and accents", () => {
-    const slugs = parseFolders({ 2024: ["Is Phat's Closing? 9-5", "Tariffs & Coffee 11-5", "Café Été"] }).map((f) => f.slug);
-    expect(slugs).toEqual(["2024-is-phat-s-closing-0905", "2024-tariffs-and-coffee-1105", "2024-cafe-ete"]);
+    const slugs = parseFolders({ 2024: ["Sample's Closing? 9-5", "Sample Talk 11-5", "Sample Café Été"] }).map((f) => f.slug);
+    expect(slugs).toEqual(["2024-sample-s-closing-0905", "2024-sample-talk-1105", "2024-sample-cafe-ete"]);
   });
 
   it("suffixes duplicates", () => {
     const slugs = parseFolders({
-      2024: ["Pitt Volleyball NCAA Championship...", "Pitt Volleyball NCAA Championship..."],
+      2024: ["Sample Sports Championship...", "Sample Sports Championship..."],
     }).map((f) => f.slug);
-    expect(slugs).toEqual(["2024-pitt-volleyball-ncaa-championship", "2024-pitt-volleyball-ncaa-championship-2"]);
+    expect(slugs).toEqual(["2024-sample-sports-championship", "2024-sample-sports-championship-2"]);
   });
 
   it("keeps a -2 suffix from colliding with a real title ending in 2", () => {
@@ -226,12 +232,12 @@ describe("parseFolders", () => {
     expect(yosemite).toMatchObject({ slug: "2019-yosemite-and-san-francisco-0814", loose: true, end: "2019-08-28" });
   });
 
-  describe("real album-folders.json", () => {
+  describe("a folder list", () => {
     const folders = parseFolders(realFolders);
 
     it("parses every folder", () => {
       expect(folders.length).toBe(Object.values(realFolders).flat().length);
-      expect(folders.length).toBeGreaterThan(200);
+      expect(folders.length).toBeGreaterThan(10);
     });
 
     it("gives unique, tag-safe slugs", () => {
@@ -261,8 +267,8 @@ describe("parseFolders", () => {
     it("tells the two 2026-04-11 folders apart by tag", () => {
       const sameDay = folders.filter((f) => f.start === "2026-04-11");
       expect(sameDay.map((f) => [f.title, f.tags])).toEqual([
-        ["Bigelow Bash", ["music"]],
-        ["Puli's Car Show", ["cars"]],
+        ["Sample Bash", ["music"]],
+        ["Sample's Car Show", ["cars"]],
       ]);
     });
   });
@@ -270,20 +276,20 @@ describe("parseFolders", () => {
 
 describe("hintTags", () => {
   it.each([
-    ["Puli's Car Show", ["cars"]],
-    ["Bigelow Bash", ["music"]],
+    ["Sample's Car Show", ["cars"]],
+    ["Sample Bash", ["music"]],
     ["FB v. Notre Dame", ["football"]],
     ["NFL Draft", ["football"]],
     ["WBB v. Syracuse", ["basketball"]],
-    ["VB v. Notre Dame", ["volleyball"]],
+    ["VB v. Team C", ["volleyball"]],
     ["MSOC v. UVA", ["soccer"]],
     ["WLAX v. Virginia", ["sports"]],
-    ["Otakon 2025", ["cosplay"]],
+    ["Sample Cosplay 2025", ["cosplay"]],
     ["DNID Game Jam", ["esports"]],
-    ["KTP Headshots", ["portraits"]],
-    ["Clay Coast Concert Shoot", ["music", "portraits"]],
-    ["Woodson Ice Hockey Photoshoot", ["sports", "portraits"]],
-    ["Nala", []],
+    ["Sample Headshots", ["portraits"]],
+    ["Sample Concert Shoot", ["music", "portraits"]],
+    ["Sample Hockey Photoshoot", ["sports", "portraits"]],
+    ["Sample Pet", []],
   ])("%s → %j", (title, tags) => {
     expect(hintTags(title)).toEqual(tags);
   });
@@ -310,22 +316,22 @@ describe("captureDay", () => {
 
 describe("proposeAlbums", () => {
   const folders = parseFolders({
-    2026: ["Bigelow Bash 4-11", "Puli's Car Show 4-11", "Nala 4-25", "Thievery Corporation 3-29", "Iceland 2026"],
-    2023: ["Moab 3-3-9"],
+    2026: ["Sample Bash 4-11", "Sample's Car Show 4-11", "Sample Pet 4-25", "Sample Concert 3-29", "Sample Trip 2026"],
+    2023: ["Sample Canyon 3-3-9"],
     2019: ["Yosemite and San Francisco 8-14 t...", "Elle Levi 8-20"],
   });
 
   it("matches capture days to folder dates", () => {
     const proposal = proposeAlbums(folders, [
-      photo("nala", "2026:04:25 15:00:00"),
-      photo("moab", "2023:03:06 09:00:00"),
-      photo("moab-end", "2023:03:09 18:00:00"),
+      photo("pet-photo", "2026:04:25 15:00:00"),
+      photo("canyon-photo", "2023:03:06 09:00:00"),
+      photo("canyon-photo-end", "2023:03:09 18:00:00"),
       photo("nowhere", "2026:01:01 12:00:00"),
     ]);
     expect(assigned(proposal)).toEqual({
-      nala: "2026-nala-0425 dated",
-      moab: "2023-moab-0303 dated",
-      "moab-end": "2023-moab-0303 dated",
+      "pet-photo": "2026-sample-pet-0425 dated",
+      "canyon-photo": "2023-sample-canyon-0303 dated",
+      "canyon-photo-end": "2023-sample-canyon-0303 dated",
     });
     expect(proposal.unassigned).toEqual(["nowhere"]);
   });
@@ -337,8 +343,8 @@ describe("proposeAlbums", () => {
     ]);
     // After 5am it's a new day: only the day-off fallback takes it, flagged.
     expect(assigned(proposal)).toEqual({
-      late: "2026-thievery-corporation-0329 dated",
-      morning: "2026-thievery-corporation-0329 nearby",
+      late: "2026-sample-concert-0329 dated",
+      morning: "2026-sample-concert-0329 nearby",
     });
   });
 
@@ -355,10 +361,10 @@ describe("proposeAlbums", () => {
       photo("neither", "2026:04:11 18:00:00", ["featured"]),
     ]);
     expect(assigned(proposal)).toEqual({
-      band: "2026-bigelow-bash-0411 dated",
-      car: "2026-puli-s-car-show-0411 dated",
-      both: "2026-bigelow-bash-0411 ambiguous",
-      neither: "2026-bigelow-bash-0411 ambiguous",
+      band: "2026-sample-bash-0411 dated",
+      car: "2026-sample-s-car-show-0411 dated",
+      both: "2026-sample-bash-0411 ambiguous",
+      neither: "2026-sample-bash-0411 ambiguous",
     });
     expect(proposal.unassigned).toEqual([]);
   });
@@ -395,11 +401,11 @@ describe("proposeAlbums", () => {
       photo("x4", null, ["pets"], at(7)),
     ]);
     expect(assigned(proposal)).toEqual({
-      n1: "2026-nala-0425 dated",
-      x1: "2026-nala-0425 inferred",
-      x2: "2026-nala-0425 inferred",
-      n2: "2026-nala-0425 dated",
-      n3: "2026-nala-0425 dated",
+      n1: "2026-sample-pet-0425 dated",
+      x1: "2026-sample-pet-0425 inferred",
+      x2: "2026-sample-pet-0425 inferred",
+      n2: "2026-sample-pet-0425 dated",
+      n3: "2026-sample-pet-0425 dated",
     });
     expect(proposal.unassigned).toEqual(["x3", "x4"]);
   });
@@ -429,9 +435,9 @@ describe("proposeAlbums", () => {
       photo("m", "2023:03:04 12:00:00", [], "2026-05-03T00:00:00Z"),
     ]);
     expect(proposal.albums[0]).toMatchObject({
-      slug: "2026-nala-0425",
-      title: "Nala",
-      folder: "Nala 4-25",
+      slug: "2026-sample-pet-0425",
+      title: "Sample Pet",
+      folder: "Sample Pet 4-25",
       year: 2026,
       date: "2026-04-25",
       photos: [
@@ -439,9 +445,9 @@ describe("proposeAlbums", () => {
         { id: "b", how: "dated" },
       ],
     });
-    expect(proposal.albums[1].slug).toBe("2023-moab-0303");
+    expect(proposal.albums[1].slug).toBe("2023-sample-canyon-0303");
     expect(proposal.albums).toHaveLength(folders.length);
-    expect(proposal.albums.find((album) => album.slug === "2026-iceland-2026")).toMatchObject({ date: null, photos: [] });
+    expect(proposal.albums.find((album) => album.slug === "2026-sample-trip-2026")).toMatchObject({ date: null, photos: [] });
   });
 });
 
@@ -458,7 +464,7 @@ describe("siteAlbums", () => {
 
   const proposal = {
     albums: [
-      album("2026-nala-0425", "Nala", 2026, "2026-04-25", ids("nala", 5)),
+      album("2026-sample-pet-0425", "Sample Pet", 2026, "2026-04-25", ids("sample-pet", 5)),
       album("2024-berlin", "Berlin", 2024, null, ids("berlin", 5)),
       album("2024-roma", "Roma", 2024, null, ids("roma", 5)),
       album("2025-tiny-0101", "Tiny", 2025, "2025-01-01", ids("tiny", 4)),
@@ -482,7 +488,7 @@ describe("siteAlbums", () => {
 
   it("dates by folder, then earliest capture, then nothing; newest first", () => {
     expect(siteAlbums(proposal, taken, CLOUD).map(({ slug, date, count }) => [slug, date, count])).toEqual([
-      ["2026-nala-0425", "2026-04-25", 5],
+      ["2026-sample-pet-0425", "2026-04-25", 5],
       ["2024-berlin", "2024-06-30", 5],
       ["2024-roma", null, 5],
     ]);
@@ -494,7 +500,7 @@ describe("siteAlbums", () => {
         albums: [
           album("2024-z-0101", "Zed", 2024, "2024-01-01", ids("roma", 5)),
           album("2024-a", "Alpha", 2024, null, ids("berlin", 5)),
-          album("2024-c-0102", "Charlie", 2024, "2024-01-02", ids("nala", 5)),
+          album("2024-c-0102", "Charlie", 2024, "2024-01-02", ids("sample-pet", 5)),
         ],
         unassigned: [],
       },
@@ -510,27 +516,27 @@ describe("siteAlbums", () => {
   });
 
   it("previews the first three photos as delivery URLs", () => {
-    const [nala] = siteAlbums(proposal, taken, CLOUD);
-    expect(nala.preview).toEqual(ids("nala", 3).map(previewOf));
+    const [pet] = siteAlbums(proposal, taken, CLOUD);
+    expect(pet.preview).toEqual(ids("sample-pet", 3).map(previewOf));
   });
 
   it("writes each album as content-collection YAML", () => {
-    const [nala] = siteAlbums(proposal, taken, CLOUD);
-    expect(albumYaml(nala)).toBe(
+    const [pet] = siteAlbums(proposal, taken, CLOUD);
+    expect(albumYaml(pet)).toBe(
       [
         "# title, year and date are yours to edit; `npm run photos:albums -- build` keeps them",
         "# and refreshes only photos and count (from scripts/album-proposal.json).",
-        'title: "Nala"',
+        'title: "Sample Pet"',
         "year: 2026",
         "date: 2026-04-25",
         "count: 5",
         "photos:",
-        ...nala.photos.map((id) => `  - "${id}"`),
+        ...pet.photos.map((id) => `  - "${id}"`),
         "",
       ].join("\n"),
     );
     // Quotes survive (JSON strings are YAML scalars); undated albums say null.
-    const odd = albumYaml({ ...nala, title: 'Is Phat\'s "Closing"?', date: null });
+    const odd = albumYaml({ ...pet, title: 'Is Phat\'s "Closing"?', date: null });
     expect(odd).toContain(`title: ${JSON.stringify('Is Phat\'s "Closing"?')}`);
     expect(odd).toContain("date: null");
   });
@@ -545,22 +551,22 @@ describe("album labels", () => {
   });
 
   it("looks an album's photos up by exact public_id", () => {
-    expect(idsExpression(["PulisCarShow-1_gt3ca3", "abc"])).toBe(
-      'resource_type:image AND (public_id="PulisCarShow-1_gt3ca3" OR public_id="abc")',
+    expect(idsExpression(["SamplesCarShow-1_gt3ca3", "abc"])).toBe(
+      'resource_type:image AND (public_id="SamplesCarShow-1_gt3ca3" OR public_id="abc")',
     );
   });
 
   it("shapes an album card", () => {
     const album: Album = {
-      slug: "2026-nala-0425",
-      title: "Nala",
+      slug: "2026-sample-pet-0425",
+      title: "Sample Pet",
       date: "2026-04-25",
       year: 2026,
       count: 7,
       photos: ["a", "b", "c", "d", "e", "f", "g"],
     };
     const card = toAlbumCard(album);
-    expect(card).toMatchObject({ slug: "2026-nala-0425", title: "Nala", details: "Apr 2026 · 7 photos" });
+    expect(card).toMatchObject({ slug: "2026-sample-pet-0425", title: "Sample Pet", details: "Apr 2026 · 7 photos" });
     expect(card.previews.map((p) => p.key)).toEqual(["a", "b", "c"]);
     // One 2× center crop per card, no srcset; the photo ids stay on the server.
     expect(card.previews[0].src).toContain("/upload/c_fill,w_352,h_440,f_auto,q_auto/");
@@ -572,7 +578,7 @@ describe("album labels", () => {
 describe("Flickr originals", () => {
   it("reads the Flickr id off an original's filename", () => {
     expect(flickrIdOf("_a730157jpg_53598923131_o")).toBe("53598923131");
-    expect(flickrIdOf("pitt-volleyball-v-oregon_54200994529_o")).toBe("54200994529");
+    expect(flickrIdOf("sample-sports-v-rival_54200994529_o")).toBe("54200994529");
     expect(flickrIdOf("DSC01234")).toBeNull();
     expect(flickrIdOf(null)).toBeNull();
   });
@@ -586,32 +592,32 @@ describe("Flickr originals", () => {
 
 describe("photo names", () => {
   it("keys descriptive public_ids and titled Flickr originals, not camera names or random ids", () => {
-    expect(photoName("PulisCarShow-10_iww7ra")).toBe("puliscarshow");
-    expect(photoName("hpumont4aodhmxbh6rsl", "pitt-volleyball-v-oregon_54200994529_o")).toBe("pittvolleyballvoregon");
+    expect(photoName("SamplesCarShow-10_iww7ra")).toBe("samplescarshow");
+    expect(photoName("hpumont4aodhmxbh6rsl", "sample-sports-v-rival_54200994529_o")).toBe("samplesportsvrival");
     expect(photoName("fub3coia8qrcg5jlanrt", "_a730157jpg_53598923131_o")).toBeNull();
     expect(photoName("IMG_1234")).toBeNull();
   });
 
   it("puts a named photo in its folder ahead of any date match", () => {
-    const folders = parseFolders({ 2026: ["Bigelow Bash 4-11", "Puli's Car Show 4-11"] });
+    const folders = parseFolders({ 2026: ["Sample Bash 4-11", "Sample's Car Show 4-11"] });
     const { albums } = proposeAlbums(folders, [
-      { public_id: "PulisCarShow-3_abc123", tags: ["music"], created_at: "2026-08-07T10:00:00Z", taken: "2026:04:11 20:00:00", file: null },
+      { public_id: "SamplesCarShow-3_abc123", tags: ["music"], created_at: "2026-08-07T10:00:00Z", taken: "2026:04:11 20:00:00", file: null },
     ]);
-    const puli = albums.find((album) => album.slug === "2026-puli-s-car-show-0411");
-    expect(puli?.photos).toEqual([{ id: "PulisCarShow-3_abc123", how: "named" }]);
+    const car = albums.find((album) => album.slug === "2026-sample-s-car-show-0411");
+    expect(car?.photos).toEqual([{ id: "SamplesCarShow-3_abc123", how: "named" }]);
   });
 });
 
 describe("ambiguous names", () => {
   it("flags a name that fits several folders when no date settles it", () => {
-    const folders = parseFolders({ 2019: ["Amelia Harn 1-6", "Amelia Harn Skatepark 6-11"] });
+    const folders = parseFolders({ 2019: ["Sample Event One 1-6", "Sample Event One Skatepark 6-11"] });
     const { albums } = proposeAlbums(folders, [
-      { public_id: "x1", tags: [], created_at: "2019-01-01T00:00:00Z", taken: null, file: "amelia-harn_46679040221_o" },
-      { public_id: "x2", tags: [], created_at: "2019-01-02T00:00:00Z", taken: "2019:06:11 12:00:00", file: "amelia-harn_46679040222_o" },
+      { public_id: "x1", tags: [], created_at: "2019-01-01T00:00:00Z", taken: null, file: "sample-event-one_46679040221_o" },
+      { public_id: "x2", tags: [], created_at: "2019-01-02T00:00:00Z", taken: "2019:06:11 12:00:00", file: "sample-event-one_46679040222_o" },
     ]);
     const how = Object.fromEntries(albums.flatMap((album) => album.photos.map((photo) => [photo.id, [album.slug, photo.how]])));
     expect(how.x1[1]).toBe("ambiguous");
-    expect(how.x2).toEqual(["2019-amelia-harn-skatepark-0611", "named"]);
+    expect(how.x2).toEqual(["2019-sample-event-one-skatepark-0611", "named"]);
   });
 });
 
@@ -629,25 +635,25 @@ describe("NAS shoot folders", () => {
   it("reads the camera filename off a Flickr original", () => {
     expect(cameraStem("_a730157jpg_53598923131_o")).toBe("_A730157");
     expect(cameraStem("_a734651-enhanced-nrjpg_53599231464_o")).toBe("_A734651");
-    expect(cameraStem("pitt-volleyball-v-oregon_54200994529_o")).toBeNull();
+    expect(cameraStem("sample-sports-v-rival_54200994529_o")).toBeNull();
   });
 
   it("files anything nested in a shoot folder under that one shoot", () => {
     expect(shootOf("/PhotoDrive/2017 Photos/Isabelle and Dean Grimes 12-23/JPEG/_D201700.jpg")).toBe("2017 Photos/Isabelle and Dean Grimes 12-23");
-    expect(shootOf("/PhotoDrive/2024 Photos/PG Church Show 1/_A731632.ARW")).toBe("2024 Photos/PG Church Show 1");
-    expect(shootOf("/PhotoDrive/TPN Sophomore Year/BRIGID 2-3/_A730157.ARW")).toBe("TPN Sophomore Year/BRIGID 2-3");
-    expect(shootOf("/PhotoDrive/TPN Sophomore Year/_A734490.ARW")).toBeNull();
+    expect(shootOf("/PhotoDrive/2024 Photos/Sample Show 1/_A731632.ARW")).toBe("2024 Photos/Sample Show 1");
+    expect(shootOf("/PhotoDrive/Sample Year/SAMPLE 2-3/_A730157.ARW")).toBe("Sample Year/SAMPLE 2-3");
+    expect(shootOf("/PhotoDrive/Sample Year/_A734490.ARW")).toBeNull();
   });
 
   const folders = parseFolders({
-    2024: [{ name: "PG Church Show 1", imported: "2024-02-04" }, "Pitt v. UVA 11-9", "Eclipse 4-8"],
+    2024: [{ name: "Sample Show 1", imported: "2024-02-04" }, "Sample v. Rival 11-9", "Eclipse 4-8"],
     2017: ["Isabelle and Dean Grimes 12-23", "Erin Hopewell and Shay Monty 12-23"],
   });
   const photo = (id: string, file: string, taken: string | null) => ({ public_id: id, tags: [], created_at: "", taken, file });
 
   it("places a camera file in the shoot whose date fits, across rolled-over counters", () => {
     const nasHits = {
-      _A731632: ["/PhotoDrive/2024 Photos/PG Church Show 1/_A731632.ARW", "/PhotoDrive/2024 Photos/Pitt v. UVA 11-9/_A731632.ARW"],
+      _A731632: ["/PhotoDrive/2024 Photos/Sample Show 1/_A731632.ARW", "/PhotoDrive/2024 Photos/Sample v. Rival 11-9/_A731632.ARW"],
       _D201700: ["/PhotoDrive/2017 Photos/Isabelle and Dean Grimes 12-23/JPEG/_D201700.jpg"],
     };
     const proposal = proposeAlbums(
@@ -655,44 +661,44 @@ describe("NAS shoot folders", () => {
       [photo("a", "_a731632jpg_53599262389_o", "2024:02:03 15:00:00"), photo("b", "_d201700jpg_38079546434_o", "2017:12:23 12:00:00")],
       { nasHits },
     );
-    expect(assigned(proposal)).toEqual({ a: "2024-pg-church-show-1 nas", b: "2017-isabelle-and-dean-grimes-1223 nas" });
+    expect(assigned(proposal)).toEqual({ a: "2024-sample-show-1 nas", b: "2017-isabelle-and-dean-grimes-1223 nas" });
   });
 
   it("leaves a file found only outside the known shoots unassigned, with no date guess", () => {
-    const nasHits = { _A730157: ["/PhotoDrive/2024 Photos/Pitt v. UVA 11-9/_A730157.ARW", "/PhotoDrive/Other Stuff/BRIGID 2-3/_A730157.ARW"] };
+    const nasHits = { _A730157: ["/PhotoDrive/2024 Photos/Sample v. Rival 11-9/_A730157.ARW", "/PhotoDrive/Other Stuff/SAMPLE 2-3/_A730157.ARW"] };
     const proposal = proposeAlbums(folders, [photo("c", "_a730157jpg_53598923131_o", "2024:02:03 15:25:36")], { nasHits });
     expect(proposal.unassigned).toEqual(["c"]);
   });
 
   it("dates an undated folder by its NAS import, for days no dated folder claims", () => {
     const proposal = proposeAlbums(folders, [photo("d", "x_1_o", "2024:01:28 12:00:00"), photo("e", "y_2_o", "2024:04:08 12:00:00")]);
-    expect(assigned(proposal)).toEqual({ d: "2024-pg-church-show-1 nearby", e: "2024-eclipse-0408 dated" });
+    expect(assigned(proposal)).toEqual({ d: "2024-sample-show-1 nearby", e: "2024-eclipse-0408 dated" });
   });
 });
 
 describe("secondary roots", () => {
   const folders = parseFolders({
-    2024: [{ name: "BRIGID 2-3", root: "TPN Sophomore Year" }, { name: "Bigelow Bash 4-7", root: "TPN Sophomore Year" }],
-    2026: ["Bigelow Bash 4-11"],
+    2024: [{ name: "SAMPLE 2-3", root: "Sample Year" }, { name: "Sample Bash 4-7", root: "Sample Year" }],
+    2026: ["Sample Bash 4-11"],
   });
 
   it("maps NAS hits under a secondary root to its shoot", () => {
-    const nasHits = { _A730157: ["/PhotoDrive/TPN Sophomore Year/BRIGID 2-3/_A730157.ARW"] };
+    const nasHits = { _A730157: ["/PhotoDrive/Sample Year/SAMPLE 2-3/_A730157.ARW"] };
     const proposal = proposeAlbums(folders, [
       { public_id: "c", tags: [], created_at: "", taken: "2024:02:03 15:25:36", file: "_a730157jpg_53598923131_o" },
     ], { nasHits });
-    expect(assigned(proposal)).toEqual({ c: "2024-brigid-0203 nas" });
+    expect(assigned(proposal)).toEqual({ c: "2024-sample-0203 nas" });
   });
 
   it("gives same-named undated photos to the year folder's shoot", () => {
-    const proposal = proposeAlbums(folders, [{ public_id: "BigelowBash-10_tmapjv", tags: [], created_at: "", taken: null, file: null }]);
-    expect(assigned(proposal)).toEqual({ "BigelowBash-10_tmapjv": "2026-bigelow-bash-0411 named" });
+    const proposal = proposeAlbums(folders, [{ public_id: "SampleBash-10_tmapjv", tags: [], created_at: "", taken: null, file: null }]);
+    expect(assigned(proposal)).toEqual({ "SampleBash-10_tmapjv": "2026-sample-bash-0411 named" });
   });
 });
 
 describe("undated folders", () => {
   it("date an album by its earliest photo, not its import window", () => {
-    const folders = parseFolders({ 2024: [{ name: "PG Church Show 1", imported: "2024-02-04" }] });
+    const folders = parseFolders({ 2024: [{ name: "Sample Show 1", imported: "2024-02-04" }] });
     const photos = ["a", "b", "c", "d", "e"].map((id) => ({ public_id: id, tags: [], created_at: "", taken: "2024:02:03 15:00:00", file: null }));
     const proposal = proposeAlbums(folders, photos);
     expect(proposal.albums[0].date).toBeNull();
@@ -704,31 +710,31 @@ describe("undated folders", () => {
 describe("names against folder titles", () => {
   const folders = parseFolders({
     2024: [
-      "NCAA Volleyball - Kentucky v. Mizzou 12-12",
-      "Pitt Volleyball NCAA Championships v. Oregon 12-12",
+      "Sample Sports v. Rival 12-12",
+      "Sample Sports Championships v. Oregon 12-12",
       { name: "Supernova 2024", imported: "2024-08-08" },
       "Climbing Club 10-10",
       "Palestine Teach In 10-10",
     ],
     2025: ["Supernova 8-10"],
-    2023: ["Sophie 1-28"],
-    2018: ["Sophia Brush and Jack Mahler 6-25"],
-    2020: ["Sophia Brush 7-28"],
+    2023: ["Sample Friend 1-28"],
+    2018: ["Sample Friend and Other Friend 6-25"],
+    2020: ["Sample Other 7-28"],
   });
   const photo = (id: string, file: string, taken: string) => ({ public_id: id, tags: [], created_at: "", taken, file });
   const proposal = proposeAlbums(folders, [
-    photo("oregon", "pitt-volleyball-v-oregon_54200994529_o", "2024:12:12 19:00:00"),
-    photo("sophie", "sophia_38079546434_o", "2023:01:28 14:00:00"),
+    photo("oregon", "sample-sports-v-rival_54200994529_o", "2024:12:12 19:00:00"),
+    photo("sample-friend", "other-friend_38079546434_o", "2023:01:28 14:00:00"),
     photo("nova", "supernova_53900000000_o", "2024:08:11 22:00:00"),
     photo("climb", "ls-climbing-club_54000000000_o", "2024:10:10 18:00:00"),
   ]);
 
   it("matches a name whose words all appear in a longer title", () => {
-    expect(assigned(proposal).oregon).toBe("2024-pitt-volleyball-ncaa-championships-v-oregon-1212 named");
+    expect(assigned(proposal).oregon).toBe("2024-sample-sports-v-rival-1212 named");
   });
 
   it("leaves a dated photo to its date when the name fits no folder that day", () => {
-    expect(assigned(proposal).sophie).toBe("2023-sophie-0128 dated");
+    expect(assigned(proposal)["sample-friend"]).toBe("2023-sample-friend-0128 dated");
   });
 
   it("keeps a same-named folder from another year out", () => {
@@ -741,46 +747,46 @@ describe("names against folder titles", () => {
 });
 
 describe("manual overrides", () => {
-  const folders = parseFolders({ 2026: ["Bigelow Bash 4-11", "Puli's Car Show 4-11"] });
-  const photo = { public_id: "DJDiesel-21_csviz", tags: [], created_at: "", taken: "2026:04:11 22:00:00", file: null };
+  const folders = parseFolders({ 2026: ["Sample Bash 4-11", "Sample's Car Show 4-11"] });
+  const photo = { public_id: "SampleDJ-21_csviz", tags: [], created_at: "", taken: "2026:04:11 22:00:00", file: null };
 
   it("put a photo where you say, ahead of every other signal", () => {
-    const proposal = proposeAlbums(folders, [photo], { manual: { "2026 Photos/Puli's Car Show 4-11": ["DJDiesel-21_csviz"] } });
-    expect(assigned(proposal)).toEqual({ "DJDiesel-21_csviz": "2026-puli-s-car-show-0411 manual" });
+    const proposal = proposeAlbums(folders, [photo], { manual: { "2026 Photos/Sample's Car Show 4-11": ["SampleDJ-21_csviz"] } });
+    expect(assigned(proposal)).toEqual({ "SampleDJ-21_csviz": "2026-sample-s-car-show-0411 manual" });
   });
 
-  it("refuse a shoot that isn't in album-folders.json", () => {
-    expect(() => proposeAlbums(folders, [photo], { manual: { "2026 Photos/Otakon 2026": ["x"] } })).toThrow(/Otakon 2026/);
+  it("refuses a shoot that isn't in the folder list", () => {
+    expect(() => proposeAlbums(folders, [photo], { manual: { "2026 Photos/Sample Expo 2026": ["x"] } })).toThrow(/Sample Expo 2026/);
   });
 });
 
 describe("albums defined by overrides", () => {
-  const json = { 2026: ["Bigelow Bash 4-11"], 2022: ["2D Design"] };
+  const json = { 2026: ["Sample Bash 4-11"], 2022: ["2D Design"] };
   const manual = {
-    "2026 Photos/Bigelow Bash 4-11": ["dj"],
-    "2026 Photos/Otakon 2026": ["o1", "o2"],
-    "2022 Photos/2D Design/Photo/Blue 10-13": ["b1"],
+    "2026 Photos/Sample Bash 4-11": ["dj"],
+    "2026 Photos/Sample Expo 2026": ["o1", "o2"],
+    "2022 Photos/2D Design/Photo/Sample Shoot 10-13": ["b1"],
   };
   const days: Record<string, string> = { o1: "2026-08-01", o2: "2026-07-31", b1: "2021-10-13" };
   const folders = parseFolders(withOverrideFolders(json, manual, (id) => days[id] ?? null));
 
-  it("adds the shoots album-folders.json doesn't list, dated by their photos", () => {
+  it("adds the shoots the folder list doesn't have, dated by their photos", () => {
     expect(folders.map(({ slug, root, start }) => [slug, root, start])).toEqual(
       expect.arrayContaining([
-        ["2026-otakon-2026", "2026 Photos", null],
-        ["2021-blue-1013", "2022 Photos/2D Design/Photo", "2021-10-13"],
+        ["2026-sample-expo-2026", "2026 Photos", null],
+        ["2021-sample-shoot-1013", "2022 Photos/2D Design/Photo", "2021-10-13"],
       ]),
     );
-    expect(folders.filter((folder) => folder.folder === "Bigelow Bash 4-11")).toHaveLength(1);
+    expect(folders.filter((folder) => folder.folder === "Sample Bash 4-11")).toHaveLength(1);
   });
 
   it("then places their photos there", () => {
     const photos = ["dj", "o1", "o2", "b1"].map((id) => ({ public_id: id, tags: [], created_at: "", taken: null, file: null }));
     expect(assigned(proposeAlbums(folders, photos, { manual }))).toEqual({
-      dj: "2026-bigelow-bash-0411 manual",
-      o1: "2026-otakon-2026 manual",
-      o2: "2026-otakon-2026 manual",
-      b1: "2021-blue-1013 manual",
+      dj: "2026-sample-bash-0411 manual",
+      o1: "2026-sample-expo-2026 manual",
+      o2: "2026-sample-expo-2026 manual",
+      b1: "2021-sample-shoot-1013 manual",
     });
   });
 });
