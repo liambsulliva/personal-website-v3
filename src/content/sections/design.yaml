@@ -4,7 +4,7 @@
 sections:
   - key: case-studies
     heading: UI
-    layout: grid-2-wide
+    layout: grid-3
     sort: custom
     order:
       - routelette-prototype

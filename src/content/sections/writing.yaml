@@ -5,7 +5,7 @@
 sections:
   - key: substack
     heading: Articles
-    layout: grid-3
+    layout: grid-2-wide
     sort: custom
     order:
       - the-license-is-a-paper-tiger
