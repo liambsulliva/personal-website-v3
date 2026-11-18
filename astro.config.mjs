@@ -3,17 +3,29 @@ import react from "@astrojs/react";
 import svelte from "@astrojs/svelte";
 import mdx from "@astrojs/mdx";
 import vercel from "@astrojs/vercel";
+import node from "@astrojs/node";
 import tailwindcss from "@tailwindcss/vite";
 import rehypeExternalLinks from "rehype-external-links";
 import slashSafeRedirects from "./integrations/slashSafeRedirects.mjs";
 import criticalCss from "./integrations/criticalCss.mjs";
+import { astroRedirects } from "./src/lib/redirects.mjs";
+
+// Where this build runs: `vercel` (default, what main deploys today) or
+// `node` (the NAS container, docs/self-host-plan.md). The Vercel path and
+// everything only it needs go once the cutover has soaked.
+const DEPLOY_TARGET = process.env.DEPLOY_TARGET || "vercel";
+if (DEPLOY_TARGET !== "vercel" && DEPLOY_TARGET !== "node") {
+  throw new Error(`DEPLOY_TARGET must be "vercel" or "node", not "${DEPLOY_TARGET}"`);
+}
+const onNode = DEPLOY_TARGET === "node";
 
 // https://astro.build/config
 export default defineConfig({
   site: "https://liambsullivan.com",
   trailingSlash: "ignore",
   devToolbar: { enabled: false },
-  integrations: [react(), svelte(), mdx(), slashSafeRedirects(), criticalCss()],
+  // slashSafeRedirects rewrites .vercel/output, which only the Vercel build writes.
+  integrations: [react(), svelte(), mdx(), ...(onNode ? [] : [slashSafeRedirects()]), criticalCss()],
   markdown: {
     shikiConfig: {
       themes: { light: "github-light", dark: "github-dark-default" },
@@ -23,15 +35,9 @@ export default defineConfig({
       [rehypeExternalLinks, { target: "_blank", rel: ["noopener", "noreferrer"] }],
     ],
   },
-  adapter: vercel(),
-  redirects: {
-    "/other-work": { status: 301, destination: "/design" },
-    "/projects/kingdra-app": { status: 301, destination: "/engineering/kingdra-app" },
-    "/projects/herl-app": { status: 301, destination: "/engineering/herl-app" },
-    "/projects/switch-react-menu": { status: 301, destination: "/engineering/switch-react-menu" },
-    "/projects/the-invisible-hand-of-ux": { status: 301, destination: "/engineering/the-invisible-hand-of-ux" },
-    "/ux/kingdra-case-study": { status: 301, destination: "/design/kingdra-case-study" },
-  },
+  adapter: onNode ? node({ mode: "standalone" }) : vercel(),
+  // Legacy v2 URLs: src/lib/redirects.mjs.
+  redirects: astroRedirects(),
   vite: {
     plugins: [tailwindcss()],
     optimizeDeps: {
