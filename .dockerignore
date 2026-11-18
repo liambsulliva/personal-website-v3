@@ -1,0 +1,21 @@
+# Build context for the Dockerfile: the source, nothing local or secret.
+node_modules
+.git
+.env
+.env.*
+!.env.example
+.vercel
+.astro
+dist
+.contract
+docs
+tests
+deploy
+assets/**/*.psd
+*.log
+.DS_Store
+.claude
+.cursor
+.agents
+.vscode
+.idea
