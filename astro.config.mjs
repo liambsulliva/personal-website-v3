@@ -19,6 +19,12 @@ if (DEPLOY_TARGET !== "vercel" && DEPLOY_TARGET !== "node") {
 }
 const onNode = DEPLOY_TARGET === "node";
 
+// Hosts the server may take its URL from. Without a match Astro ignores the
+// Host and X-Forwarded-Host headers and the request URL becomes
+// https://localhost/…, which fails every same-origin check (the RAWG proxy).
+// The protocol pattern also limits which X-Forwarded-Proto values it trusts.
+const ALLOWED_HOSTS = ["liambsullivan.com", "www.liambsullivan.com", "staging.liambsullivan.com"];
+
 // https://astro.build/config
 export default defineConfig({
   site: "https://liambsullivan.com",
@@ -35,7 +41,12 @@ export default defineConfig({
       [rehypeExternalLinks, { target: "_blank", rel: ["noopener", "noreferrer"] }],
     ],
   },
+  // Standalone, not middleware: its handler serves dist/client before the app.
+  // server.mjs imports that handler with autostart off and wraps it.
   adapter: onNode ? node({ mode: "standalone" }) : vercel(),
+  security: {
+    allowedDomains: ALLOWED_HOSTS.map((hostname) => ({ protocol: "https", hostname })),
+  },
   // Legacy v2 URLs: src/lib/redirects.mjs.
   redirects: astroRedirects(),
   vite: {
