@@ -33,10 +33,14 @@ function cloudinary(url, init) {
   const ids = [...String(body.expression).matchAll(/public_id="([^"]+)"/g)].map((m) => m[1]);
   // The routes scope every expression with `AND NOT (folder:site/* OR tags=samples)`.
   const tag = String(body.expression).match(/^resource_type:image AND tags=([\w.:-]+)/)?.[1];
-  const resources = ids.length
+  const matches = ids.length
     ? ids.toReversed().map((public_id, i) => ({ ...PHOTOS[i % PHOTOS.length], public_id }))
     : PHOTOS.filter((photo) => !tag || photo.tags.includes(tag));
-  return Response.json({ resources });
+  // Pages like Search does: an opaque cursor while more remain.
+  const from = Number(body.next_cursor ?? 0);
+  const to = from + (body.max_results ?? 50);
+  const page = { resources: matches.slice(from, to) };
+  return Response.json(to < matches.length ? { ...page, next_cursor: String(to) } : page);
 }
 
 function rawg(url) {
