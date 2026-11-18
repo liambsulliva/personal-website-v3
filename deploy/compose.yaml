@@ -1,0 +1,46 @@
+# The site on the NAS (docs/self-host-plan.md). deploy.sh copies this file
+# into the project folder, next to .env, so plain `docker compose` works there:
+#
+#   cd /volume1/docker/projects/personal-website
+#   docker compose up -d                        # what is in .env
+#   SITE_SHA=<older sha> docker compose up -d   # roll back
+#
+# Nothing is published: cloudflared reaches the site over this project's
+# network as http://site:4321, and the tunnel is the only way in.
+name: personal-website
+
+services:
+  site:
+    image: personal-website:${SITE_SHA:?SITE_SHA is not set in .env}
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+    environment:
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:?}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:?}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:?}
+      RAWG_API_KEY: ${RAWG_API_KEY:?}
+    mem_limit: 384m
+    memswap_limit: 384m
+    cpu_shares: 512
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.7
+    restart: unless-stopped
+    # QUIC by default; set TUNNEL_PROTOCOL=http2 in .env if the tunnel flaps on kernel 4.4.
+    command: tunnel --no-autoupdate --protocol ${TUNNEL_PROTOCOL:-auto} run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?}
+    depends_on:
+      site:
+        condition: service_healthy
+    mem_limit: 128m
+    memswap_limit: 128m
+    security_opt:
+      - no-new-privileges:true
