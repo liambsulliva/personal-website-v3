@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import bundled from "../data/cloudinary-manifest.json";
+import { cloudName } from "./serverEnv";
 
 /**
  * Cloudinary delivery URLs for site imagery (public_id under site/…, see
@@ -13,8 +14,7 @@ import bundled from "../data/cloudinary-manifest.json";
  * stages the manifest is what CldImage sees.
  */
 
-export const CLOUD_NAME: string =
-  import.meta.env.CLOUDINARY_CLOUD_NAME ?? import.meta.env.PUBLIC_CLOUDINARY_CLOUD_NAME ?? "";
+export const CLOUD_NAME: string = cloudName();
 
 const BASE = `https://res.cloudinary.com/${CLOUD_NAME}/image/upload`;
 

@@ -3,15 +3,17 @@
 // lives under folder site/ and is always excluded from photo queries, as is
 // the demo pack Cloudinary seeds into the console (tagged "samples").
 
+import { cloudinaryApiKey, cloudinaryApiSecret, cloudName as readCloudName } from "./serverEnv";
+
 export const PUBLIC_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=86400";
 
 // Cloudinary's parser rejects chained NOTs; keep exclusions in one group.
 export const PHOTO_SCOPE = "NOT (folder:site/* OR tags=samples)";
 
 export const getCloudinaryCredentials = () => {
-  const cloudName = import.meta.env.CLOUDINARY_CLOUD_NAME;
-  const apiKey = import.meta.env.CLOUDINARY_API_KEY;
-  const apiSecret = import.meta.env.CLOUDINARY_API_SECRET;
+  const cloudName = readCloudName();
+  const apiKey = cloudinaryApiKey();
+  const apiSecret = cloudinaryApiSecret();
 
   if (!cloudName || !apiKey || !apiSecret) {
     return null;

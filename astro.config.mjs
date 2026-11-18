@@ -1,4 +1,4 @@
-import { defineConfig } from "astro/config";
+import { defineConfig, envField } from "astro/config";
 import react from "@astrojs/react";
 import svelte from "@astrojs/svelte";
 import mdx from "@astrojs/mdx";
@@ -46,6 +46,15 @@ export default defineConfig({
   adapter: onNode ? node({ mode: "standalone" }) : vercel(),
   security: {
     allowedDomains: ALLOWED_HOSTS.map((hostname) => ({ protocol: "https", hostname })),
+  },
+  env: {
+    // Read through src/lib/serverEnv.ts, which says why.
+    schema: {
+      CLOUDINARY_CLOUD_NAME: envField.string({ context: "server", access: "secret", optional: true }),
+      CLOUDINARY_API_KEY: envField.string({ context: "server", access: "secret", optional: true }),
+      CLOUDINARY_API_SECRET: envField.string({ context: "server", access: "secret", optional: true }),
+      RAWG_API_KEY: envField.string({ context: "server", access: "secret", optional: true }),
+    },
   },
   // Legacy v2 URLs: src/lib/redirects.mjs.
   redirects: astroRedirects(),

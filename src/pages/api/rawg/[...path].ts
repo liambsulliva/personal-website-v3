@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { rawgApiKey } from "../../../lib/serverEnv";
 import { isRawgProxyRequestAllowed } from "../../../lib/switchMenuEmbed";
 
 export const prerender = false;
@@ -56,7 +57,7 @@ export const GET: APIRoute = async ({ params, request, url }) => {
     return jsonResponse({ detail: "Forbidden" }, 403);
   }
 
-  const apiKey = import.meta.env.RAWG_API_KEY?.trim();
+  const apiKey = rawgApiKey();
   if (!apiKey) {
     console.error("[RAWG proxy] RAWG_API_KEY is not configured");
     return jsonResponse({ detail: "RAWG proxy not configured" }, 503);
