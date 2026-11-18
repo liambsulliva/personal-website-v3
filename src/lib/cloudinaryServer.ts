@@ -3,6 +3,7 @@
 // lives under folder site/ and is always excluded from photo queries, as is
 // the demo pack Cloudinary seeds into the console (tagged "samples").
 
+import { cached } from "./originCache";
 import { cloudinaryApiKey, cloudinaryApiSecret, cloudName as readCloudName } from "./serverEnv";
 
 export const PUBLIC_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=86400";
@@ -47,13 +48,27 @@ export const idsExpression = (ids: readonly string[]) =>
 export const photoExpression = (tag?: string | null) =>
   tag ? `resource_type:image AND tags=${tag}` : "resource_type:image";
 
-export async function searchPhotos(body: {
+type SearchBody = {
   expression: string;
   max_results: number;
   next_cursor?: string;
   sort_by?: Array<Record<string, "asc" | "desc">>;
   fields?: string[];
-}): Promise<{ ok: boolean; status: number; data: PhotoPage & { tags?: string[][] } }> {
+};
+type SearchResult = { ok: boolean; status: number; data: PhotoPage & { tags?: string[][] } };
+
+/**
+ * One Search API call, cached at the origin (lib/originCache): every
+ * Cloudinary read below goes through here, so the page and API routes make
+ * about one call per distinct query per FRESH_MS. Results are shared; don't
+ * mutate them.
+ */
+export const searchPhotos = cached(fetchSearch, {
+  key: (body) => JSON.stringify(body),
+  keep: (result) => result.ok,
+});
+
+async function fetchSearch(body: SearchBody): Promise<SearchResult> {
   const credentials = getCloudinaryCredentials();
   if (!credentials) return { ok: false, status: 500, data: { resources: [] } };
 
@@ -128,8 +143,8 @@ export async function searchAllPhotos(
 export async function searchAlbumPhotos(ids: readonly string[]): ReturnType<typeof searchAllPhotos> {
   const result = await searchAllPhotos(idsExpression(ids));
   const order = new Map(ids.map((id, index) => [id, index]));
-  result.resources.sort((a, b) => (order.get(a.public_id) ?? 0) - (order.get(b.public_id) ?? 0));
-  return result;
+  const resources = result.resources.toSorted((a, b) => (order.get(a.public_id) ?? 0) - (order.get(b.public_id) ?? 0));
+  return { ...result, resources };
 }
 
 /**

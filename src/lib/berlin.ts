@@ -1,6 +1,8 @@
 // Berlin (study abroad) posts: server fetch, never a build-time loader or a
 // client useEffect. Mapped to ArticleCard fields.
 
+import { cached } from "./originCache";
+
 const ENDPOINT =
   "https://public-api.wordpress.com/rest/v1.1/sites/pittbusinesstotheworld.com/posts/?tag=liam-sullivan&fields=ID,title,date,URL,featured_image&number=20";
 
@@ -45,10 +47,11 @@ const photon = (url: string, width = 720, height = 384) => {
   }
 };
 
-export async function getBerlinPosts(): Promise<BerlinPost[]> {
+/** The feed, or null when WordPress is down (so the cache keeps the last good one). */
+async function fetchBerlinPosts(): Promise<BerlinPost[] | null> {
   try {
     const response = await fetch(ENDPOINT, { headers: { Accept: "application/json" } });
-    if (!response.ok) return [];
+    if (!response.ok) return null;
     const data: {
       posts?: Array<{ ID: number; title: string; date: string; URL: string; featured_image?: string }>;
     } = await response.json();
@@ -60,6 +63,13 @@ export async function getBerlinPosts(): Promise<BerlinPost[]> {
       image: post.featured_image ? photon(post.featured_image) : undefined,
     }));
   } catch {
-    return [];
+    return null;
   }
+}
+
+const cachedBerlinPosts = cached(fetchBerlinPosts, { key: () => "", keep: (posts) => posts !== null });
+
+/** Posts for /writing, cached at the origin (lib/originCache); empty while WordPress is down. */
+export async function getBerlinPosts(): Promise<BerlinPost[]> {
+  return (await cachedBerlinPosts()) ?? [];
 }

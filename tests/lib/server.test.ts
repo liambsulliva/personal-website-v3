@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getBerlinPosts } from "../../src/lib/berlin";
+import { clearOriginCache } from "../../src/lib/originCache";
 import { publicTags } from "../../src/lib/cloudinaryServer";
 import {
   isRawgProxyRequestAllowed,
@@ -14,6 +15,7 @@ import { PRE_PAINT_STATE } from "../../integrations/criticalCss.mjs";
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  clearOriginCache();
 });
 
 describe("publicTags (photography chip row)", () => {
@@ -71,6 +73,27 @@ describe("getBerlinPosts", () => {
       vi.fn(async () => Promise.reject(new Error("offline"))),
     );
     expect(await getBerlinPosts()).toEqual([]);
+  });
+
+  it("keeps serving the last good feed while WordPress is down", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const posts = { posts: [{ ID: 1, title: "One", date: "2024-06-01T10:00:00+00:00", URL: "https://example.com/1" }] };
+      const fetch = vi.fn(async () => Response.json(posts));
+      vi.stubGlobal("fetch", fetch);
+      expect(await getBerlinPosts()).toHaveLength(1);
+      expect(await getBerlinPosts()).toHaveLength(1);
+      expect(fetch).toHaveBeenCalledTimes(1);
+
+      vi.advanceTimersByTime(301_000);
+      const down = vi.fn(async () => new Response("nope", { status: 503 }));
+      vi.stubGlobal("fetch", down);
+      expect(await getBerlinPosts()).toHaveLength(1);
+      await vi.waitFor(() => expect(down).toHaveBeenCalledTimes(1));
+      expect(await getBerlinPosts()).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
