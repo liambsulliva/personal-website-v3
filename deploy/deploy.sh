@@ -178,7 +178,10 @@ fetch() {
   if [[ ! -d "$REPO_DIR/.git" ]]; then
     git_ clone --quiet --no-checkout "$REMOTE_URL" "$REPO_DIR" >>"$LOG" 2>&1 || return 1
   fi
+  # Fetch from REMOTE_URL, not whatever the clone was first made from (a
+  # bundle, a mirror): ls-remote above read REMOTE_URL.
   (cd "$REPO_DIR" &&
+    git_ remote set-url origin "$REMOTE_URL" &&
     git_ fetch --quiet origin "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" &&
     git_ checkout --quiet --force --detach "$1" &&
     git_ clean -ffdxq) >>"$LOG" 2>&1

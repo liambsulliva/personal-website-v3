@@ -125,6 +125,20 @@ describe.skipIf(!hasTools)("deploy.sh (poll main, build, switch)", () => {
     expect(images()).toEqual([b, a]);
   });
 
+  it("(regression) fetches from REMOTE_URL when the clone was made from somewhere else", () => {
+    const a = push("a");
+    // The first deploy clones from a copy of origin (as phase 2 did from a bundle).
+    const copy = join(dir, "copy.git");
+    sh(dir, "git", "clone", "-q", "--bare", origin, copy);
+    expect(deploy({ REMOTE_URL: copy }).status).toBe(0);
+    expect(serving()).toBe(a);
+    // main moves on the real origin only; the poller must build it.
+    const b = push("b");
+    const run = deploy();
+    expect(run.status, run.out).toBe(0);
+    expect(serving()).toBe(b);
+  });
+
   it("keeps the old container serving when a build fails, and doesn't rebuild that commit", () => {
     const a = push("a");
     deploy();
