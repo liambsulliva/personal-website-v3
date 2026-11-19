@@ -120,6 +120,19 @@ The CMS dashboard stays on Vercel. It only commits to this repo, so nothing in i
 - `node server.mjs` against the build matches the live site on every item of the parity list (`scripts/parity.mjs`), with Cloudinary, RAWG and WordPress stubbed (there is no `.env` on the NAS). Two items differ on purpose and are reported, not compared: the RAWG call from the embed (403 live, 200 here) and the frame headers on the `/switch-menu/` document (missing live).
 - Not run here, because there is no Docker in this container: the Dockerfile, the compose file and `deploy.sh` against a real daemon. `deploy.sh`'s decisions are tested with a fake `docker`; its in-container probe was run against the real server.
 
+## Phase 2 results (2026-11-19)
+
+Run once by hand as root on the NAS with `deploy.sh`'s own `fetch`, `build` and `check_candidate` against a git bundle of `env/self-host` (301f9a9), since the branch is not on GitHub yet.
+
+- **Build:** passes with the legacy builder under `--memory 1536m --cpu-shares 256` and `nice 15`, in 306 s. `astro check`: 0 errors, 0 warnings on 156 files. Peak memory per build step, `astro check` included: 937 MiB for `npm run build`, 686 MiB for `npm ci`. The host's lowest MemAvailable during the build was 967 MiB; swap in use went from 929 to 1041 MiB. The image is 636 MB.
+- **Candidate check:** `/healthz`, `/photography` and `/api/cloudinary/pool` answer 200 with the real Cloudinary credentials.
+- **`site` from compose.yaml:** healthy, read-only root, runs as `node`. 88 MiB after warming every route, 96 MiB idle a minute later, 177 MiB peak (cgroup), against the 150 MB idle gate and the 384 MB limit. The RAWG proxy returns 200 from the embed with the real key: 3.3 s cold, cached after that.
+- **NAS facts found on the way:**
+  - DSM has no git, so the `alpine/git` fallback is what runs.
+  - Docker is root-only (`docker.sock` is `root:root 660`).
+  - SFTP/`scp` is off.
+  - The project folder inherits a `rwxrwxrwx` ACL from `/volume1/docker/projects`, so files root creates there are world-writable too. Remove the inherited ACL before the root scheduled task exists, or any account on the NAS can change what it runs.
+
 ## Risks
 
 - **Memory is the tight one.** 4 GB total, with T3 allowed 2.5 GB and sshd 1 GB. A 1 GB build while several agent threads run could push the NAS into swap. Mitigations: the Node heap cap, `nice`, one build at a time. If phase 2 shows the peak is too high, the fallback is to build the image in GitHub Actions and have the poller pull it from GHCR instead of building; nothing else in the plan changes.
