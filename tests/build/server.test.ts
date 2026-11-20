@@ -123,6 +123,37 @@ describe.skipIf(!RUN)("Node server (server.mjs over dist/)", () => {
     expect((await get("/healthz", {}, "HEAD")).status).toBe(200);
   });
 
+  // Vercel did these at its edge; behind the tunnel the server must.
+  describe("canonical origin", () => {
+    it("(regression) sends www to the apex in one 308, path and query kept, with HSTS", async () => {
+      const res = await get("/photography?tag=film", { ...viaTunnel, host: `www.${HOST}` });
+      expect(res.status).toBe(308);
+      expect(res.headers.location).toBe(`https://${HOST}/photography?tag=film`);
+      expect(res.headers["strict-transport-security"]).toBe("max-age=63072000");
+    });
+
+    it("(regression) sends http to https, www straight to the apex", async () => {
+      for (const host of [HOST, `www.${HOST}`]) {
+        const res = await get("/writing/?x=1", { "x-forwarded-proto": "http", host });
+        expect(res.status, host).toBe(308);
+        expect(res.headers.location, host).toBe(`https://${HOST}/writing/?x=1`);
+        expect(res.headers["strict-transport-security"], host).toBeUndefined();
+      }
+    });
+
+    it("(regression) gives every https response Vercel's HSTS header", async () => {
+      for (const path of ["/", "/other-work", "/switch-menu/", "/favicon/icon-light.svg", "/nope"]) {
+        expect((await get(path, viaTunnel)).headers["strict-transport-security"], path).toBe("max-age=63072000");
+      }
+    });
+
+    it("leaves a request without X-Forwarded-Proto alone (the healthcheck, deploy.sh's probes)", async () => {
+      const res = await get("/");
+      expect(res.status).toBe(200);
+      expect(res.headers["strict-transport-security"]).toBeUndefined();
+    });
+  });
+
   describe("legacy redirects", () => {
     for (const [from, to] of Object.entries(LEGACY_REDIRECTS)) {
       it(`301s ${from}, with or without a slash, to a page that exists`, async () => {

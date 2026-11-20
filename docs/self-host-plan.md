@@ -38,6 +38,7 @@ These are the reason this is a plan and not a one-line change. Phase 1 tested ea
 5. **`/switch-menu/*` loses its frame headers**, which come from `vercel.json`. (On Vercel, `/switch-menu/:path*` matches the assets and `/switch-menu` but not `/switch-menu/`, the document the headers exist to protect; the Node server sends them on all three.)
 6. **Nothing redeploys on push.** CMS publishes and Switch-menu updates would sit in `main` unserved.
 7. **A published album keeps its old photos for a day.** *Found in the cms-dashboard check (2026-11-19).* `/api/cloudinary/album` is cached for a day (`s-maxage=86400`, a week stale) on the grounds that album membership only changes with a deploy, "which clears the CDN". Vercel's did; Cloudflare's isn't cleared by a NAS deploy. The gallery now asks for `?slug=<slug>&v=<albumVersion>`, a hash of the album's photo list (`src/lib/albumData.ts`), so a publish that changes an album changes its URL; only the current version is kept for a day, a missing or old `v` for five minutes.
+8. **`www`, `http://` and HSTS go with Vercel's edge.** *Found in phase 3 (2026-11-20).* Vercel answers `www.` and `http://` with a 308 to `https://liambsullivan.com` and sends `Strict-Transport-Security: max-age=63072000`; the apex and `www` records are DNS-only, so Cloudflare's zone settings never applied to them. `server.mjs` now does all three from `X-Forwarded-Proto` and `Host`, which doesn't depend on a dashboard toggle.
 
 ## Repo changes (this branch)
 
@@ -99,7 +100,7 @@ The CMS dashboard stays on Vercel. It only commits to this repo, so nothing in i
 1. Zero Trust → Networks → Tunnels: create tunnel `nas-site`, copy the token into the NAS `.env`.
 2. Public hostname `staging.liambsullivan.com` → `http://site:4321`. Put a Cloudflare Access policy on it (your email only) so it is never indexed. Add an Access service token to the policy too, so `scripts/parity.mjs` can run against staging (`CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET`).
 3. Cache Rules: make `/photography`, `/writing` and `/api/cloudinary/*` eligible for cache, respecting the origin's `Cache-Control`, with the query string in the cache key (the default; the album URL's `v` depends on it). Leave `/api/rawg/*` alone (it is `private`). Nothing purges this cache on deploy, so a route whose content changes with a publish needs a versioned URL (item 7 above).
-4. SSL/TLS: Always Use HTTPS on, HSTS matching today's `max-age=63072000`.
+4. SSL/TLS: *Done at the origin instead (item 8 above).* Always Use HTTPS and HSTS in the dashboard are optional; if turned on, keep HSTS at `max-age=63072000` without subdomains, since other subdomains are served elsewhere.
 5. At cutover: add `liambsullivan.com` (and `www`, if it has a record today) as public hostnames on the tunnel, replacing the Vercel records. Both sides are in Cloudflare, so the switch takes effect within seconds.
 
 ## Phases and gates

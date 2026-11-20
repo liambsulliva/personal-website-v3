@@ -5,8 +5,14 @@
 //
 //   GET /healthz         200 {ok, sha}: the container healthcheck, deploy.sh, and the
 //                        outside uptime check (scripts/uptime.mjs), which compares sha with main
+//   http:// or www.      308 to https://liambsullivan.com, path and query kept, as Vercel
+//                        answers; every https response carries Vercel's HSTS header
 //   legacy v2 URLs       301 with the query string, slash or not (src/lib/redirects.mjs)
 //   /switch-menu/…       the frame headers vercel.json gives it on Vercel
+//
+// The scheme comes from X-Forwarded-Proto, which Cloudflare sets and
+// cloudflared passes on. A request without it (the healthcheck, deploy.sh's
+// probes inside the container) is neither redirected nor given HSTS.
 //
 // Env: PORT (4321), HOST (0.0.0.0), SITE_SHA (the image's commit, set by the
 // Dockerfile), and the secrets astro.config.mjs declares.
@@ -24,6 +30,10 @@ const SWITCH_MENU_HEADERS = {
 // deploy that never happened from one still building.
 const HEALTH = `${JSON.stringify({ ok: true, sha: process.env.SITE_SHA || "unknown" })}\n`;
 
+const APEX = "liambsullivan.com";
+// Vercel's value: two years, no includeSubDomains (other subdomains live elsewhere).
+const HSTS = "max-age=63072000";
+
 const isSwitchMenu = (path) => path === "/switch-menu" || path.startsWith("/switch-menu/");
 
 // The entry would start its own server on import in standalone mode.
@@ -39,6 +49,18 @@ const server = createServer((req, res) => {
     res.end(req.method === "HEAD" ? undefined : HEALTH);
     return;
   }
+
+  const proto = String(req.headers["x-forwarded-proto"] ?? "").split(",", 1)[0].trim();
+  const host = String(req.headers.host ?? "").toLowerCase().replace(/:\d+$/, "");
+  if (proto === "http" || host === `www.${APEX}`) {
+    // One hop to the canonical origin; 308 keeps a POST a POST.
+    const headers = { Location: `https://${host === `www.${APEX}` || !host ? APEX : host}${url}` };
+    if (proto === "https") headers["Strict-Transport-Security"] = HSTS;
+    res.writeHead(308, headers);
+    res.end();
+    return;
+  }
+  if (proto === "https") res.setHeader("Strict-Transport-Security", HSTS);
 
   const location = legacyRedirect(url);
   if (location) {
