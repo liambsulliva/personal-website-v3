@@ -37,6 +37,7 @@ These are the reason this is a plan and not a one-line change. Phase 1 tested ea
 4. **Secrets are baked in, or never read.** *Mechanism corrected in phase 1.* In Astro 5.18, `import.meta.env.X` in server code compiles to a literal when X comes from a `.env` file (baked into `dist/`), to `process.env.X` when X is in the build's environment, and to nothing when X is absent at build. An image built without secrets would therefore 500 on every Cloudinary route even with the secrets set in the container. Reading them through `astro:env` secrets fixes both.
 5. **`/switch-menu/*` loses its frame headers**, which come from `vercel.json`. (On Vercel, `/switch-menu/:path*` matches the assets and `/switch-menu` but not `/switch-menu/`, the document the headers exist to protect; the Node server sends them on all three.)
 6. **Nothing redeploys on push.** CMS publishes and Switch-menu updates would sit in `main` unserved.
+7. **A published album keeps its old photos for a day.** *Found in the cms-dashboard check (2026-11-19).* `/api/cloudinary/album` is cached for a day (`s-maxage=86400`, a week stale) on the grounds that album membership only changes with a deploy, "which clears the CDN". Vercel's did; Cloudflare's isn't cleared by a NAS deploy. The gallery now asks for `?slug=<slug>&v=<albumVersion>`, a hash of the album's photo list (`src/lib/albumData.ts`), so a publish that changes an album changes its URL; only the current version is kept for a day, a missing or old `v` for five minutes.
 
 ## Repo changes (this branch)
 
@@ -97,7 +98,7 @@ The CMS dashboard stays on Vercel. It only commits to this repo, so nothing in i
 
 1. Zero Trust → Networks → Tunnels: create tunnel `nas-site`, copy the token into the NAS `.env`.
 2. Public hostname `staging.liambsullivan.com` → `http://site:4321`. Put a Cloudflare Access policy on it (your email only) so it is never indexed. Add an Access service token to the policy too, so `scripts/parity.mjs` can run against staging (`CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET`).
-3. Cache Rules: make `/photography`, `/writing` and `/api/cloudinary/*` eligible for cache, respecting the origin's `Cache-Control`. Leave `/api/rawg/*` alone (it is `private`).
+3. Cache Rules: make `/photography`, `/writing` and `/api/cloudinary/*` eligible for cache, respecting the origin's `Cache-Control`, with the query string in the cache key (the default; the album URL's `v` depends on it). Leave `/api/rawg/*` alone (it is `private`). Nothing purges this cache on deploy, so a route whose content changes with a publish needs a versioned URL (item 7 above).
 4. SSL/TLS: Always Use HTTPS on, HSTS matching today's `max-age=63072000`.
 5. At cutover: add `liambsullivan.com` (and `www`, if it has a record today) as public hostnames on the tunnel, replacing the Vercel records. Both sides are in Cloudflare, so the switch takes effect within seconds.
 
@@ -108,8 +109,18 @@ The CMS dashboard stays on Vercel. It only commits to this repo, so nothing in i
 | 1. App | Repo changes 1–3 and 5 | `DEPLOY_TARGET=node npm run test:build` passes in this container; `node server.mjs` answers every route in the parity list; the default (Vercel) build and tests still pass |
 | 2. Image | Dockerfile, compose, deploy script | Image builds on the NAS; build peak memory recorded with `astro check` included; `site` idles under 150 MB |
 | 3. Staging | Tunnel, staging hostname behind Access | Parity list passes on `staging.` from outside the LAN; a test commit to a throwaway branch deploys through the poller; a deliberately broken build leaves the old container up |
-| 4. Cutover | Merge to `main`, switch the apex and `www` to the tunnel | Parity list passes on the real domain; CMS Publish reaches the site; Switch menu loads games |
+| 4. Cutover | Merge `env/self-host` into `main`, switch the apex and `www` to the tunnel (checklist below) | Parity list passes on the real domain; CMS Publish reaches the site; Switch menu loads games; the Uptime workflow passes |
 | 5. Soak | Leave the Vercel project in place, untouched, for two weeks | No unexplained downtime; then remove `@astrojs/vercel`, `vercel.json`, `slashSafeRedirects`, the `DEPLOY_TARGET` switch, and the Vercel project |
+
+**Cutover checklist**, in order:
+
+1. Merge `env/self-host` into `main` (a normal merge, after any CMS publishes made meanwhile). Vercel deploys `main` as before: the default target is still `vercel`.
+2. On the NAS, point the poller at `main` (drop `DEPLOY_BRANCH=env/self-host` from the scheduled task). Its next run deploys `main`.
+3. Switch `liambsullivan.com` and `www` to the tunnel (Cloudflare setup, step 5), then run `scripts/parity.mjs` against the real domain.
+4. Set the repository variable `UPTIME_URL=https://liambsullivan.com` to turn on the Uptime workflow (below), and run it once by hand (Actions → Uptime → Run workflow). If Cloudflare's Bot Fight Mode challenges it, add a WAF skip rule for the `site-uptime-check` user agent.
+5. In cms-dashboard, change the Publish screen's "Vercel will redeploy the site" / "Vercel redeploys the site from it" (`app/pages/publish.vue`) and the README's "Vercel then redeploys the site" to say the site redeploys from the NAS within about 10 minutes.
+
+**Uptime check.** `.github/workflows/uptime.yml` runs `scripts/uptime.mjs` every 15 minutes from GitHub's runners, so it sees what a visitor sees and doesn't depend on the NAS. It checks `/healthz`, `/`, `/photography`, `/api/cloudinary/pool` (Cloudinary credentials) and `/api/rawg/platforms` as the Switch menu asks (RAWG key), retrying a failure once 30 s later. It also compares the commit `/healthz` reports (the image's `SITE_SHA`) with `main`'s head: once `main` has been ahead for 30 minutes, the deploy failed or stalled. A failure opens an issue labelled `uptime` (GitHub emails it), comments only when what's failing changes, and closes it on recovery. It's off until `UPTIME_URL` is set, and only runs from `main`, so it arrives with the merge. Before cutover, run the script by hand against staging with the Access service token. GitHub pauses schedules after 60 days without a commit; CMS publishes count.
 
 **Parity list**, compared against the live Vercel site: status and `Location` for the six legacy redirects with and without a slash; 200 and matching `<title>`/canonical for `/`, `/me`, `/career`, `/engineering`, `/design`, `/writing`, `/photography`, one write-up per wing; `/photography?album=<slug>` and `?tag=<tag>` render that source; the four Cloudinary routes return the same JSON shape; the Switch menu embed in `/engineering/switch-react-menu` loads game data; opening `/switch-menu/` directly redirects to the write-up; unknown paths return 404 with the 404 page; `sitemap.xml` and `robots.txt` match; `/_astro/*` is `immutable`; `Resume.pdf` and the PDF carousels load.
 
@@ -136,7 +147,7 @@ Run once by hand as root on the NAS with `deploy.sh`'s own `fetch`, `build` and 
 ## Risks
 
 - **Memory is the tight one.** 4 GB total, with T3 allowed 2.5 GB and sshd 1 GB. A 1 GB build while several agent threads run could push the NAS into swap. Mitigations: the Node heap cap, `nice`, one build at a time. If phase 2 shows the peak is too high, the fallback is to build the image in GitHub Actions and have the poller pull it from GHCR instead of building; nothing else in the plan changes.
-- **Availability is now your uplink, power and DSM updates.** Vercel had none of those. Cloudflare keeps serving cached static assets during a blip but not SSR pages. An external uptime check on `/healthz` is worth adding in phase 3.
+- **Availability is now your uplink, power and DSM updates.** Vercel had none of those. Cloudflare keeps serving cached static assets during a blip but not SSR pages. The Uptime workflow (above) is what tells you.
 - **Kernel 4.4.** `cloudflared` defaults to QUIC; if the tunnel flaps, set `TUNNEL_PROTOCOL=http2` in `.env`.
 - **Legacy builder.** `DOCKER_BUILDKIT=0` is deprecated; if DSM's Docker drops it, build in GitHub Actions and pull from GHCR (the fallback above).
 - **Cloudinary Search calls from query strings.** `/api/cloudinary/search` and `?tag=` take any well-formed tag or cursor, so each new one costs a Search call. The origin cache bounds repeats, not novelty; a Cloudflare rate-limiting rule on `/api/cloudinary/*` is the cheap guard if it is ever abused. Vercel had the same exposure.
