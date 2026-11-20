@@ -47,7 +47,15 @@ function rawg(url) {
   const authorized = url.searchParams.get("key") === process.env.RAWG_API_KEY;
   log({ upstream: "rawg", path: url.pathname, authorized });
   if (!authorized) return Response.json({ error: "bad key" }, { status: 401 });
-  return Response.json({ count: 1, results: [{ id: 7, name: "Nintendo Switch", slug: "nintendo-switch" }] });
+  // RAWG's paging links carry the caller's key, as the real API's do.
+  const next = new URL(url);
+  next.searchParams.set("page", "2");
+  return Response.json({
+    count: 1,
+    next: next.href,
+    previous: `${url.origin}${url.pathname}?key=${url.searchParams.get("key")}`,
+    results: [{ id: 7, name: "Nintendo Switch", slug: "nintendo-switch" }],
+  });
 }
 
 function wordpress(url) {

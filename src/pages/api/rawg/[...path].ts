@@ -52,6 +52,19 @@ function copyAllowedQuery(
   return true;
 }
 
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * The body with the API key taken out. RAWG's `next`/`previous` paging links
+ * repeat the request's query, key included, and would hand it to the browser.
+ */
+function withoutKey(body: string, apiKey: string): string {
+  const param = new RegExp(`([?&])key=${escapeRegExp(apiKey)}(&)?`, "g");
+  return body
+    .replace(param, (_match, separator: string, more?: string) => (more ? separator : ""))
+    .replaceAll(apiKey, "");
+}
+
 export const GET: APIRoute = async ({ params, request, url }) => {
   if (!isRawgProxyRequestAllowed(request)) {
     return jsonResponse({ detail: "Forbidden" }, 403);
@@ -85,7 +98,7 @@ export const GET: APIRoute = async ({ params, request, url }) => {
       return jsonResponse({ detail: "RAWG request failed" }, upstream.status);
     }
 
-    return new Response(await upstream.text(), {
+    return new Response(withoutKey(await upstream.text(), apiKey), {
       status: 200,
       headers: {
         "Content-Type":

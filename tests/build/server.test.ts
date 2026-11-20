@@ -338,6 +338,18 @@ describe.skipIf(!RUN)("Node server (server.mjs over dist/)", () => {
       expect(calls().filter((call) => call.upstream === "rawg").every((call) => call.authorized)).toBe(true);
     });
 
+    it("(regression) strips the RAWG key from the paging links it passes on", async () => {
+      const fromEmbed = { ...viaTunnel, referer: `https://${HOST}/switch-menu/`, "sec-fetch-site": "same-origin", "sec-fetch-dest": "empty" };
+      const res = await get("/api/rawg/games?search=zelda", fromEmbed);
+      expect(res.status, res.body).toBe(200);
+      expect(res.body).not.toContain(SECRETS.RAWG_API_KEY);
+      const { next, previous } = JSON.parse(res.body);
+      expect(new URL(next).searchParams.has("key")).toBe(false);
+      expect(new URL(next).searchParams.get("search")).toBe("zelda");
+      expect(new URL(next).searchParams.get("page")).toBe("2");
+      expect(previous).toBe("https://api.rawg.io/api/games");
+    });
+
     it("refuses the RAWG proxy without the embed's Referer, or from another host", async () => {
       expect((await get("/api/rawg/platforms", viaTunnel)).status).toBe(403);
       const elsewhere = { ...viaTunnel, referer: "https://evil.example/switch-menu/" };
