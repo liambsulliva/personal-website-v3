@@ -75,6 +75,8 @@ const calls = (): Call[] =>
 
 const title = (html: string) => html.match(/<title>([^<]*)<\/title>/)?.[1];
 
+const TEST_SHA = "0123456789abcdef0123456789abcdef01234567";
+
 beforeAll(async () => {
   if (!RUN) return;
   scratch = mkdtempSync(join(tmpdir(), "site-server-"));
@@ -86,6 +88,7 @@ beforeAll(async () => {
       HOST: "127.0.0.1",
       PORT: String(port),
       CLOUDINARY_CLOUD_NAME: "stub-cloud",
+      SITE_SHA: TEST_SHA,
       ...SECRETS,
       UPSTREAM_LOG: join(scratch, "upstream.log"),
     },
@@ -111,10 +114,12 @@ afterAll(() => {
 });
 
 describe.skipIf(!RUN)("Node server (server.mjs over dist/)", () => {
-  it("answers the health check", async () => {
+  it("answers the health check with the commit it serves", async () => {
     const res = await get("/healthz");
     expect(res.status).toBe(200);
     expect(res.headers["cache-control"]).toBe("no-store");
+    // scripts/uptime.mjs compares this with main to catch a deploy that failed.
+    expect(JSON.parse(res.body)).toEqual({ ok: true, sha: TEST_SHA });
     expect((await get("/healthz", {}, "HEAD")).status).toBe(200);
   });
 

@@ -1,0 +1,84 @@
+name: Uptime
+
+# Every 15 minutes from GitHub's runners, off the NAS (scripts/uptime.mjs):
+# is the site up, are its Cloudinary and RAWG keys working, and is it serving
+# main, so a failed or stalled deploy shows up. Off until the repository
+# variable UPTIME_URL is set (Settings → Secrets and variables → Actions →
+# Variables), e.g. https://liambsullivan.com; set it at cutover.
+#
+# A failure opens an issue labelled `uptime` (GitHub emails it), comments
+# again only when what's failing changes, and closes the issue when every
+# check passes. GitHub pauses schedules in a repo with no commits for 60 days.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  check:
+    if: vars.UPTIME_URL != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: scripts
+          fetch-depth: 1
+
+      - name: Check the site
+        id: check
+        continue-on-error: true
+        env:
+          UPTIME_URL: ${{ vars.UPTIME_URL }}
+          # Only for a host behind Cloudflare Access (staging).
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: >-
+          node scripts/uptime.mjs "$UPTIME_URL"
+          --expect-sha "$GITHUB_SHA"
+          --committed-at "$(git log -1 --format=%ct)"
+          --report "$RUNNER_TEMP/uptime.md"
+
+      - name: Open, update or close the uptime issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          OUTCOME: ${{ steps.check.outcome }}
+          UPTIME_URL: ${{ vars.UPTIME_URL }}
+        run: |
+          report="$RUNNER_TEMP/uptime.md"
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          [[ -f "$report" ]] || printf '<!-- uptime-key: check-crashed -->\nThe check itself did not finish.\n' >"$report"
+          printf '\n[This run](%s)\n' "$run_url" >>"$report"
+          open="$(gh issue list --label uptime --state open --json number --jq '.[0].number // empty')"
+
+          if [[ "$OUTCOME" == success ]]; then
+            if [[ -n "$open" ]]; then
+              gh issue comment "$open" --body-file "$report"
+              gh issue close "$open" --reason completed
+            fi
+            exit 0
+          fi
+
+          key="$(head -n 1 "$report")"
+          if [[ -z "$open" ]]; then
+            gh label create uptime --color B60205 --description "Opened and closed by the uptime workflow" 2>/dev/null || true
+            gh issue create --title "Site check failing: $UPTIME_URL" --label uptime --body-file "$report"
+          else
+            last="$(gh issue view "$open" --json body,comments --jq '([.body] + [.comments[].body]) | last' | head -n 1)"
+            [[ "$last" == "$key" ]] || gh issue comment "$open" --body-file "$report"
+          fi
+
+      - name: Fail the run when a check failed
+        if: steps.check.outcome != 'success'
+        run: exit 1

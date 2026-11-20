@@ -3,11 +3,13 @@
 // standalone handler, which serves dist/client, renders the SSR routes and
 // falls back to 404.html. In front of it, in order:
 //
-//   GET /healthz         200, for the container healthcheck and deploy.sh
+//   GET /healthz         200 {ok, sha}: the container healthcheck, deploy.sh, and the
+//                        outside uptime check (scripts/uptime.mjs), which compares sha with main
 //   legacy v2 URLs       301 with the query string, slash or not (src/lib/redirects.mjs)
 //   /switch-menu/…       the frame headers vercel.json gives it on Vercel
 //
-// Env: PORT (4321), HOST (0.0.0.0), and the secrets astro.config.mjs declares.
+// Env: PORT (4321), HOST (0.0.0.0), SITE_SHA (the image's commit, set by the
+// Dockerfile), and the secrets astro.config.mjs declares.
 import { createServer } from "node:http";
 import { legacyRedirect } from "./src/lib/redirects.mjs";
 
@@ -18,6 +20,10 @@ const SWITCH_MENU_HEADERS = {
   "X-Frame-Options": "SAMEORIGIN",
   "Referrer-Policy": "same-origin",
 };
+// The commit this server was built from, so a check from outside can tell a
+// deploy that never happened from one still building.
+const HEALTH = `${JSON.stringify({ ok: true, sha: process.env.SITE_SHA || "unknown" })}\n`;
+
 const isSwitchMenu = (path) => path === "/switch-menu" || path.startsWith("/switch-menu/");
 
 // The entry would start its own server on import in standalone mode.
@@ -29,8 +35,8 @@ const server = createServer((req, res) => {
   const path = url.split(/[?#]/, 1)[0];
 
   if (path === "/healthz" && (req.method === "GET" || req.method === "HEAD")) {
-    res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" });
-    res.end(req.method === "HEAD" ? undefined : "ok\n");
+    res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+    res.end(req.method === "HEAD" ? undefined : HEALTH);
     return;
   }
 
