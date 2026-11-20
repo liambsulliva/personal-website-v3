@@ -142,7 +142,7 @@ Run once by hand as root on the NAS with `deploy.sh`'s own `fetch`, `build` and 
   - DSM has no git, so the `alpine/git` fallback is what runs.
   - Docker is root-only (`docker.sock` is `root:root 660`).
   - SFTP/`scp` is off.
-  - The project folder inherits a `rwxrwxrwx` ACL from `/volume1/docker/projects`, so files root creates there are world-writable too. Remove the inherited ACL before the root scheduled task exists, or any account on the NAS can change what it runs.
+  - *Corrected in phase 3:* `ls` shows the project folder as `rwxrwxrwx+`, but that is DSM's rendering of an ACL inherited from the `docker` share, not world-writable. Writers were `administrators`, Container Manager's service account and `dockergroup` (`dockerlimited`). Since a root task runs code from it, phase 3 replaced the ACL with plain `root:administrators 750`; `.env` stays `liambsulliva 600`, so it can be edited without `sudo`.
 
 ## Risks
 
