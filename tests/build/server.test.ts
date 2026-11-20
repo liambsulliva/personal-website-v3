@@ -13,6 +13,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { albumVersion } from "../../src/lib/albumData";
 import { listAlbums } from "../../src/lib/albums";
 import { LEGACY_REDIRECTS } from "../../src/lib/redirects.mjs";
 import { SWITCH_MENU_PROJECT_URL } from "../../src/lib/switchMenuEmbed";
@@ -247,6 +248,26 @@ describe.skipIf(!RUN)("Node server (server.mjs over dist/)", () => {
       expect(JSON.parse(albumRes.body).resources.map((r: { public_id: string }) => r.public_id)).toEqual(album.photos);
       expect((await get("/api/cloudinary/pool?tag=_internal")).status).toBe(403);
       expect((await get("/api/cloudinary/album?slug=nope")).status).toBe(404);
+    });
+
+    it("(regression) keeps an album for a day only under its current photo list's URL", async () => {
+      // Cloudflare isn't purged on deploy, so a CMS publish that changes an
+      // album must change the URL the gallery asks for.
+      const albums = await listAlbums();
+      const page = (await get("/photography", viaTunnel)).body;
+      for (const album of albums.slice(0, 3)) {
+        const version = albumVersion(album);
+        // The island's props carry each album's version ([0, value] is Astro's string encoding).
+        expect(page).toContain(`&quot;version&quot;:[0,&quot;${version}&quot;]`);
+        const current = await get(`/api/cloudinary/album?slug=${album.slug}&v=${version}`);
+        expect(current.status).toBe(200);
+        expect(current.headers["cache-control"]).toBe("public, s-maxage=86400, stale-while-revalidate=604800");
+        for (const stale of [`/api/cloudinary/album?slug=${album.slug}`, `/api/cloudinary/album?slug=${album.slug}&v=old`]) {
+          const res = await get(stale);
+          expect(res.status).toBe(200);
+          expect(res.headers["cache-control"]).toBe("public, s-maxage=300, stale-while-revalidate=86400");
+        }
+      }
     });
   });
 

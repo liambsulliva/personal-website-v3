@@ -4,6 +4,7 @@
 // Cloudinary by id (api/cloudinary/album), so nothing is tagged there.
 import { getCollection } from "astro:content";
 import { CLOUD_NAME } from "./cloudinary";
+import { albumVersion } from "./albumData";
 import { cloudinaryTransform } from "./cloudinaryImage";
 
 export type Album = {
@@ -56,6 +57,8 @@ export type AlbumCard = {
   title: string;
   details: string;
   previews: StackPhoto[];
+  /** albumVersion(album): names this album's photo list in its data URL. */
+  version: string;
 };
 
 export const toAlbumCard = (album: Album): AlbumCard => ({
@@ -63,6 +66,7 @@ export const toAlbumCard = (album: Album): AlbumCard => ({
   title: album.title,
   details: albumDetails(album),
   previews: album.photos.slice(0, 3).map((id) => toStackPhoto(id)),
+  version: albumVersion(album),
 });
 
 /** A shared album link's preview image: the cover, cropped to the 1200×630

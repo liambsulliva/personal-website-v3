@@ -1,14 +1,18 @@
 export const prerender = false;
 
 import type { APIRoute } from "astro";
+import { albumVersion } from "../../../lib/albumData";
 import { listAlbums } from "../../../lib/albums";
-import { searchAlbumPhotos } from "../../../lib/cloudinaryServer";
+import { PUBLIC_CACHE_CONTROL, searchAlbumPhotos } from "../../../lib/cloudinaryServer";
 
 // One album's photos, in capture order. Membership is the `albums` content
 // collection, so the only input is a known slug (no expression from
-// the client). It only changes with a deploy, which clears the CDN, so the
-// CDN can keep it for a day: about one Cloudinary Search call per album per
-// deploy and region.
+// the client). Membership only changes with a deploy, but a deploy doesn't
+// clear the CDN (Cloudflare keeps what it has), so the gallery asks for
+// `?slug=<slug>&v=<albumVersion>`: a publish that changes the photo list
+// changes the URL. Only the current version is kept for a day (about one
+// Cloudinary Search call per album per publish and region); a missing or old
+// `v` (a page from before the deploy) gets the routes' five minutes.
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 const ALBUM_CACHE_CONTROL = "public, s-maxage=86400, stale-while-revalidate=604800";
@@ -20,11 +24,12 @@ export const GET: APIRoute = async ({ request }) => {
     return new Response(JSON.stringify({ error: "Unknown album" }), { status: 404, headers: JSON_HEADERS });
   }
 
+  const current = new URL(request.url).searchParams.get("v") === albumVersion(album);
   try {
     const { ok, status, resources } = await searchAlbumPhotos(album.photos);
     return new Response(JSON.stringify({ resources }), {
       status,
-      headers: { ...JSON_HEADERS, "Cache-Control": ok ? ALBUM_CACHE_CONTROL : "no-store" },
+      headers: { ...JSON_HEADERS, "Cache-Control": !ok ? "no-store" : current ? ALBUM_CACHE_CONTROL : PUBLIC_CACHE_CONTROL },
     });
   } catch (error) {
     console.error("Cloudinary album request failed", error);

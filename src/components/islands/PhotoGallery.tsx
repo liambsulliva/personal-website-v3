@@ -16,6 +16,7 @@ import checkIcon from "../icons/svg/check.svg?raw";
 import spinnerIcon from "../icons/svg/spinner.svg?raw";
 import { photographyTitle, shareHref, type GallerySource } from "../../lib/photoShare";
 import { shuffled, toGalleryPhoto, type GalleryPhoto, type PhotoResource } from "../../lib/photos";
+import { albumDataUrl } from "../../lib/albumData";
 import type { AlbumCard } from "../../lib/albums";
 import { toSrcSet } from "../../lib/cloudinaryImage";
 import {
@@ -144,9 +145,11 @@ async function fetchTagPool(tag: string): Promise<GalleryPhoto[]> {
   return (data.resources ?? []).map(toGalleryPhoto);
 }
 
-/** An album's photos, all at once, in capture order (api/cloudinary/album). */
-async function fetchAlbumPage(slug: string, signal?: AbortSignal): Promise<Page> {
-  const response = await fetch(`/api/cloudinary/album?slug=${encodeURIComponent(slug)}`, { signal });
+/** An album's photos, all at once, in capture order (api/cloudinary/album).
+ *  `version` is the album card's: a URL per photo list, so a CDN that kept
+ *  the album for a day can't serve it after a publish changes it. */
+async function fetchAlbumPage(slug: string, version: string, signal?: AbortSignal): Promise<Page> {
+  const response = await fetch(albumDataUrl({ slug, version }), { signal });
   if (!response.ok) throw new Error(`Album responded with ${response.status}`);
   const data: { resources?: PhotoResource[] } = await response.json();
   return { photos: (data.resources ?? []).map(toGalleryPhoto), cursor: null };
@@ -253,6 +256,9 @@ export default function PhotoGallery({
   // and no portal fade (the photo must be fully opaque at the handoff).
   const [backdrop, setBackdrop] = useState(true);
   const requestRef = useRef<AbortController | null>(null);
+  // Each album's data URL version, from its card (albums never change on a page).
+  const versionsRef = useRef(new Map(albums.map((album) => [album.slug, album.version])));
+  const versionOf = (slug: string) => versionsRef.current.get(slug) ?? "";
   const sentinelRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const galleryRef = useRef<HTMLDivElement>(null);
@@ -289,7 +295,7 @@ export default function PhotoGallery({
   const shuffleRef = useRef<{ tag: string; photos: GalleryPhoto[] } | null>(null);
 
   const pageFor = useCallback(async (source: Source, cursor: string | null, signal?: AbortSignal): Promise<Page> => {
-    if (source.kind === "album") return fetchAlbumPage(source.slug, signal);
+    if (source.kind === "album") return fetchAlbumPage(source.slug, versionOf(source.slug), signal);
     let order = shuffleRef.current;
     if (cursor === null || order?.tag !== source.tag) {
       let pool = poolsRef.current.get(source.tag);
@@ -412,7 +418,7 @@ export default function PhotoGallery({
     if (current.kind === "tag") snapshotRef.current = { tag: current.tag, photos: photosRef.current, cursor: cursorRef.current };
     requestRef.current?.abort();
     const controller = new AbortController();
-    const pending = fetchAlbumPage(slug, controller.signal);
+    const pending = fetchAlbumPage(slug, versionOf(slug), controller.signal);
     pending.catch(() => {});
 
     // Press: acknowledge the click while the album loads.
