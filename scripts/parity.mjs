@@ -22,7 +22,8 @@ import { LEGACY_REDIRECTS } from "../src/lib/redirects.mjs";
 const args = process.argv.slice(2);
 const asAt = args.indexOf("--as");
 const as = asAt === -1 ? undefined : args[asAt + 1];
-const [reference, candidate] = args.filter((arg, i) => !arg.startsWith("--") && i !== asAt + 1);
+// Without --as, asAt + 1 is 0: don't drop the first origin.
+const [reference, candidate] = args.filter((arg, i) => !arg.startsWith("--") && (asAt === -1 || i !== asAt + 1));
 if (!reference || !candidate) {
   console.error("usage: node scripts/parity.mjs <reference origin> <candidate origin> [--as <host>]");
   process.exit(2);
@@ -152,8 +153,20 @@ await check("sitemap.xml", "/sitemap.xml", (res) => [res.status, text(res)]);
 await check("robots.txt", "/robots.txt", (res) => [res.status, text(res)]);
 
 // Hashed assets cache immutably; PDFs load.
-const asset = text(await get(reference, "/")).match(/\/_astro\/[^"]+\.(?:css|js)/)?.[0];
-if (asset) await check(`asset ${asset.slice(0, 30)}…`, asset, (res) => [res.status, res.headers["cache-control"]]);
+// Each build hashes its own file names, so each side is asked for one of its own.
+const assetOf = async (origin) => text(await get(origin, "/")).match(/\/_astro\/[^"]+\.(?:css|js)/)?.[0];
+const assets = { [reference]: await assetOf(reference), [candidate]: await assetOf(candidate) };
+{
+  const [a, b] = await Promise.all(
+    [reference, candidate].map(async (origin) => {
+      if (!assets[origin]) return JSON.stringify(null);
+      const res = await get(origin, assets[origin]);
+      return JSON.stringify([res.status, res.headers["cache-control"]]);
+    }),
+  );
+  if (a !== b) failures++;
+  console.log(a === b ? `ok    ${"asset /_astro/* (each side's own)".padEnd(48)} ${a}` : `DIFF  asset /_astro/*\n        reference ${assets[reference]} ${a}\n        candidate ${assets[candidate]} ${b}`);
+}
 for (const pdf of ["/Resume.pdf", "/pitch-deck.pdf", "/presentation/clubmeeting1.pdf", "/layouts/wii-manual.pdf"]) {
   await check(`pdf ${pdf}`, pdf, (res) => [res.status, res.headers["content-type"], res.body.length]);
 }
