@@ -145,6 +145,27 @@ Run once by hand as root on the NAS with `deploy.sh`'s own `fetch`, `build` and 
   - SFTP/`scp` is off.
   - *Corrected in phase 3:* `ls` shows the project folder as `rwxrwxrwx+`, but that is DSM's rendering of an ACL inherited from the `docker` share, not world-writable. Writers were `administrators`, Container Manager's service account and `dockergroup` (`dockerlimited`). Since a root task runs code from it, phase 3 replaced the ACL with plain `root:administrators 750`; `.env` stays `liambsulliva 600`, so it can be edited without `sudo`.
 
+## Phase 3 and cutover results (2026-11-20)
+
+- **Cloudflare, through the API:**
+  - Tunnel `nas-site` (`e15b59e1-6479-46de-a1d6-4e7903e1611c`), remotely managed. Its ingress sends the apex, `www` and `staging` to `http://site:4321`; anything else gets a 404.
+  - Access app on `staging.` allows your email (one-time PIN, now the account's login method) and the service token `site-checks (parity, uptime)`, which expires on 2027-11-20. The Vault holds it as `cf-access-client-id` / `cf-access-client-secret`.
+  - A second Access app bypasses `staging.…/favicon/*`: browsers fetch favicons without the Access cookie, so behind Access they got the sign-in redirect.
+  - One cache rule, for the apex and staging only.
+  - The API token can't edit zone settings, which is why HTTPS and HSTS moved to the origin (item 8).
+- **NAS:**
+  - The first real deploy was `deploy.sh` itself, from a copy of `b45a4df`. It cloned `repo/`, built in 5 min and switched.
+  - DSM task 15, "personal-website deploy", runs it as root every 5 minutes, on `main` since cutover.
+  - A push to `env/self-host` (`9c303d2`) was deployed by the poller with no one touching it, 7 minutes after the push.
+  - The broken-build gate was not run on the NAS; `tests/deploy/deploy.test.ts` covers it.
+- **Found on staging:** item 8 (www, http and HSTS). The RAWG proxy also passed RAWG's paging links, key included, to the browser; it never leaked on Vercel only because the proxy there failed. `parity.mjs` couldn't run without `--as`.
+- **Parity:** passes on staging against the live Vercel site, and on the real domain against `v3.liambsullivan.com` (still Vercel's production deployment): 49 checks, no differences. `uptime.mjs` passes against both.
+- **Cutover, 17:35Z:**
+  - `main` was fast-forwarded to `env/self-host` (`64e0ae7`); there were no CMS commits to merge.
+  - The apex and `www` changed from DNS-only Vercel records to proxied CNAMEs to the tunnel.
+  - **Rollback:** set the apex back to `A 76.76.21.21` and `www` to `CNAME 8aaf4cebfd4538d3.vercel-dns-017.com`, both DNS-only. Vercel still deploys `main`.
+- **Left for you:** set the repository variable `UPTIME_URL=https://liambsullivan.com`. The CLI's token can't set variables or dispatch workflows. Until it is set, the Uptime workflow skips.
+
 ## Risks
 
 - **Memory is the tight one.** 4 GB total, with T3 allowed 2.5 GB and sshd 1 GB. A 1 GB build while several agent threads run could push the NAS into swap. Mitigations: the Node heap cap, `nice`, one build at a time. If phase 2 shows the peak is too high, the fallback is to build the image in GitHub Actions and have the poller pull it from GHCR instead of building; nothing else in the plan changes.
