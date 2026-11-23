@@ -166,7 +166,7 @@ describe("img server", () => {
     const source = await sharp(join(published, "Shoot", "a.jpg")).metadata();
     expect([source.orientation, source.exif?.includes("SECRETCOPY"), source.width]).toEqual([6, true, 1200]);
     const res = await get(`/img/upload/c_limit,f_auto,q_auto,w_480/v${version}/aaa.jpg`);
-    expect([res.status, res.headers.get("content-type"), res.headers.get("cache-control")]).toEqual([200, "image/webp", "public, max-age=31536000, immutable"]);
+    expect([res.status, res.headers.get("content-type"), res.headers.get("cache-control")]).toEqual([200, "image/webp", "public, max-age=31536000, s-maxage=86400, immutable"]);
     const body = Buffer.from(await res.arrayBuffer());
     const meta = await sharp(body).metadata();
     expect([meta.format, meta.width, meta.height]).toEqual(["webp", 480, 720]);

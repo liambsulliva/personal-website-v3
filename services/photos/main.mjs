@@ -4,9 +4,12 @@
 // Env: PUBLISHED_DIR, INDEX_FILE, SCAN_SECONDS (60), PORT (4331), IMG_ORIGIN
 // (http://img:4330). Albums are committed only with PUBLISH_ALBUMS=1 and
 // GITHUB_TOKEN; without them the plan is logged and nothing leaves the NAS.
+// The dashboard's API (api.mjs) runs only with PHOTOS_API_SECRET (32+
+// characters); DASHBOARD_ORIGIN is the one site that may upload from a browser.
 //
-// Writes in Published: .site/index.json (the index's backup), and it deletes
-// .allow-removals, the file that lets one mass removal through.
+// Writes in Published: .site/index.json (the index's backup), dashboard uploads
+// (_unsorted, _site) and deletes (.site/deleted, emptied after 30 days). It
+// deletes .allow-removals, the file that lets one mass removal through.
 import { existsSync } from "node:fs";
 import { readdir, unlink } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -14,6 +17,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { isLive, loadIndex, saveIndex } from "../lib/index.mjs";
 import { planAlbums, syncAlbums } from "./albums.mjs";
+import { createApi, emptyTrash } from "./api.mjs";
 import { githubAlbums } from "./github.mjs";
 import { scan } from "./scan.mjs";
 
@@ -30,6 +34,14 @@ export function createWatcher({ root, indexFile, repo = null, warm = null, log =
   // Starting empty would give every published photo a new id.
   if (!index) throw new Error(`no index at ${indexFile}; run services/photos/seed.mjs first`);
 
+  // Scans and API changes take turns, so neither works from a stale index.
+  let turn = Promise.resolve();
+  function alone(work) {
+    const result = turn.then(work);
+    turn = result.catch(() => {});
+    return result;
+  }
+
   async function save() {
     await saveIndex(indexFile, index);
     // The copy the share's snapshots carry. Losing it must not stop publishing.
@@ -42,9 +54,12 @@ export function createWatcher({ root, indexFile, repo = null, warm = null, log =
       if (!(await readdir(root)).length && Object.keys(index.photos).length) throw new Error("Published is empty");
       const allowFile = join(root, ".allow-removals");
       const allowRemovals = existsSync(allowFile);
-      const result = await scan({ root, index, memory, now: now(), allowRemovals });
-      index = result.index;
-      if (result.changed) await save();
+      const result = await alone(async () => {
+        const scanned = await scan({ root, index, memory, now: now(), allowRemovals });
+        index = scanned.index;
+        if (scanned.changed) await save();
+        return scanned;
+      });
       // Kept until the removals have gone through (they take two scans).
       if (allowRemovals && result.events.some(({ type }) => type === "removed")) await unlink(allowFile);
       for (const event of result.events) log(`[photos] ${event.type} ${event.id} ${event.from ? `${event.from} -> ` : ""}${event.path}`);
@@ -54,7 +69,8 @@ export function createWatcher({ root, indexFile, repo = null, warm = null, log =
 
       if (repo) {
         // Nothing is dropped from an album while a mass removal waits for a decision.
-        if (!result.blocked && (await syncAlbums({ index, memory: albumMemory, repo, now: now().getTime(), log }))) await save();
+        // Outside `alone`: GitHub can be slow, and only this loop touches index.albums.
+        if (!result.blocked && (await syncAlbums({ index, memory: albumMemory, repo, now: now().getTime(), log }))) await alone(save);
       } else {
         for (const { slug, folder, add, remove } of planAlbums(index)) {
           const line = `[albums] not publishing: ${slug ?? "new album"} from "${folder}" +${add.length} -${remove.length}`;
@@ -82,6 +98,17 @@ export function createWatcher({ root, indexFile, repo = null, warm = null, log =
 
   return {
     tick,
+    /** Runs `change(index)` by itself and saves. If it throws, whatever it did to files is picked up by the next scan. */
+    mutate: (change) =>
+      alone(async () => {
+        const next = structuredClone(index);
+        const result = await change(next);
+        // Albums may have been committed while the change ran.
+        next.albums = index.albums;
+        index = next;
+        await save();
+        return result;
+      }),
     get index() {
       return index;
     },
@@ -124,7 +151,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     warm: createWarmer(process.env.IMG_ORIGIN || "http://img:4330"),
     scanMs,
   });
+  const secret = process.env.PHOTOS_API_SECRET ?? "";
+  if (secret && secret.length < 32) throw new Error("PHOTOS_API_SECRET must be at least 32 characters");
+  const api = secret ? createApi({ watcher, root: process.env.PUBLISHED_DIR || "/published", secret, dashboardOrigin: process.env.DASHBOARD_ORIGIN || "", warm: createWarmer(process.env.IMG_ORIGIN || "http://img:4330") }) : null;
   createServer((req, res) => {
+    const path = (req.url ?? "").split("?", 1)[0];
+    if (api && path !== "/healthz") return void api(req, res);
     const health = watcher.health();
     const found = (req.url ?? "").split("?", 1)[0] === "/healthz";
     res.writeHead(found ? (health.ok ? 200 : 503) : 404, { "Content-Type": "application/json", "Cache-Control": "no-store" });
@@ -142,6 +174,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   // Each scan finishes before the next starts, and before the process exits.
   while (!stop) {
     await watcher.tick();
+    await emptyTrash(process.env.PUBLISHED_DIR || "/published").catch((error) => console.error("[photos] trash:", error.message));
     if (!stop) {
       await new Promise((resolve) => {
         const timer = setTimeout(resolve, scanMs);
