@@ -1,5 +1,6 @@
-# The site on the NAS (docs/self-host-plan.md). deploy.sh copies this file
-# into the project folder, next to .env, so plain `docker compose` works there:
+# The site on the NAS (docs/self-host-plan.md). deploy.sh runs the copy pinned
+# beside it, not the one a push brings (deploy/pin.sh), and copies it into the
+# project folder, next to .env, so plain `docker compose` works there:
 #
 #   cd /volume1/docker/projects/personal-website
 #   docker compose up -d                        # what is in .env
@@ -35,6 +36,9 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    # Only the tunnel: pages run content's code, and the photo services and the
+    # dashboard aren't its business.
+    networks: [web]
 
   cloudflared:
     image: cloudflare/cloudflared:2026.10.7
@@ -50,3 +54,9 @@ services:
     memswap_limit: 128m
     security_opt:
       - no-new-privileges:true
+    networks: [web, library]
+
+networks:
+  web:
+  # img, photos and the dashboard, where they run.
+  library:

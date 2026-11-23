@@ -3,12 +3,19 @@
 # The live project follows main; staging (docs/staging.md) is a second project
 # folder with its own .env, following another branch.
 #
-# DSM Task Scheduler runs it as root every 5 minutes:
-#   bash /volume1/docker/projects/personal-website/repo/deploy/deploy.sh
+# DSM Task Scheduler runs it as root every 5 minutes, from a copy only root can
+# change:
+#   bash /volume1/docker/projects/personal-website/deploy/deploy.sh
 #
-# The project folder (PROJECT_DIR, default two levels above this file):
+# Root runs nothing a push can change: this file and the compose files come
+# from that folder, and pin.sh, run by hand, is the only way they change. A push
+# decides what's built and run inside the containers, which have no other share
+# of the NAS mounted and no capabilities.
+#
+# The project folder (PROJECT_DIR, default the folder above this one):
+#   deploy/        this file and the compose files, pinned by pin.sh
 #   .env           secrets, TUNNEL_TOKEN, SITE_SHA (the image tag that is serving)
-#   compose*.yaml  copied from repo/deploy/ on each deploy, so `docker compose` works there
+#   compose*.yaml  copied from deploy/ on each deploy, so `docker compose` works there
 #   repo/          this repo's own clean clone, never an agent's checkout
 #   cms/           cms-dashboard's clone, only with CMS_BRANCH set
 #   deploy.log     what each run did; build.log holds the last build's output
@@ -35,15 +42,15 @@
 # DEPLOY_BRANCH, HEALTH_TIMEOUT (s), BUILD_MEMORY, KEEP_IMAGES, FORCE.
 set -euo pipefail
 
-# Everything runs inside main, which bash reads whole before running: the
-# fetch below rewrites this file mid-run.
+# Everything runs inside main, which bash reads whole before running, so pin.sh
+# can replace this file mid-run.
 main() {
   # Task Scheduler's PATH can lack /usr/local/bin, where DSM keeps docker.
   export PATH="${PATH:-/usr/bin:/bin}:/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin"
 
-  local here
-  here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  PROJECT_DIR="${PROJECT_DIR:-$(cd "$here/../.." && pwd)}"
+  # The folder this file is in holds the compose files too.
+  PINNED_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  PROJECT_DIR="${PROJECT_DIR:-$(dirname "$PINNED_DIR")}"
   REPO_DIR="$PROJECT_DIR/repo"
   ENV_FILE="$PROJECT_DIR/.env"
   LOG="$PROJECT_DIR/deploy.log"
@@ -69,6 +76,10 @@ main() {
   COMPOSE_DIR="$PROJECT_DIR"
   lock || return 0
   trap cleanup EXIT
+  if [[ "$PINNED_DIR" == "$REPO_DIR"/* ]]; then
+    log "refusing to run from the clone, which a push can change; run deploy/pin.sh"
+    return 1
+  fi
 
   # The dashboard is its own repo. A problem there never holds up the site.
   local status=0
@@ -94,7 +105,7 @@ deploy_site() {
   if [[ "$tag" == "$current" && (-z "$PHOTOS" || -n "$(env_get PHOTOS_SHA)") ]]; then
     # Up to date. Bring the stack back if something stopped it.
     local service
-    for service in site ${PHOTOS:+img photos}; do
+    for service in site ${PHOTOS:+img photos repo}; do
       [[ -n "$(compose ps --status running --quiet "$service" 2>/dev/null)" ]] && continue
       log "$service is not running at ${current:0:12}; starting it"
       compose up -d >>"$LOG" 2>&1 || { log "compose up failed"; return 1; }
@@ -110,6 +121,11 @@ deploy_site() {
 
   log "$BRANCH is at ${remote:0:12}, serving ${current:-nothing}"
   fetch "$REPO_DIR" "$REMOTE_URL" "$BRANCH" "$remote" || { log "fetch failed"; return 1; }
+  # A push can't change what root runs, so say when it would have.
+  local file
+  for file in deploy.sh compose.yaml compose.photos.yaml compose.cms.yaml; do
+    cmp -s "$REPO_DIR/deploy/$file" "$PINNED_DIR/$file" || log "deploy/$file in ${remote:0:12} differs from the pinned one (deploy/pin.sh takes it)"
+  done
 
   # First: a site that reads the photo index needs one to pass its checks.
   if [[ -n "$PHOTOS" ]]; then
@@ -145,6 +161,8 @@ deploy_photos() {
   current="$(env_get PHOTOS_SHA)"
   [[ "$tree" == "$current" ]] && return 0
   if ! docker image inspect "$STACK-photos:$tree" >/dev/null 2>&1; then
+    # As a link it would hand docker another folder of the NAS.
+    [[ -d "$REPO_DIR/services" && ! -L "$REPO_DIR/services" ]] || { log "services is not a plain folder"; return 1; }
     build "$STACK-photos:$tree" "$REPO_DIR/services" || { log "photo services build failed (see build.log); nothing changed"; return 1; }
   fi
   user="$(env_get PHOTOS_USER)"
@@ -153,20 +171,20 @@ deploy_photos() {
     chown "$user" "$PROJECT_DIR/$dir" || { log "PHOTOS_USER must be uid:gid"; return 1; }
   done
   env_set PHOTOS_SHA "$tree"
-  # From the commit itself: the project folder's copies still belong to what's serving.
-  COMPOSE_DIR="$REPO_DIR/deploy"
-  if compose up -d img photos >>"$LOG" 2>&1 && running_well img && running_well photos; then
+  # The project folder's copies still belong to what's serving.
+  COMPOSE_DIR="$PINNED_DIR"
+  if compose up -d img photos repo >>"$LOG" 2>&1 && running_well img && running_well photos && running_well repo; then
     COMPOSE_DIR="$PROJECT_DIR"
     prune "$STACK-photos" "$tree"
     log "photo services at ${tree:0:12}"
     return 0
   fi
   log "the photo services failed; back to ${current:-nothing}"
-  compose rm --stop --force img photos >>"$LOG" 2>&1 || true
+  compose rm --stop --force img photos repo >>"$LOG" 2>&1 || true
   COMPOSE_DIR="$PROJECT_DIR"
   env_set PHOTOS_SHA "$current"
   if [[ -n "$current" ]]; then
-    compose up -d img photos >>"$LOG" 2>&1 || true
+    compose up -d img photos repo >>"$LOG" 2>&1 || true
   fi
   return 1
 }
@@ -322,7 +340,10 @@ fetch() {
 }
 
 build_site() {
-  build "$IMAGE:$2" "$REPO_DIR" --build-arg CLOUDINARY_CLOUD_NAME="$(env_get CLOUDINARY_CLOUD_NAME)" --build-arg SITE_SHA="$1" --build-arg IMAGE_BACKEND="$BACKEND"
+  # An older Dockerfile doesn't know the argument; it only matters for nas.
+  local backend=(--build-arg IMAGE_BACKEND="$BACKEND")
+  [[ "$BACKEND" == cloudinary ]] && backend=(--label image-backend=cloudinary)
+  build "$IMAGE:$2" "$REPO_DIR" --build-arg CLOUDINARY_CLOUD_NAME="$(env_get CLOUDINARY_CLOUD_NAME)" --build-arg SITE_SHA="$1" "${backend[@]}"
 }
 
 # build <image> <dir> [docker build arguments]
@@ -423,10 +444,10 @@ switch_to() {
   local sha="$1" previous="$2" file
   for file in compose.yaml compose.photos.yaml compose.cms.yaml; do
     [[ -f "$PROJECT_DIR/$file" ]] && cp "$PROJECT_DIR/$file" "$PROJECT_DIR/$file.previous"
-    [[ -f "$REPO_DIR/deploy/$file" ]] && cp "$REPO_DIR/deploy/$file" "$PROJECT_DIR/$file"
+    [[ -f "$PINNED_DIR/$file" ]] && cp "$PINNED_DIR/$file" "$PROJECT_DIR/$file"
   done
   # A plain `docker compose` run in this folder must act on this project.
-  sed "s/^name: .*/name: $STACK/" "$REPO_DIR/deploy/compose.yaml" >"$PROJECT_DIR/compose.yaml"
+  sed "s/^name: .*/name: $STACK/" "$PINNED_DIR/compose.yaml" >"$PROJECT_DIR/compose.yaml"
   env_set SITE_SHA "$sha"
   if compose up -d --remove-orphans >>"$LOG" 2>&1 && healthy "$(site_container)"; then
     return 0

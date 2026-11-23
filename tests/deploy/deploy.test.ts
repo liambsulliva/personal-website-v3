@@ -3,10 +3,11 @@
 // this checks the script's decisions: when it builds, when it switches,
 // what it leaves serving when something fails, and what it keeps.
 import { spawn, spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { parse } from "yaml";
 
 const ROOT = join(import.meta.dirname, "../..");
 const SCRIPT = join(ROOT, "deploy/deploy.sh");
@@ -242,6 +243,75 @@ describe.skipIf(!hasTools)("deploy.sh (poll a branch, build, switch)", () => {
     expect(run.out).toContain("copy deploy/.env.example");
   });
 
+  describe("root runs nothing a push can change", () => {
+    const PINNED = ["deploy.sh", "pin.sh", "compose.yaml", "compose.photos.yaml", "compose.cms.yaml"];
+    const pinnedDir = () => join(project, "deploy");
+    const pinTo = (dir: string) => (mkdirSync(dir, { recursive: true }), PINNED.forEach((file) => cpSync(join(ROOT, "deploy", file), join(dir, file))));
+    const runPinned = (script = join(pinnedDir(), "deploy.sh")) => {
+      const result = spawnSync("bash", [script], { encoding: "utf8", env: { PATH: `${join(dir, "bin")}:${process.env.PATH}`, HOME: dir, REMOTE_URL: origin, FAKE_DOCKER_STATE: state, HEALTH_TIMEOUT: "0" } });
+      return { status: result.status, out: result.stdout + result.stderr };
+    };
+    const pin = (input: string, args: string[] = []) => {
+      const result = spawnSync("bash", [join(pinnedDir(), "pin.sh"), ...args], { encoding: "utf8", input });
+      return { status: result.status, out: result.stdout + result.stderr };
+    };
+    const evil = () => {
+      const marker = join(dir, "owned");
+      writeFileSync(join(work, "deploy/deploy.sh"), `#!/usr/bin/env bash\ntouch ${marker}\n`);
+      writeFileSync(join(work, "deploy/compose.yaml"), "name: personal-website\nservices:\n  site:\n    image: evil\n    privileged: true\n    volumes: [/:/host]\n");
+      return marker;
+    };
+
+    beforeEach(() => pinTo(pinnedDir()));
+
+    it("a push that changes the deploy files is built, but its deploy files are only reported", () => {
+      const a = push("a");
+      expect(runPinned().status).toBe(0);
+      const marker = evil();
+      const b = push("evil");
+      const run = runPinned();
+      expect(run.status, run.out).toBe(0);
+      expect(serving()).toBe(b);
+      expect(read(join(project, "compose.yaml"))).not.toContain("privileged");
+      expect(read(join(project, "deploy.log"))).toContain(`deploy/compose.yaml in ${b.slice(0, 12)} differs from the pinned one`);
+      for (let i = 0; i < 2; i++) expect(runPinned().status).toBe(0);
+      expect(existsSync(marker)).toBe(false);
+      expect(read(join(pinnedDir(), "deploy.sh"))).toBe(read(join(ROOT, "deploy/deploy.sh")));
+      expect(a).not.toBe(b);
+    });
+
+    it("refuses to run from the clone", () => {
+      push("a");
+      expect(runPinned().status).toBe(0);
+      pinTo(join(project, "repo/deploy"));
+      const result = spawnSync("bash", [join(project, "repo/deploy/deploy.sh")], { encoding: "utf8", env: { PATH: `${join(dir, "bin")}:${process.env.PATH}`, HOME: dir, PROJECT_DIR: project, REMOTE_URL: origin, FAKE_DOCKER_STATE: state } });
+      expect([result.status, result.stdout]).toEqual([1, expect.stringContaining("refusing to run from the clone")]);
+    });
+
+    it("pin.sh shows the change and takes it only on a yes", () => {
+      pinTo(join(project, "repo/deploy"));
+      expect(pin("").out).toContain("already the same");
+      writeFileSync(join(project, "repo/deploy/compose.yaml"), "name: changed\n");
+      const before = read(join(pinnedDir(), "compose.yaml"));
+      for (const answer of ["", "no\n", "y\n"]) {
+        const run = pin(answer);
+        expect([run.status, run.out.includes("+name: changed")]).toEqual([1, true]);
+        expect(read(join(pinnedDir(), "compose.yaml"))).toBe(before);
+      }
+      expect(pin("yes\n").status).toBe(0);
+      expect(read(join(pinnedDir(), "compose.yaml"))).toBe("name: changed\n");
+    });
+
+    it("pin.sh won't follow a link", () => {
+      pinTo(join(project, "repo/deploy"));
+      rmSync(join(project, "repo/deploy/compose.yaml"));
+      symlinkSync("/etc/hostname", join(project, "repo/deploy/compose.yaml"));
+      const run = pin("yes\n", ["--yes"]);
+      expect([run.status, run.out]).toEqual([1, expect.stringContaining("no plain")]);
+      expect(read(join(pinnedDir(), "compose.yaml"))).toBe(read(join(ROOT, "deploy/compose.yaml")));
+    });
+  });
+
   describe("staging: a second project with the photo services and the dashboard", () => {
     const TOKEN = "github_pat_test_do_not_print";
     let cmsOrigin = "";
@@ -278,7 +348,6 @@ describe.skipIf(!hasTools)("deploy.sh (poll a branch, build, switch)", () => {
       sh(dir, "git", "init", "-q", "--bare", "-b", "main", cmsOrigin);
       sh(cmsWork, "git", "init", "-q", "-b", "main");
       sh(cmsWork, "git", "remote", "add", "origin", cmsOrigin);
-      for (const file of ["compose.photos.yaml", "compose.cms.yaml"]) writeFileSync(join(work, "deploy", file), readFileSync(join(ROOT, "deploy", file)));
       writeFileSync(
         join(project, ".env"),
         [
@@ -296,7 +365,7 @@ describe.skipIf(!hasTools)("deploy.sh (poll a branch, build, switch)", () => {
       expect(first.status, first.out + log()).toBe(0);
       expect(setting("SITE_SHA")).toBe(`${a}-nas`);
       expect(service("site")).toBe(`${a}-nas`);
-      expect(service("img")).toBe(setting("PHOTOS_SHA"));
+      expect([service("img"), service("repo")]).toEqual([setting("PHOTOS_SHA"), setting("PHOTOS_SHA")]);
       expect(service("photos")).toBe(sh(work, "git", "rev-parse", "HEAD:services"));
       expect(service("cms")).toBe(cms);
       const site = builds().find((call) => call.includes("pw-staging:"))!;
@@ -304,7 +373,7 @@ describe.skipIf(!hasTools)("deploy.sh (poll a branch, build, switch)", () => {
       expect(site, "healthz reports the commit, not the tag").toContain(`--build-arg SITE_SHA=${a} `);
       // The photo services come first: the candidate's checks need an index.
       const order = calls()
-        .map((call) => (call.includes(" up -d img photos") ? "photos" : call.startsWith("run ") ? "candidate" : ""))
+        .map((call) => (call.includes(" up -d img photos repo") ? "photos" : call.startsWith("run ") ? "candidate" : ""))
         .filter(Boolean);
       expect(order).toEqual(["photos", "candidate"]);
       expect(calls().find((call) => call.startsWith("run "))).toContain(`-e IMAGE_BACKEND=nas -v ${project}/photos/index:/index:ro`);
@@ -370,6 +439,37 @@ describe.skipIf(!hasTools)("deploy.sh (poll a branch, build, switch)", () => {
       rmSync(join(state, "unhealthy"));
       const again = run();
       expect(again.status, again.out + log()).toBe(0);
+    });
+
+    it("won't build services/ when it's a link to somewhere else", () => {
+      pushStaging("a");
+      pushCms("cms a");
+      rmSync(join(work, "services"), { recursive: true });
+      symlinkSync("/etc", join(work, "services"));
+      git(work, "add", "-A");
+      git(work, "commit", "-qm", "link");
+      git(work, "push", "-q", "origin", "HEAD:staging");
+      expect(run().status).toBe(1);
+      expect(builds().filter((call) => call.includes("-photos:"))).toEqual([]);
+      expect(log()).toContain("services is not a plain folder");
+    });
+
+    it("gives the token to `repo` alone, and keeps the site off the other services' networks", () => {
+      const files = ["compose.yaml", "compose.photos.yaml", "compose.cms.yaml"].map((file) => parse(readFileSync(join(ROOT, "deploy", file), "utf8")));
+      const services = Object.assign({}, ...files.map((file) => file.services)) as Record<string, { environment?: Record<string, string>; networks: string[]; volumes?: string[]; privileged?: boolean; ports?: unknown }>;
+      const holding = Object.entries(services).filter(([, { environment }]) => /GITHUB_TOKEN/.test(JSON.stringify(environment ?? {}))).map(([name]) => name);
+      expect(holding).toEqual(["repo"]);
+      expect(Object.fromEntries(Object.entries(services).map(([name, { networks }]) => [name, networks]))).toEqual({
+        site: ["web"],
+        cloudflared: ["web", "library"],
+        img: ["library"],
+        photos: ["library", "repo"],
+        repo: ["repo"],
+        cms: ["library", "repo"],
+      });
+      for (const [name, service] of Object.entries(services)) {
+        expect([name, service.ports, service.privileged, (service.volumes ?? []).some((volume) => /docker\.sock/.test(volume))]).toEqual([name, undefined, undefined, false]);
+      }
     });
 
     it("a dashboard that won't build doesn't hold up the site, and isn't retried until it changes", () => {

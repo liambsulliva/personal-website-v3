@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { emptyIndex, indexReader, loadIndex, saveIndex, tagsOf } from "../../services/lib/index.mjs";
 import { describeAlbum, folderOf, mergeAlbumYaml, newAlbumYaml, parseFolder, planAlbums, slugFor, syncAlbums } from "../../services/photos/albums.mjs";
-import { githubAlbums } from "../../services/photos/github.mjs";
+import { repoAlbums } from "../../services/photos/github.mjs";
 import { createWarmer, createWatcher, warmPaths } from "../../services/photos/main.mjs";
 import { exifDate, iptcKeywords, readMetadata } from "../../services/photos/metadata.mjs";
 import { removalLimit, scan } from "../../services/photos/scan.mjs";
@@ -383,18 +383,28 @@ describe("albums", () => {
     });
   });
 
-  it("talks to GitHub with the file's sha, and never repeats the token in an error", async () => {
+  it("writes an album only if it's still the file that was read", async () => {
     const calls: any[] = [];
+    let shas: Record<string, string | null> = { "src/content/albums/one.yaml": "abc" };
+    let status = 200;
     const fetch = async (url: string, init: any) => {
-      calls.push([init.method, url, init.body && JSON.parse(init.body)]);
-      if (init.method === "PUT") return new Response("tok-secret", { status: 409 });
-      return Response.json({ content: Buffer.from("title: x\n").toString("base64"), sha: "abc" });
+      const op = url.split("/").at(-1)!;
+      calls.push([op, JSON.parse(init.body), init.headers.Authorization]);
+      const replies: Record<string, any> = { head: { oid: "h1" }, shas: { shas }, commit: { oid: "c1" }, read: { file: { text: "t", sha: "abc" } }, list: { files: [{ path: "src/content/albums/one.yaml" }] } };
+      return Response.json(status === 200 ? replies[op] : { error: { message: "The branch moved on" } }, { status });
     };
-    const repo = githubAlbums({ token: "tok-secret", repo: "o/r", fetch: fetch as any });
-    expect(await repo.read("one")).toEqual({ text: "title: x\n", sha: "abc" });
-    const error: Error = await repo.write("one", "t", "abc", "m").catch((e: Error) => e) as Error;
-    expect([error.message.includes("409"), error.message.includes("tok-secret")]).toEqual([true, false]);
-    expect(calls[1][2]).toMatchObject({ sha: "abc", branch: "main", author: { name: "Liam Sullivan" } });
+    const repo = repoAlbums({ url: "http://repo:4332", secret: "s3cret", fetch } as any);
+    expect([await repo.slugs(), await repo.read("one")]).toEqual([["one"], { text: "t", sha: "abc" }]);
+    await repo.write("one", "new", "abc", "m");
+    expect(calls.at(-1)).toEqual(["commit", { space: "albums", changes: [{ path: "src/content/albums/one.yaml", content: "new" }], message: "m", expectedHead: "h1" }, "Bearer s3cret"]);
+    shas = { "src/content/albums/one.yaml": "moved" };
+    await expect(repo.write("one", "new", "abc", "m")).rejects.toThrow("changed meanwhile");
+    await expect(repo.write("one", "new", null, "m")).rejects.toThrow("changed meanwhile");
+    expect(calls.filter(([op]) => op === "commit")).toHaveLength(1);
+    shas = { "src/content/albums/one.yaml": null };
+    await repo.write("one", "new", null, "m");
+    status = 409;
+    await expect(repo.read("one")).rejects.toThrow("409 The branch moved on");
   });
 });
 

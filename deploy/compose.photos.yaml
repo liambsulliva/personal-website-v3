@@ -2,10 +2,13 @@
 # project by deploy.sh when .env has PHOTOS=1.
 #
 # .env also needs PHOTOS_USER (uid:gid that owns Published), and, to commit
-# albums, PUBLISH_ALBUMS=1 and GITHUB_TOKEN; for the dashboard's API,
-# PHOTOS_API_SECRET (32+ random characters) and, only for a dashboard on
-# another origin, DASHBOARD_ORIGIN. Nothing is published to the LAN; only
-# Published is mounted from the photography share.
+# albums, PUBLISH_ALBUMS=1, GITHUB_TOKEN and REPO_PHOTOS_SECRET; for the
+# dashboard's API, PHOTOS_API_SECRET and, only for a dashboard on another
+# origin, DASHBOARD_ORIGIN. Secrets are 32+ random characters. Nothing is
+# published to the LAN; only Published is mounted from the photography share.
+#
+# GITHUB_TOKEN goes to `repo` and nowhere else: the others ask it to commit
+# content, and it decides the repository, the branch and the files.
 #
 # One project may run `photos`: it owns the index. The tunnel sends /img/* to
 # http://img:4330; http://photos:4331 stays inside the project's network, except
@@ -15,6 +18,7 @@ services:
     image: ${STACK:-personal-website}-photos:${PHOTOS_SHA:?PHOTOS_SHA is not set in .env}
     command: node img/server.mjs
     restart: unless-stopped
+    networks: [library]
     init: true
     read_only: true
     user: ${PHOTOS_USER:?PHOTOS_USER is not set in .env}
@@ -45,6 +49,7 @@ services:
     image: ${STACK:-personal-website}-photos:${PHOTOS_SHA:?}
     command: node photos/main.mjs
     restart: unless-stopped
+    networks: [library, repo]
     init: true
     read_only: true
     user: ${PHOTOS_USER:?}
@@ -52,8 +57,8 @@ services:
       PUBLISHED_DIR: /published
       INDEX_FILE: /index/index.json
       PUBLISH_ALBUMS: ${PUBLISH_ALBUMS:-0}
-      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
-      GITHUB_BRANCH: ${DEPLOY_BRANCH:-main}
+      REPO_URL: http://repo:4332
+      REPO_SECRET: ${REPO_PHOTOS_SECRET:-}
       PHOTOS_API_SECRET: ${PHOTOS_API_SECRET:-}
       DASHBOARD_ORIGIN: ${DASHBOARD_ORIGIN:-}
     volumes:
@@ -72,3 +77,35 @@ services:
       timeout: 5s
       start_period: 120s
       retries: 3
+
+  repo:
+    image: ${STACK:-personal-website}-photos:${PHOTOS_SHA:?}
+    command: node repo/server.mjs
+    restart: unless-stopped
+    init: true
+    read_only: true
+    networks: [repo]
+    environment:
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      SITE_REPO: ${SITE_REPO:-liambsulliva/personal-website-v3}
+      SITE_BRANCH: ${DEPLOY_BRANCH:-main}
+      DRAFTS_REPO: ${DRAFTS_REPO:-liambsulliva/cms-dashboard}
+      DRAFTS_BRANCH: ${DRAFTS_BRANCH:-drafts}
+      REPO_CMS_SECRET: ${REPO_CMS_SECRET:-}
+      REPO_PHOTOS_SECRET: ${REPO_PHOTOS_SECRET:-}
+    mem_limit: 192m
+    memswap_limit: 192m
+    cpu_shares: 256
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4332/healthz').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+networks:
+  repo:

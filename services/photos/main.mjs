@@ -2,8 +2,9 @@
 // index, warms the resizer and commits album files.
 //
 // Env: PUBLISHED_DIR, INDEX_FILE, SCAN_SECONDS (60), PORT (4331), IMG_ORIGIN
-// (http://img:4330). Albums are committed only with PUBLISH_ALBUMS=1 and
-// GITHUB_TOKEN; without them the plan is logged and nothing leaves the NAS.
+// (http://img:4330). Albums are committed only with PUBLISH_ALBUMS=1, REPO_URL
+// and REPO_SECRET (services/repo, which holds the GitHub token); without them
+// the plan is logged and nothing leaves the NAS.
 // The dashboard's API (api.mjs) runs only with PHOTOS_API_SECRET (32+
 // characters); DASHBOARD_ORIGIN is the one site that may upload from a browser.
 //
@@ -18,7 +19,7 @@ import { pathToFileURL } from "node:url";
 import { isLive, loadIndex, saveIndex } from "../lib/index.mjs";
 import { folderOf, planAlbums, syncAlbums } from "./albums.mjs";
 import { createApi, emptyTrash } from "./api.mjs";
-import { githubAlbums } from "./github.mjs";
+import { repoAlbums } from "./github.mjs";
 import { scan } from "./scan.mjs";
 
 export const WARM_TRANSFORMS = [480, 640, 800, 960, 1200, 1280].map((w) => `c_limit,f_auto,q_auto,w_${w}`).concat("c_fill,w_352,h_440,f_auto,q_auto");
@@ -166,11 +167,11 @@ export function createWarmer(origin, { log = console.log, fetch = globalThis.fet
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const scanMs = (Number(process.env.SCAN_SECONDS) || 60) * 1000;
-  const publish = process.env.PUBLISH_ALBUMS === "1" && process.env.GITHUB_TOKEN;
+  const publish = process.env.PUBLISH_ALBUMS === "1" && process.env.REPO_URL && process.env.REPO_SECRET;
   const watcher = createWatcher({
     root: process.env.PUBLISHED_DIR || "/published",
     indexFile: process.env.INDEX_FILE || "/index/index.json",
-    repo: publish ? githubAlbums({ token: process.env.GITHUB_TOKEN, repo: process.env.GITHUB_REPO || "liambsulliva/personal-website-v3", branch: process.env.GITHUB_BRANCH || "main" }) : null,
+    repo: publish ? repoAlbums({ url: process.env.REPO_URL, secret: process.env.REPO_SECRET }) : null,
     warm: createWarmer(process.env.IMG_ORIGIN || "http://img:4330"),
     scanMs,
   });

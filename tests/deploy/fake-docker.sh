@@ -4,7 +4,7 @@
 #   calls               every invocation, one per line
 #   images              personal-website tags, newest first (images-<name> for others)
 #   site                the tag `site` runs (no file: not running)
-#   img, photos, cms    the same for those services
+#   img, photos, repo, cms   the same for those services
 #   build-fail          present: builds fail; holding a name, only that image's
 #   candidate-unhealthy present: the candidate's checks fail
 #   site-unhealthy      tags whose `site` container fails its checks
@@ -71,7 +71,7 @@ case "$1" in
     for arg in "$@"; do [[ "$arg" == -* || "$arg" == running ]] || named+=("$arg"); done
     if ((${#named[@]} == 0)); then
       named=(site)
-      [[ "$files" == *" compose.photos.yaml "* ]] && named+=(img photos)
+      [[ "$files" == *" compose.photos.yaml "* ]] && named+=(img photos repo)
       [[ "$files" == *" compose.cms.yaml "* ]] && named+=(cms)
     fi
     case "$command" in
@@ -86,7 +86,7 @@ case "$1" in
           echo "$sha" >"$state/$service"
         done
         ;;
-      down) rm -f "$state/site" "$state/img" "$state/photos" "$state/cms" ;;
+      down) rm -f "$state/site" "$state/img" "$state/photos" "$state/repo" "$state/cms" ;;
       rm) for service in "${named[@]}"; do rm -f "$state/$service"; done ;;
       ps) for service in "${named[@]}"; do [[ -f "$state/$service" ]] && echo "$service-$(cut -c1-12 "$state/$service")"; done ;;
     esac

@@ -1,43 +1,39 @@
-// Album files on GitHub, one commit each. The token needs contents
-// read/write on this repository and nothing else.
+// Album files, one commit each, through services/repo: it holds the GitHub
+// token and lets this service write album files on one branch, nothing else.
 const DIR = "src/content/albums";
-const AUTHOR = { name: "Liam Sullivan", email: "75332524+liambsulliva@users.noreply.github.com" };
 
-export function githubAlbums({ token, repo, branch = "main", api = "https://api.github.com", fetch = globalThis.fetch }) {
-  async function call(method, path, body) {
-    const res = await fetch(`${api}/repos/${repo}/contents/${path}`, {
-      method,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/vnd.github+json",
-        "User-Agent": "personal-website-photos",
-        ...(body ? { "Content-Type": "application/json" } : {}),
-      },
-      body: body && JSON.stringify(body),
-      signal: AbortSignal.timeout(20_000),
+export function repoAlbums({ url, secret, fetch = globalThis.fetch }) {
+  async function call(op, body) {
+    const res = await fetch(`${url}/v1/${op}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${secret}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ space: "albums", ...body }),
+      signal: AbortSignal.timeout(40_000),
     });
-    if (res.status === 404 && method === "GET") return null;
-    // The status only: a response body could repeat what was sent.
-    if (!res.ok) throw new Error(`GitHub ${method} ${path}: ${res.status}`);
-    return res.json();
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(`repo ${op}: ${res.status} ${json.error?.message ?? ""}`.trim());
+    return json;
   }
-  const ref = `?ref=${encodeURIComponent(branch)}`;
-  const file = (slug) => `${DIR}/${encodeURIComponent(slug)}.yaml`;
+  const file = (slug) => `${DIR}/${slug}.yaml`;
   return {
     async slugs() {
-      const entries = await call("GET", DIR + ref);
-      if (!entries) throw new Error("GitHub: no albums folder");
-      return entries.filter(({ name }) => name.endsWith(".yaml")).map(({ name }) => name.slice(0, -5));
+      const { files } = await call("list", { dir: DIR });
+      // An empty folder would let every album be made again.
+      if (!files.length) throw new Error("repo: no album files");
+      return files.map(({ path }) => path.slice(DIR.length + 1, -".yaml".length));
     },
     /** { text, sha }, or null when the album's file is gone. */
     async read(slug) {
-      const found = await call("GET", file(slug) + ref);
-      return found && { text: Buffer.from(found.content, "base64").toString("utf8"), sha: found.sha };
+      return (await call("read", { path: file(slug) })).file;
     },
-    /** `sha` null creates. GitHub refuses a stale sha, so a dashboard publish in between is never overwritten. */
+    /** `sha` null creates. Refused when the file isn't `sha` any more, so a dashboard publish in between is never overwritten. */
     async write(slug, text, sha, message) {
-      const content = Buffer.from(text).toString("base64");
-      await call("PUT", file(slug), { message, content, branch, author: AUTHOR, committer: AUTHOR, ...(sha ? { sha } : {}) });
+      const path = file(slug);
+      const { oid } = await call("head", {});
+      const { shas } = await call("shas", { paths: [path] });
+      if ((shas[path] ?? null) !== sha) throw new Error("the album changed meanwhile");
+      // Anything committed since the head was read makes this one stale.
+      await call("commit", { changes: [{ path, content: text }], message, expectedHead: oid });
     },
   };
 }
