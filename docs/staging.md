@@ -31,4 +31,4 @@ Disable the DSM task, `docker compose -p personal-website-staging down` in the f
 
 ## At the switch
 
-Exactly one project may run `photos`. To go live: stop staging's `img` and `photos`, move `photos/index` to the live project, set `IMAGE_BACKEND=nas` and `PHOTOS=1` there, and give staging `PHOTO_INDEX_DIR` pointing at it (read-only) with its own `img`.
+Exactly one project may run `photos`. The index remembers which albums it has committed, and on staging those commits are on the `staging` branch, so bring its `albums:` commits to `main` first (`git log --oneline main..staging -- src/content/albums`). To go live: stop staging's `img` and `photos`, move `photos/index` to the live project, set `IMAGE_BACKEND=nas` and `PHOTOS=1` there, and give staging `PHOTO_INDEX_DIR` pointing at it (read-only) with its own `img`.

@@ -121,6 +121,15 @@ Phases 4 and 5, also local only:
 - **HEIC and AVIF uploads** are refused with a message; Cloudinary accepted them.
 - **Switching needs a rebuild:** prerendered pages take `IMAGE_BACKEND` at build time and SSR routes at run time. `deploy.sh` and the Dockerfile don't pass it to the build yet, and `deploy.sh` reuses an image already built for a commit. Both are phase 6, where Docker is available to test them.
 
+## Staging on 2026-11-23
+
+Live at `staging.liambsullivan.com`, behind Access, from its own NAS project, tunnel and branch (`docs/staging.md`), on d38ca89.
+
+- The compose files and both images work on the NAS's Docker; the first deploy took 11 minutes from the first poll. The compose, Dockerfile, warming and `/img/*` route items listed as not run above now have.
+- Through Cloudflare: 14 pages answered 200 with no Cloudinary URL left, all 982 image URLs loaded (4 at a time, mostly cold: median 0.5 s, slowest 10.6 s), and `scripts/parity.mjs` found no differences from the live site.
+- The dashboard was rewired rather than only switched: uploads go into an album's folder under their own names, deletes can be undone, album edits the watcher makes itself aren't staged as well, conflicting ones merge, and the Library shows the watcher's state. The audit found `16:7` crops refused by the resizer (the wide entry cards) and album renames that would have detached their folder; both are fixed.
+- Not yet run: the dashboard's container, its hostname's routes, and album commits. They need a GitHub token.
+
 ## Staged on 2026-11-23
 
 Liam approved using Cloudinary's copies, first for the 463 photos with no finished file found, then for the other 378, so the gallery stays exactly as it is. Liam will upgrade sizes later by re-exporting from Lightroom.
