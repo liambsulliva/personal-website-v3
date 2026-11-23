@@ -43,7 +43,9 @@ main() {
         echo "IMAGE_BACKEND=nas"
         echo "PHOTOS=1"
         echo "PHOTOS_USER=$(stat -c '%u:%g' /volume1/photography/Published)"
-        echo "PHOTOS_API_SECRET=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+        for key in PHOTOS_API_SECRET REPO_CMS_SECRET REPO_PHOTOS_SECRET; do
+          echo "$key=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+        done
         echo "PUBLISH_ALBUMS=0"
         echo "DRAFTS_BRANCH=drafts-staging"
         echo "SITE_SHA="
@@ -64,9 +66,17 @@ main() {
   fi
   echo "repo at $(docker run --rm -v "$project:$project" -w "$project/repo" alpine/git:v2.52.0 -c safe.directory='*' rev-parse --short HEAD)"
 
+  # What root runs from now on: a copy no push can change.
+  mkdir -p "$project/deploy"
+  if [[ ! -f "$project/deploy/deploy.sh" ]]; then
+    cp "$project/repo/deploy/pin.sh" "$project/deploy/pin.sh"
+    bash "$project/deploy/pin.sh" --yes >/dev/null
+  fi
+  chown -R root:root "$project/deploy"
+
   # The files as compose reads them, before anything runs.
   SITE_SHA=check PHOTOS_SHA=check docker compose -p personal-website-staging --project-directory "$project" \
-    -f "$project/repo/deploy/compose.yaml" -f "$project/repo/deploy/compose.photos.yaml" --env-file "$project/.env" config --quiet && echo "compose files are valid"
+    -f "$project/deploy/compose.yaml" -f "$project/deploy/compose.photos.yaml" --env-file "$project/.env" config --quiet && echo "compose files are valid"
 
   task "$project"
 }
@@ -78,7 +88,7 @@ task() {
     echo "task exists: $id"
   else
     schedule="$(jq -cn --arg d "$(date +%Y/%m/%d)" '{date:$d,date_type:0,hour:0,last_work_hour:23,minute:0,monthly_week:[],repeat_date:1001,repeat_hour:0,repeat_hour_store_config:[range(1;24)],repeat_min:5,repeat_min_store_config:[1,5,10,15,20,30],version:4,week_day:"0,1,2,3,4,5,6"}')"
-    extra="$(jq -cn --arg s "bash $1/repo/deploy/deploy.sh >/dev/null 2>&1" '{notify_enable:false, notify_if_error:false, notify_mail:"", script:($s + "\n")}')"
+    extra="$(jq -cn --arg s "bash $1/deploy/deploy.sh >/dev/null 2>&1" '{notify_enable:false, notify_if_error:false, notify_mail:"", script:($s + "\n")}')"
     $api --exec api=SYNO.Core.TaskScheduler method=create version=4 name="\"$name\"" owner='"root"' real_owner='"root"' \
       enable=true type='"script"' schedule="$schedule" extra="$extra" 2>/dev/null | jq -c '{success, error}'
   fi

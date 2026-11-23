@@ -83,6 +83,22 @@ Sharp 0.34.5, WebP, one core at `nice 15`, 12 published originals:
 | Site images | Server upload to `_site/`, manifest entry written as now. |
 | Delete | Moves the file to `Published/.site/deleted/` for 30 days, then purges its URLs at Cloudflare (needs the Cache Purge permission; not checked on the current token). |
 
+## Who can do what
+
+Added on 2026-11-23, after Liam asked how secure the dashboard needs to be: whoever gets into it must be stopped short of the GitHub token. Before this, the token meant root on the NAS, because a root task ran `deploy.sh` and the compose files from the repo.
+
+| Someone who has… | Can | Can't |
+|---|---|---|
+| a dashboard session | edit content, tag, upload, delete (30-day trash) | put code in an entry, write any other file, choose a branch, see the token |
+| the dashboard's server | the same, through `repo`, 60 commits per 10 minutes; the photo API; the dashboard's own secrets | read the token, push code |
+| the site's container | its own page secrets (Cloudinary, RAWG), the internet | reach the dashboard, the photo services or `repo` (separate networks) |
+| the photo watcher | `Published`, album files | any other content or share |
+| the GitHub token | push anything to both repos, so run code in the containers | change what root runs (`deploy/pin.sh`, by hand), mount a share, add a capability |
+
+- **`services/repo`** holds the token. Callers pick a space; the space fixes the repository, branch and paths. Entries are parsed with Astro's own MDX grammar and may hold literals, the site's components and `albumPhotos`, nothing that runs; today's 96 content files all pass. 20,080 random entries it accepted were compiled with the site's MDX compiler and none held code it hadn't seen.
+- **Left over:** builds run pushed code in an ordinary Docker build on kernel 4.4, so a container escape is the remaining way from a stolen token to the host. The token is still in staging's `.env` (600, Liam's account) for `repo` and for cloning the private dashboard repo.
+- **The Vercel dashboard** still has its own token and no Access in front. Pinning takes away what that token could do to the NAS; moving it beside `repo` takes away the token.
+
 ## Phases
 
 1. **Fill `Published`.** A script that copies files and writes the first `index.json`. Cloudinary's originals for every photo (done 2026-11-23). Also the 79 `site/` images (done the same day). The 8 Cloudinary samples are left out. Writing to the share needs its exact command approved first.
