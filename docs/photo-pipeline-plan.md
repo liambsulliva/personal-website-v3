@@ -1,6 +1,6 @@
 # Photo pipeline plan: publish from `/photography/Published`, without Cloudinary
 
-Branch: `env/self-host`. Goal: export a finished JPEG into one folder on the NAS and have it appear on the site, resized on the NAS, with no Cloudinary and no manual upload. Covers this repo and `cms-dashboard`. Approved in outline on 2026-11-23; no code is built yet; the first 463 photos are in `Published` (see "Staged on 2026-11-23").
+Branch: `env/self-host`. Goal: export a finished JPEG into one folder on the NAS and have it appear on the site, resized on the NAS, with no Cloudinary and no manual upload. Covers this repo and `cms-dashboard`. Approved in outline on 2026-11-23; the watcher and resizer are written and tested but not deployed (see "Built on 2026-11-23"), and the first 463 photos are in `Published` (see "Staged on 2026-11-23").
 
 ## Decisions
 
@@ -35,7 +35,7 @@ Published/
 ## Architecture
 
 ```
-Lightroom ─SMB─▶ Published/ ──rw──▶ photos ──▶ index.sqlite ◀──ro── site
+Lightroom ─SMB─▶ Published/ ──rw──▶ photos ──▶ index.json ◀──ro── site
                      │                ▲  └─ new album ─▶ GitHub commit ─▶ deploy.sh poller
                      └────ro────▶ img │
 visitor ─▶ Cloudflare ─▶ cloudflared ─▶ site (/*), img (/img/*), photos (photos-api host, Access service token)
@@ -43,11 +43,11 @@ visitor ─▶ Cloudflare ─▶ cloudflared ─▶ site (/*), img (/img/*), pho
                                                        cms-dashboard (Vercel)
 ```
 
-- **`photos`**: the watcher, the index (`node:sqlite`) and the dashboard's write API. `Published` is mounted read-write only here, and nothing else of `/photography` is mounted anywhere. `mem_limit` 192 MB.
-- **`img`**: Node and sharp, two jobs at a time, 512 MB, low CPU shares, no secrets, `Published` read-only. On a miss it resizes, writes the result to the disk cache and serves it.
+- **`photos`**: the watcher, the index and (phase 5) the dashboard's write API. `Published` is mounted read-write only here, and nothing else of `/photography` is mounted anywhere. `mem_limit` 384 MB, because it decodes each new photo once. The index is one JSON file replaced atomically, not SQLite: about 1,000 photos, one writer, and the same file is the backup.
+- **`img`**: Node and sharp, two jobs at a time plus one large one, 512 MB, low CPU shares, no secrets, `Published` read-only. On a miss it resizes, writes the result to the disk cache and serves it.
 - **`site`**: reads the index where it calls Cloudinary Search today.
 - **URL:** `https://liambsullivan.com/img/upload/<transform>/v<version>/<id>.<ext>`. The builders insert the transform after `/upload/` by string replacement, so they keep working. The version is the content hash, so a replacement is a new URL and responses can be `immutable`.
-- **Only listed transforms:** widths and crops come from an allowlist; anything else is a 404. Otherwise a crawler could fill the disk and the CPU with arbitrary sizes.
+- **Bounded outputs:** widths snap up to a fixed ladder and crop ratios come from a list; any other option is a 404. Otherwise a crawler could fill the disk and the CPU with arbitrary sizes. Nothing is ever enlarged or wider than 3840 px.
 - **Metadata:** every output drops GPS and other EXIF; the colour profile is converted to sRGB.
 - **Cache:** outside `/photography`, in the project folder, so snapshots don't fill with files that can be regenerated. Cloudinary's copies come to about 1.7 GB; cap at 5 GB, oldest access first.
 - **Index backup:** ids, dashboard tags and alt text can't be regenerated from the files. `photos` writes `Published/.site/index.json` after each change, so the share's snapshots carry it.
@@ -75,8 +75,8 @@ Sharp 0.34.5, WebP, one core at `nice 15`, 12 published originals:
 | Search (pool, album, public search, CMS library) | Queries on the index, same sort (`created_at desc`) and same JSON. Existing photos keep their Cloudinary `created_at`. |
 | Tags | Index rows; add and remove in batches as now. The 18 tags are copied over once. |
 | `c_limit`, `c_fill`, `c_pad`, `e_blur`, `ar_` | sharp `resize`, `extend`, `blur`. |
-| `g_auto` | `sharp.strategy.attention`. Crops will differ from Cloudinary's; compare the covers and cards side by side before switching. |
-| `g_face` (only `/me`) | A fixed crop. |
+| `g_auto` | Tall photos: a fixed upper crop (20% down). Others: `sharp.strategy.attention`. Compared with Cloudinary's on 2026-11-23: attention cut heads off tall photos, the upper crop came close. |
+| `g_face` (only `/me`) | The same upper crop when the photo loses height, else centred. |
 | `q_auto`, `q_auto:best`, `q_auto:low` | 78, 85, 40. Check by eye on the 12 samples first. |
 | `f_auto` | WebP. |
 | Signed browser upload | `POST` to the `photos` API, writing into `Published`. The browser gets a short-lived signature from the dashboard server, as now. |
@@ -90,7 +90,7 @@ Sharp 0.34.5, WebP, one core at `nice 15`, 12 published originals:
 3. **`img`.** Golden tests for each transform, the allowlist and EXIF stripping. Compose services, cache rule for `/img/*`, staging first.
 4. **Site.** `IMAGE_BACKEND` in `src/lib/cloudinary*.ts`, `photos.ts` and `albums.ts`. Both values covered by tests.
 5. **cms-dashboard.** The same flag in `server/utils/cloudinary.ts`, the upload queue and thumbnail helper. `tests/cms` and the dashboard's `scripts/contract.mjs` change in the same window. The upload page stays; cover choice, order, titles and tags become its main job.
-6. **Switch.** Flag to `nas` on both, parity run, two-week soak with Cloudinary untouched, then close the account and delete its secrets.
+6. **Switch.** Flag to `nas` on both, parity run, two-week soak with Cloudinary untouched, then close the account and delete its secrets, once the off-NAS backup has run and a restore from it has been tried.
 
 Rough effort: 2 to 3 weeks. Phase 5 is the largest.
 
@@ -101,7 +101,18 @@ Rough effort: 2 to 3 weeks. Phase 5 is the largest.
 - How to fill the other 378 photos: the NAS exports (reviewed list) or Cloudinary's copies.
 - A GitHub token for `photos`, limited to contents read/write on this repo, saved in the project `.env`. New albums are committed to `main`, which deploys.
 - OK for each NAS command, for the new Cloudflare hostname, Access policy and cache rule, and for merging to `main`.
-- Confirmation that the `photography` snapshots replicate off the NAS. Snapshots on the same volume don't survive losing it.
+- **An off-NAS backup of `Published`, before Cloudinary is closed.** Liam confirmed on 2026-11-23 that the `photography` snapshots stay on the NAS, and that iDrive is a deprecated method. `Published` is about 3.4 GB, and Hyper Backup can send it to an S3-compatible store such as Cloudflare R2. Until that runs, Cloudinary is the only other copy of what's published.
+
+## Built on 2026-11-23
+
+Phases 2 and 3, local only: `services/` (watcher, resizer, index, seed), `scripts/cloudinary-export.mjs`, `deploy/compose.photos.yaml`, `tests/services`.
+
+- Run from the checkout against the real 463 photos, read-only: a scan takes about 60 ms, every 480 px thumbnail rendered (463 in 49 s with six requests at once, 28 KB each), and cached ones take 5 ms. The resizer alone peaked at 334 MB, full-size 24 MP renders included.
+- The first scan after seeding changes nothing: no new ids, no album commits. The seed refuses to write while any published photo is missing or differs from Cloudinary's bytes, so it waits for the other 378 photos and the 79 site images.
+- The watcher won't start without an index, since starting empty would give every photo a new id. Albums are only committed with `PUBLISH_ALBUMS=1` and a token. It must stay off while the site still reads Cloudinary: a new album would name ids Cloudinary doesn't have.
+- To let a deliberate mass removal through, create `.allow-removals` in `Published`.
+- Not yet run: the Docker image and compose file (no Docker in the agent container), the Cloudflare route, and preview warming between containers. `deploy.sh` doesn't build or start these services yet.
+- Not built: 30-day restore of dashboard deletes, Cloudflare purge, the dashboard API (phase 5), and the site's `IMAGE_BACKEND` (phase 4).
 
 ## Staged on 2026-11-23
 
