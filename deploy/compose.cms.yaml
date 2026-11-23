@@ -1,0 +1,44 @@
+# cms-dashboard beside the photo services, added by deploy.sh when .env has
+# CMS_BRANCH (docs/staging.md). The tunnel sends its hostname here, behind
+# Cloudflare Access, with /img/* to img and /upload to photos, so the browser
+# only ever talks to one origin and the photos API is never public.
+#
+# .env: GITHUB_TOKEN (contents read/write on both repos), CMS_AUTH_USER_HASH,
+# CMS_AUTH_PASSWORD_HASH (bcrypt, in single quotes: they hold $ signs),
+# CMS_SESSION_SECRET and PHOTOS_API_SECRET (32+ characters each).
+services:
+  cms:
+    image: ${STACK:-personal-website}-cms:${CMS_SHA:?CMS_SHA is not set in .env}
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+    environment:
+      GITHUB_TOKEN: ${GITHUB_TOKEN:?}
+      GITHUB_REPO: ${GITHUB_REPO:-liambsulliva/personal-website-v3}
+      GITHUB_BRANCH: ${DEPLOY_BRANCH:-main}
+      DRAFTS_BRANCH: ${DRAFTS_BRANCH:-drafts}
+      AUTH_USER_HASH: ${CMS_AUTH_USER_HASH:?}
+      AUTH_PASSWORD_HASH: ${CMS_AUTH_PASSWORD_HASH:?}
+      SESSION_SECRET: ${CMS_SESSION_SECRET:?}
+      IMAGE_BACKEND: nas
+      PHOTOS_API_URL: http://photos:4331
+      PHOTOS_API_SECRET: ${PHOTOS_API_SECRET:?}
+      # Browser URLs, on the dashboard's own origin.
+      PHOTOS_UPLOAD_URL: /upload
+      NUXT_PUBLIC_IMAGE_BASE: /img/upload
+      NUXT_PUBLIC_IMAGE_STORE: the NAS
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpu_shares: 256
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/auth/session').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3

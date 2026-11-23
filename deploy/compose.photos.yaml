@@ -1,34 +1,30 @@
-# The photo services, added to compose.yaml's project when they go live
-# (docs/photo-pipeline-plan.md). deploy.sh doesn't read this file yet.
+# The photo services (docs/photo-pipeline-plan.md), added to compose.yaml's
+# project by deploy.sh when .env has PHOTOS=1.
 #
-#   docker compose -f compose.yaml -f compose.photos.yaml up -d
+# .env also needs PHOTOS_USER (uid:gid that owns Published), and, to commit
+# albums, PUBLISH_ALBUMS=1 and GITHUB_TOKEN; for the dashboard's API,
+# PHOTOS_API_SECRET (32+ random characters) and, only for a dashboard on
+# another origin, DASHBOARD_ORIGIN. Nothing is published to the LAN; only
+# Published is mounted from the photography share.
 #
-# .env also needs: PHOTOS_SHA, PHOTOS_USER (uid:gid that owns Published),
-# and, to commit albums, PUBLISH_ALBUMS=1 and GITHUB_TOKEN. For the dashboard:
-# PHOTOS_API_SECRET (32+ random characters, the same in Vercel) and
-# DASHBOARD_ORIGIN. Nothing is published to the LAN; only Published is mounted
-# from the photography share.
-#
-# Cloudflare: /img/* on the site's hostname goes to http://img:4330, and a
-# second hostname to http://photos:4331 with Access on it, except /upload,
-# which browsers reach directly and which checks its own signature.
+# One project may run `photos`: it owns the index. The tunnel sends /img/* to
+# http://img:4330; http://photos:4331 stays inside the project's network, except
+# /upload, which browsers reach and which checks its own signature.
 services:
-  site:
-    environment:
-      IMAGE_BACKEND: ${IMAGE_BACKEND:-cloudinary}
-    volumes:
-      - ./photos/index:/index:ro
-
   img:
-    image: personal-website-photos:${PHOTOS_SHA:?PHOTOS_SHA is not set in .env}
+    image: ${STACK:-personal-website}-photos:${PHOTOS_SHA:?PHOTOS_SHA is not set in .env}
     command: node img/server.mjs
     restart: unless-stopped
     init: true
     read_only: true
     user: ${PHOTOS_USER:?PHOTOS_USER is not set in .env}
+    environment:
+      INDEX_FILE: /index/index.json
+      PUBLISHED_DIR: /published
+      CACHE_DIR: /cache
     volumes:
-      - /volume1/photography/Published:/published:ro
-      - ./photos/index:/index:ro
+      - ${PUBLISHED_DIR:-/volume1/photography/Published}:/published:ro
+      - ${PHOTO_INDEX_DIR:-./photos/index}:/index:ro
       - ./photos/cache:/cache
     # Measured peak 334 MB (16 full-size renders on 24 MP photos).
     mem_limit: 512m
@@ -46,20 +42,23 @@ services:
       retries: 3
 
   photos:
-    image: personal-website-photos:${PHOTOS_SHA:?}
+    image: ${STACK:-personal-website}-photos:${PHOTOS_SHA:?}
     command: node photos/main.mjs
     restart: unless-stopped
     init: true
     read_only: true
     user: ${PHOTOS_USER:?}
     environment:
+      PUBLISHED_DIR: /published
+      INDEX_FILE: /index/index.json
       PUBLISH_ALBUMS: ${PUBLISH_ALBUMS:-0}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GITHUB_BRANCH: ${DEPLOY_BRANCH:-main}
       PHOTOS_API_SECRET: ${PHOTOS_API_SECRET:-}
       DASHBOARD_ORIGIN: ${DASHBOARD_ORIGIN:-}
     volumes:
-      - /volume1/photography/Published:/published
-      - ./photos/index:/index
+      - ${PUBLISHED_DIR:-/volume1/photography/Published}:/published
+      - ${PHOTO_INDEX_DIR:-./photos/index}:/index
     mem_limit: 384m
     memswap_limit: 384m
     cpu_shares: 256
@@ -69,7 +68,7 @@ services:
       - ALL
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4331/healthz').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
-      interval: 60s
+      interval: 30s
       timeout: 5s
       start_period: 120s
       retries: 3

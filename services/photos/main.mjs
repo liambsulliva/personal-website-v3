@@ -10,7 +10,7 @@
 // Writes in Published: .site/index.json (the index's backup), dashboard uploads
 // (_unsorted, _site) and deletes (.site/deleted, emptied after 30 days). It
 // deletes .allow-removals, the file that lets one mass removal through.
-import { existsSync } from "node:fs";
+import { existsSync, renameSync, writeFileSync } from "node:fs";
 import { readdir, unlink } from "node:fs/promises";
 import { createServer } from "node:http";
 import { join } from "node:path";
@@ -31,8 +31,15 @@ export function createWatcher({ root, indexFile, repo = null, warm = null, log =
   const told = new Set();
   let status = { ok: false, lastScan: null, error: "no scan yet", photos: 0, blocked: null, skipped: [] };
   let index = loadIndex(indexFile);
-  // Starting empty would give every published photo a new id.
-  if (!index) throw new Error(`no index at ${indexFile}; run services/photos/seed.mjs first`);
+  if (!index) {
+    // A new host, or a lost disk: the copy that lives with the photos.
+    index = loadIndex(join(root, ".site", "index.json"));
+    // Starting empty would give every published photo a new id.
+    if (!index) throw new Error(`no index at ${indexFile} or in Published/.site; run services/photos/seed.mjs first`);
+    writeFileSync(`${indexFile}.tmp`, `${JSON.stringify(index)}\n`);
+    renameSync(`${indexFile}.tmp`, indexFile);
+    log(`[photos] restored the index from Published/.site (${Object.keys(index.photos).length} images)`);
+  }
 
   // Scans and API changes take turns, so neither works from a stale index.
   let turn = Promise.resolve();

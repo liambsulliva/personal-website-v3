@@ -2,8 +2,8 @@
 #
 #   docker build --build-arg CLOUDINARY_CLOUD_NAME=<cloud> --build-arg SITE_SHA=<sha> -t personal-website:<sha> .
 #
-# Builds with no secrets. CLOUDINARY_CLOUD_NAME is the only build input
-# (prerendered pages put it in every image URL; it is public). The API key,
+# Builds with no secrets. CLOUDINARY_CLOUD_NAME (public) and IMAGE_BACKEND are
+# the build inputs: prerendered pages put them in every image URL. The API key,
 # API secret and RAWG key are read when the container starts (astro:env).
 # deploy/deploy.sh runs this build with the legacy builder so it can cap the
 # build's memory and CPU share; nothing here needs BuildKit.
@@ -20,13 +20,14 @@ RUN npm ci
 # ---- build: astro check + astro build for the Node target, then drop dev deps
 FROM deps AS build
 ARG CLOUDINARY_CLOUD_NAME
+ARG IMAGE_BACKEND=cloudinary
 ENV DEPLOY_TARGET=node \
     NODE_OPTIONS=--max-old-space-size=1024
 COPY . .
 RUN if [ -z "$CLOUDINARY_CLOUD_NAME" ]; then \
       echo "CLOUDINARY_CLOUD_NAME build argument is required (prerendered image URLs use it)" >&2; exit 1; \
     fi
-RUN CLOUDINARY_CLOUD_NAME="$CLOUDINARY_CLOUD_NAME" npm run build \
+RUN CLOUDINARY_CLOUD_NAME="$CLOUDINARY_CLOUD_NAME" IMAGE_BACKEND="$IMAGE_BACKEND" npm run build \
  && npm prune --omit=dev
 
 # ---- runtime: the built site, server.mjs and production node_modules

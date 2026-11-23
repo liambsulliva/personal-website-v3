@@ -86,14 +86,14 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-describe.skipIf(!hasTools)("deploy.sh (poll main, build, switch)", () => {
+describe.skipIf(!hasTools)("deploy.sh (poll a branch, build, switch)", () => {
   it("deploys the first commit and writes SITE_SHA and compose.yaml", () => {
     const a = push("a");
     const run = deploy();
     expect(run.status, run.out).toBe(0);
     expect(serving()).toBe(a);
     expect(running()).toBe(a);
-    expect(read(join(project, "compose.yaml"))).toContain("personal-website:${SITE_SHA");
+    expect(read(join(project, "compose.yaml"))).toContain("${STACK:-personal-website}:${SITE_SHA");
     expect(read(join(project, "deploy.log"))).toContain(`deployed ${a.slice(0, 12)}`);
     // The build gets the public cloud name and the commit, never a secret.
     const [build] = builds();
@@ -240,5 +240,186 @@ describe.skipIf(!hasTools)("deploy.sh (poll main, build, switch)", () => {
     const run = deploy();
     expect(run.status).toBe(1);
     expect(run.out).toContain("copy deploy/.env.example");
+  });
+
+  describe("staging: a second project with the photo services and the dashboard", () => {
+    const TOKEN = "github_pat_test_do_not_print";
+    let cmsOrigin = "";
+    let cmsWork = "";
+
+    const setting = (key: string) => read(join(project, ".env")).match(new RegExp(`^${key}=(.*)$`, "m"))?.[1] ?? "";
+    const service = (name: string) => read(join(state, name)).trim();
+    const log = () => read(join(project, "deploy.log"));
+    const git = (cwd: string, ...args: string[]) => sh(cwd, "git", ...NO_HOOKS, "-c", "user.name=Test", "-c", "user.email=test@example.test", ...args);
+    const edit = (change: (env: string) => string) => writeFileSync(join(project, ".env"), change(read(join(project, ".env"))));
+
+    function pushStaging(message: string, services = "one") {
+      mkdirSync(join(work, "services"), { recursive: true });
+      writeFileSync(join(work, "services/main.mjs"), services);
+      writeFileSync(join(work, "CHANGE"), `${message}\n`);
+      git(work, "add", "-A");
+      git(work, "commit", "-qm", message);
+      git(work, "push", "-q", "origin", "HEAD:staging");
+      return sh(work, "git", "rev-parse", "HEAD");
+    }
+    function pushCms(message: string) {
+      writeFileSync(join(cmsWork, "CHANGE"), message);
+      git(cmsWork, "add", "-A");
+      git(cmsWork, "commit", "-qm", message);
+      git(cmsWork, "push", "-q", "origin", "HEAD:env/nas-images");
+      return sh(cmsWork, "git", "rev-parse", "HEAD");
+    }
+    const run = (env: Record<string, string> = {}) => deploy({ CMS_URL: cmsOrigin, ...env });
+
+    beforeEach(() => {
+      cmsOrigin = join(dir, "cms.git");
+      cmsWork = join(dir, "cms-work");
+      mkdirSync(cmsWork);
+      sh(dir, "git", "init", "-q", "--bare", "-b", "main", cmsOrigin);
+      sh(cmsWork, "git", "init", "-q", "-b", "main");
+      sh(cmsWork, "git", "remote", "add", "origin", cmsOrigin);
+      for (const file of ["compose.photos.yaml", "compose.cms.yaml"]) writeFileSync(join(work, "deploy", file), readFileSync(join(ROOT, "deploy", file)));
+      writeFileSync(
+        join(project, ".env"),
+        [
+          "CLOUDINARY_CLOUD_NAME=demo\nCLOUDINARY_API_KEY=key\nCLOUDINARY_API_SECRET=secret\nRAWG_API_KEY=rawg\nTUNNEL_TOKEN=t\nSITE_SHA=",
+          "STACK=pw-staging\nDEPLOY_BRANCH=staging\nIMAGE_BACKEND=nas\nPHOTOS=1",
+          `PHOTOS_USER=${process.getuid!()}:${process.getgid!()}\nCMS_BRANCH=env/nas-images\nGITHUB_TOKEN=${TOKEN}\n`,
+        ].join("\n"),
+      );
+    });
+
+    it("brings up the photo services, the site and the dashboard on the first run", () => {
+      const a = pushStaging("a");
+      const cms = pushCms("cms a");
+      const first = run();
+      expect(first.status, first.out + log()).toBe(0);
+      expect(setting("SITE_SHA")).toBe(`${a}-nas`);
+      expect(service("site")).toBe(`${a}-nas`);
+      expect(service("img")).toBe(setting("PHOTOS_SHA"));
+      expect(service("photos")).toBe(sh(work, "git", "rev-parse", "HEAD:services"));
+      expect(service("cms")).toBe(cms);
+      const site = builds().find((call) => call.includes("pw-staging:"))!;
+      expect(site).toContain("--build-arg IMAGE_BACKEND=nas");
+      expect(site, "healthz reports the commit, not the tag").toContain(`--build-arg SITE_SHA=${a} `);
+      // The photo services come first: the candidate's checks need an index.
+      const order = calls()
+        .map((call) => (call.includes(" up -d img photos") ? "photos" : call.startsWith("run ") ? "candidate" : ""))
+        .filter(Boolean);
+      expect(order).toEqual(["photos", "candidate"]);
+      expect(calls().find((call) => call.startsWith("run "))).toContain(`-e IMAGE_BACKEND=nas -v ${project}/photos/index:/index:ro`);
+    });
+
+    it("never acts on the live project, by deploy.sh or by hand", () => {
+      pushStaging("a");
+      pushCms("cms a");
+      expect(run().status).toBe(0);
+      const compose = calls().filter((call) => call.startsWith("compose ") && !call.startsWith("compose version"));
+      expect(compose.length).toBeGreaterThan(3);
+      for (const call of compose) expect(call).toMatch(/^compose -p pw-staging /);
+      expect(read(join(project, "compose.yaml"))).toMatch(/^name: pw-staging$/m);
+      for (const call of calls()) expect(call).not.toMatch(/personal-website(-candidate|:)/);
+    });
+
+    it("keeps the token out of every command line, log and clone", () => {
+      pushStaging("a");
+      pushCms("cms a");
+      const first = run();
+      expect(first.status).toBe(0);
+      const basic = Buffer.from(`x-access-token:${TOKEN}`).toString("base64");
+      for (const text of [read(join(state, "calls")), first.out, log(), read(join(project, "cms/.git/config")), read(join(project, "build.log"))]) {
+        expect(text).not.toContain(TOKEN);
+        expect(text).not.toContain(basic);
+      }
+    });
+
+    it("rebuilds the photo services only when services/ changes", () => {
+      pushStaging("a");
+      pushCms("cms a");
+      run();
+      resetCalls();
+      pushStaging("b");
+      expect(run().status).toBe(0);
+      expect(builds().filter((call) => call.includes("-photos:"))).toEqual([]);
+      pushStaging("c", "two");
+      expect(run().status).toBe(0);
+      expect(builds().filter((call) => call.includes("-photos:"))).toHaveLength(1);
+      expect(service("photos")).toBe(sh(work, "git", "rev-parse", "HEAD:services"));
+    });
+
+    it("goes back to the last photo services when new ones are unhealthy, and leaves the site alone", () => {
+      const a = pushStaging("a");
+      pushCms("cms a");
+      run();
+      const good = setting("PHOTOS_SHA");
+      pushStaging("b", "broken");
+      writeFileSync(join(state, "unhealthy"), "photos\n");
+      expect(run().status).toBe(1);
+      expect(setting("PHOTOS_SHA")).toBe(good);
+      expect(service("photos")).toBe(good);
+      expect(service("site")).toBe(`${a}-nas`);
+    });
+
+    it("leaves nothing running when the first photo services are unhealthy", () => {
+      pushStaging("a");
+      pushCms("cms a");
+      writeFileSync(join(state, "unhealthy"), "img\n");
+      expect(run().status).toBe(1);
+      expect(setting("PHOTOS_SHA")).toBe("");
+      expect([service("img"), service("photos"), service("site")]).toEqual(["", "", ""]);
+      rmSync(join(state, "unhealthy"));
+      const again = run();
+      expect(again.status, again.out + log()).toBe(0);
+    });
+
+    it("a dashboard that won't build doesn't hold up the site, and isn't retried until it changes", () => {
+      const a = pushStaging("a");
+      pushCms("broken");
+      writeFileSync(join(state, "build-fail"), "pw-staging-cms");
+      expect(run().status).toBe(1);
+      expect(service("site")).toBe(`${a}-nas`);
+      resetCalls();
+      expect(run().status).toBe(0);
+      expect(builds()).toEqual([]);
+      rmSync(join(state, "build-fail"));
+      const fixed = pushCms("fixed");
+      expect(run().status).toBe(0);
+      expect(service("cms")).toBe(fixed);
+    });
+
+    it("puts the old dashboard back when the new one is unhealthy", () => {
+      pushStaging("a");
+      const good = pushCms("good");
+      run();
+      pushCms("bad");
+      writeFileSync(join(state, "unhealthy"), "cms\n");
+      expect(run().status).toBe(1);
+      expect(setting("CMS_SHA")).toBe(good);
+      expect(service("cms")).toBe(good);
+    });
+
+    it("redeploys the same commit when IMAGE_BACKEND changes, and changes back without a build", () => {
+      const a = pushStaging("a");
+      pushCms("cms a");
+      run();
+      edit((env) => env.replace("IMAGE_BACKEND=nas", "IMAGE_BACKEND=cloudinary"));
+      expect(run().status).toBe(0);
+      expect(service("site")).toBe(a);
+      resetCalls();
+      edit((env) => env.replace("IMAGE_BACKEND=cloudinary", "IMAGE_BACKEND=nas"));
+      expect(run().status).toBe(0);
+      expect(service("site")).toBe(`${a}-nas`);
+      expect(builds()).toEqual([]);
+    });
+
+    it("starts the photo services when PHOTOS is turned on for a commit already serving", () => {
+      pushStaging("a");
+      edit((env) => env.replace("PHOTOS=1\n", "").replace("CMS_BRANCH=env/nas-images\n", ""));
+      expect(run().status).toBe(0);
+      expect(service("photos")).toBe("");
+      edit((env) => `${env}PHOTOS=1\n`);
+      expect(run().status).toBe(0);
+      expect(service("photos")).not.toBe("");
+    });
   });
 });

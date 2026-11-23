@@ -5,13 +5,15 @@
 #   docker compose up -d                        # what is in .env
 #   SITE_SHA=<older sha> docker compose up -d   # roll back
 #
+# Staging is the same file under another project name (docs/staging.md).
+#
 # Nothing is published: cloudflared reaches the site over this project's
 # network as http://site:4321, and the tunnel is the only way in.
 name: personal-website
 
 services:
   site:
-    image: personal-website:${SITE_SHA:?SITE_SHA is not set in .env}
+    image: ${STACK:-personal-website}:${SITE_SHA:?SITE_SHA is not set in .env}
     restart: unless-stopped
     init: true
     read_only: true
@@ -22,6 +24,10 @@ services:
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:?}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:?}
       RAWG_API_KEY: ${RAWG_API_KEY:?}
+      IMAGE_BACKEND: ${IMAGE_BACKEND:-cloudinary}
+    volumes:
+      # Empty, and unread, unless IMAGE_BACKEND is nas.
+      - ${PHOTO_INDEX_DIR:-./photos/index}:/index:ro
     mem_limit: 384m
     memswap_limit: 384m
     cpu_shares: 512

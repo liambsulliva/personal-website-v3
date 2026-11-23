@@ -1,4 +1,9 @@
 {
+  "git": {
+    "deploymentEnabled": {
+      "staging": false
+    }
+  },
   "headers": [
     {
       "source": "/_astro/(.*)",

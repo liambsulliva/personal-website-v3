@@ -356,6 +356,27 @@ describe("watcher", () => {
     expect(() => make()).toThrow();
   });
 
+  it("starts a new host from the share's copy, with every id kept", async () => {
+    await saveIndex(indexFile(), emptyIndex());
+    const first = make();
+    await put("Shoot/a.jpg", jpeg("red"));
+    await first.tick();
+    await first.tick();
+    const ids = Object.keys(loadIndex(indexFile())!.photos);
+    rmSync(indexFile());
+    const second = make();
+    expect(log.some((line) => line.includes("restored the index"))).toBe(true);
+    expect(Object.keys(loadIndex(indexFile())!.photos)).toEqual(ids);
+    await second.tick();
+    await second.tick();
+    expect(Object.keys(second.index.photos)).toEqual(ids);
+    // A damaged copy is not a reason to start over.
+    rmSync(indexFile());
+    writeFileSync(join(root, ".site/index.json"), "{");
+    expect(() => make()).toThrow();
+    expect(existsSync(indexFile())).toBe(false);
+  });
+
   it("saves the index and a copy on the share, and warms what's new", async () => {
     await saveIndex(indexFile(), emptyIndex());
     const warmed: any[] = [];
