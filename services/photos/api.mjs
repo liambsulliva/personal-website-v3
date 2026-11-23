@@ -3,9 +3,11 @@
 //
 //   GET  /v1/photos, /v1/site-images     { resources: [Photo] }
 //   POST /v1/tags                        { ids, tag, command: "add" | "remove" }
+//   GET  /v1/status                      the watcher's health, folders and pending albums
 //   POST /v1/delete                      { ids } -> { deleted: { id: "deleted" | "not_found" } }
+//   POST /v1/restore                     { ids } -> { restored: { id: "restored" | "not_found" | "taken" } }
 //   POST /v1/site-image                  multipart: file, public_id (replaces)
-//   POST /upload?timestamp&tags&signature   multipart: file
+//   POST /upload?timestamp&tags&folder&name&signature   multipart: file
 //
 // /v1 needs `Authorization: Bearer <PHOTOS_API_SECRET>`, on top of Cloudflare
 // Access in front of it. /upload comes straight from the browser, so it takes a
@@ -61,9 +63,31 @@ const toPhoto = (id, photo, origin) => ({
   format: EXT[photo.format] ?? photo.format,
   bytes: photo.bytes,
   created_at: photo.createdAt,
-  folder: photo.kind === "site" ? id.slice(0, id.lastIndexOf("/")) : "",
+  folder: photo.kind === "site" ? id.slice(0, id.lastIndexOf("/")) : photo.path.slice(0, Math.max(0, photo.path.indexOf("/"))),
+  filename: photo.path.slice(photo.path.lastIndexOf("/") + 1),
+  version: photo.version,
+  taken_at: photo.takenAt ?? undefined,
   tags: tagsOf(photo),
 });
+
+/**
+ * A folder an upload may go to: _unsorted, or a shoot folder the watcher would
+ * publish. Null for anything else (a path, a hidden or reserved name).
+ */
+export function uploadFolder(name) {
+  if (name === "" || name === "_unsorted") return "_unsorted";
+  // eslint-disable-next-line no-control-regex
+  if (name.length > 100 || name !== name.trim() || /^[._@#~]|[\\/:*?"<>|\x00-\x1f]|\.$/.test(name)) return null;
+  return name;
+}
+
+/** "IMG 1.jpeg" → "IMG 1": the file's own name, without anything a path could be made of. */
+export const uploadName = (name) =>
+  name
+    .replace(/\.[^.]*$/, "")
+    .replace(/[^\p{L}\p{N} ._()&+,'-]/gu, "_")
+    .replace(/^[._@#~ ]+|[. ]+$/g, "")
+    .slice(0, 100);
 
 /** Empties the trash of what was deleted more than 30 days ago. Touches nothing else. */
 export async function emptyTrash(root, now = Date.now()) {
@@ -219,6 +243,40 @@ export function createApi({ watcher, root, secret, origin = "https://liambsulliv
     });
   }
 
+  /** Undoes a delete, within the 30 days. */
+  async function restore(req) {
+    const ids = idsOf(await json(req));
+    return watcher.mutate(async (index) => {
+      const restored = Object.create(null);
+      const trash = await readdir(join(root, TRASH)).catch(() => []);
+      for (const id of ids) {
+        const photo = Object.hasOwn(index.photos, id) ? index.photos[id] : null;
+        restored[id] = "not_found";
+        if (!photo?.goneAt) continue;
+        const ending = `-${id.replaceAll("/", "_")}-${photo.path.slice(photo.path.lastIndexOf("/") + 1)}`;
+        const name = trash.filter((file) => /^\d{13}-\d+/.test(file) && file.replace(/^\d{13}-\d+/, "") === ending).sort().at(-1);
+        if (!name) continue;
+        const file = join(root, photo.path);
+        try {
+          await mkdir(dirname(file), { recursive: true });
+          await link(join(root, TRASH, name), file); // fails if something took its place
+          await unlink(join(root, TRASH, name));
+        } catch (error) {
+          if (error.code !== "EEXIST") throw error;
+          restored[id] = "taken";
+          continue;
+        }
+        const info = await stat(file);
+        photo.sig = `${info.size}:${Math.trunc(info.mtimeMs)}`;
+        delete photo.goneAt;
+        delete photo.missing;
+        restored[id] = "restored";
+        log(`[api] restored ${id} (${photo.path})`);
+      }
+      return { restored };
+    });
+  }
+
   async function siteImage(req) {
     const { fields, buffer } = await form(req);
     const id = fields.public_id ?? "";
@@ -237,12 +295,14 @@ export function createApi({ watcher, root, secret, origin = "https://liambsulliv
 
   async function upload(req) {
     const query = new URL(req.url, "http://photos").searchParams;
-    const [timestamp, tagList, signature] = ["timestamp", "tags", "signature"].map((name) => query.get(name) ?? "");
+    const [timestamp, tagList, folderName, fileName, signature] = ["timestamp", "tags", "folder", "name", "signature"].map((name) => query.get(name) ?? "");
     const age = now() - Number(timestamp) * 1000;
     if (!/^\d{10}$/.test(timestamp) || age > SIGNATURE_MS || age < -60_000) throw new ApiError(401, "That upload link has expired; try again");
-    if (!same(signature, signUpload({ timestamp, tags: tagList }, secret))) throw new ApiError(401, "Invalid signature");
+    if (!same(signature, signUpload({ timestamp, tags: tagList, folder: folderName, name: fileName }, secret))) throw new ApiError(401, "Invalid signature");
     const wanted = tagList ? tagList.split(",") : [];
     if (!wanted.every((tag) => TAG_RE.test(tag))) throw new ApiError(400, "Invalid tag");
+    const folder = uploadFolder(folderName);
+    if (folder === null) throw new ApiError(400, "That folder name can't be used");
     const { buffer } = await form(req);
     const meta = await metadata(buffer, PHOTO_FORMATS);
     const result = await watcher.mutate(async (index) => {
@@ -250,11 +310,18 @@ export function createApi({ watcher, root, secret, origin = "https://liambsulliv
       const twin = Object.entries(index.photos).find(([, photo]) => photo.kind === "photo" && isLive(photo) && photo.hash === hash);
       if (twin) throw new ApiError(409, `That photo is already published (${twin[1].path})`);
       const id = newId(index.photos);
-      const path = `_unsorted/${id}.${EXT[meta.format]}`;
-      const sig = await place(path, buffer, { replace: false });
+      const base = uploadName(fileName) || id;
+      let path, sig;
+      // The file keeps its name, so a later Lightroom export over it replaces it.
+      for (let n = 1; !sig; n++) {
+        path = `${folder}/${base}${n > 1 ? `-${n}` : ""}.${EXT[meta.format]}`;
+        sig = await place(path, buffer, { replace: false }).catch((error) => {
+          if (error.code !== "EEXIST" || n >= 50) throw error;
+        });
+      }
       const edits = Object.fromEntries(wanted.filter((tag) => !meta.fileTags.includes(tag)).map((tag) => [tag, true]));
       index.photos[id] = { ...facts("photo", path, sig, buffer, meta), ...(Object.keys(edits).length ? { tagEdits: edits } : {}), createdAt: new Date(now()).toISOString() };
-      log(`[api] uploaded ${id}`);
+      log(`[api] uploaded ${id} (${path})`);
       return [id, index.photos[id]];
     });
     warm?.([result]);
@@ -264,8 +331,10 @@ export function createApi({ watcher, root, secret, origin = "https://liambsulliv
   const ROUTES = {
     "GET /v1/photos": () => list("photo"),
     "GET /v1/site-images": () => list("site"),
+    "GET /v1/status": () => watcher.report(),
     "POST /v1/tags": tags,
     "POST /v1/delete": remove,
+    "POST /v1/restore": restore,
     "POST /v1/site-image": siteImage,
     "POST /upload": upload,
   };

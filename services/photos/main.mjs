@@ -16,7 +16,7 @@ import { createServer } from "node:http";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { isLive, loadIndex, saveIndex } from "../lib/index.mjs";
-import { planAlbums, syncAlbums } from "./albums.mjs";
+import { folderOf, planAlbums, syncAlbums } from "./albums.mjs";
 import { createApi, emptyTrash } from "./api.mjs";
 import { githubAlbums } from "./github.mjs";
 import { scan } from "./scan.mjs";
@@ -118,6 +118,22 @@ export function createWatcher({ root, indexFile, repo = null, warm = null, log =
       }),
     get index() {
       return index;
+    },
+    /** For the dashboard: what the service sees, and what it's about to do. */
+    report() {
+      const live = Object.values(index.photos).filter(isLive);
+      const counts = new Map();
+      for (const photo of live) {
+        const folder = photo.kind === "photo" ? folderOf(photo.path) : null;
+        if (folder !== null) counts.set(folder, (counts.get(folder) ?? 0) + 1);
+      }
+      return {
+        ...this.health(),
+        skipped: status.skipped,
+        publishing: Boolean(repo),
+        folders: [...counts].map(([folder, count]) => ({ folder, count, album: Object.entries(index.albums).find(([, album]) => album.folder === folder)?.[0] ?? null })),
+        pending: planAlbums(index).map(({ slug, folder, create, add, remove }) => ({ album: slug, folder, create, add: add.length, remove: remove.length })),
+      };
     },
     health: () => {
       const stale = !status.lastScan || now() - new Date(status.lastScan) > Math.max(5 * 60_000, scanMs * 5);

@@ -44,7 +44,7 @@ describe("transforms", () => {
       "c_fill,w_352,h_440,f_auto,q_auto",
       "c_fill,g_auto,w_1200,h_630,f_jpg,q_auto",
     ];
-    const dashboard = ["c_limit,w_800,f_auto,q_auto", "c_fill,g_auto,w_320,h_320,f_auto,q_auto", "c_fill,g_auto,ar_40:21,w_760,f_auto,q_auto", "c_limit,w_880,h_920,f_auto,q_auto", "c_fill,g_auto,w_264,h_330,f_auto,q_auto", "c_fill,g_auto,w_280,h_350,f_auto,q_auto", "c_pad,w_96,h_96,f_auto,q_auto"];
+    const dashboard = ["c_limit,w_800,f_auto,q_auto", "c_fill,g_auto,w_320,h_320,f_auto,q_auto", "c_fill,g_auto,ar_40:21,w_760,f_auto,q_auto", "c_limit,w_880,h_920,f_auto,q_auto", "c_fill,g_auto,w_264,h_330,f_auto,q_auto", "c_fill,g_auto,w_280,h_350,f_auto,q_auto", "c_pad,w_96,h_96,f_auto,q_auto", "c_fill,g_auto,ar_16:7,w_560,f_auto,q_auto", "c_fill,g_auto,ar_16:9,w_440,f_auto,q_auto", "c_fill,g_auto,ar_40:21,w_192,f_auto,q_auto", "c_limit,w_320,f_auto,q_auto"];
     const gallery = toGalleryPhoto({ public_id: "x", secure_url: "https://h/upload/v1/x.jpg", width: 4000, height: 6000 });
     const ladder = [gallery.src, ...gallery.lightboxSrcSet.map(({ src }) => src)].map((src) => /\/upload\/(.+)\/v1\//.exec(src)![1]);
     for (const transform of [...site, ...dashboard, ...ladder]) expect(spec(transform), transform).not.toBeNull();

@@ -328,6 +328,61 @@ describe("albums", () => {
     expect(writes).toHaveLength(1);
   });
 
+  describe("albums the dashboard made or renamed", () => {
+    const yaml = (ids: string[], title = "Mine") => newAlbumYaml({ title, year: 2026, date: null } as any, ids);
+    const repoOf = (files: Record<string, string>) => {
+      const reads: string[] = [];
+      return {
+        files,
+        reads,
+        slugs: async () => Object.keys(files),
+        read: async (slug: string) => (reads.push(slug), files[slug] ? { text: files[slug], sha: `sha-${slug}` } : null),
+        write: async (slug: string, text: string) => void (files[slug] = text),
+      };
+    };
+    const sync = async (index: any, repo: any) => {
+      const memory = new Map();
+      for (const now of [0, 200]) await syncAlbums({ index, memory, repo, now, quietMs: 100, log: () => {} } as any);
+    };
+
+    it("follows an album renamed in the dashboard", async () => {
+      const index: any = { ...emptyIndex(), photos: { a: photo("A/a.jpg"), b: photo("A/b.jpg"), c: photo("A/c.jpg") }, albums: { old: { folder: "A", known: ["a", "b"] } } };
+      const repo = repoOf({ renamed: yaml(["b", "a"], "New title"), other: yaml(["x"]) });
+      await sync(index, repo);
+      expect(index.albums).toEqual({ renamed: { folder: "A", known: ["a", "b", "c"] } });
+      expect(parse(repo.files.renamed)).toMatchObject({ title: "New title", photos: ["b", "a", "c"], count: 3 });
+      expect(Object.keys(repo.files)).toEqual(["renamed", "other"]);
+    });
+
+    it("links a folder to the album the dashboard already made of it, instead of making another", async () => {
+      const index: any = { ...emptyIndex(), photos: { a: photo("A/a.jpg"), b: photo("A/b.jpg"), c: photo("A/c.jpg") } };
+      const repo = repoOf({ "2026-mine": yaml(["c", "a"], "Mine") });
+      await sync(index, repo);
+      expect(index.albums).toEqual({ "2026-mine": { folder: "A", known: ["a", "b", "c"] } });
+      expect(parse(repo.files["2026-mine"])).toMatchObject({ title: "Mine", photos: ["c", "a", "b"] });
+      expect(Object.keys(repo.files)).toEqual(["2026-mine"]);
+    });
+
+    it("doesn't take another folder's album, or one that shares only a few photos", async () => {
+      const index: any = { ...emptyIndex(), photos: { a: photo("A/a.jpg"), b: photo("A/b.jpg"), c: photo("A/c.jpg") }, albums: { taken: { folder: "B", known: [] } } };
+      index.photos.z = photo("B/z.jpg");
+      index.albums.taken.known = ["z"];
+      const repo = repoOf({ taken: yaml(["a", "b", "c", "z"]), best: yaml(["a", "q"]) });
+      await sync(index, repo);
+      expect(Object.keys(repo.files)).toHaveLength(3);
+      expect(index.albums.taken).toEqual({ folder: "B", known: ["z"] });
+      expect(parse(repo.files.best).photos).toEqual(["a", "q"]);
+    });
+
+    it("leaves a deleted album deleted", async () => {
+      const index: any = { ...emptyIndex(), photos: { a: photo("A/a.jpg"), b: photo("A/b.jpg") }, albums: { gone: { folder: "A", known: ["a"] } } };
+      const repo = repoOf({ other: yaml(["x"]) });
+      await sync(index, repo);
+      expect(Object.keys(repo.files)).toEqual(["other"]);
+      expect(index.albums).toEqual({ gone: { folder: "A", known: ["a", "b"] } });
+    });
+  });
+
   it("talks to GitHub with the file's sha, and never repeats the token in an error", async () => {
     const calls: any[] = [];
     const fetch = async (url: string, init: any) => {

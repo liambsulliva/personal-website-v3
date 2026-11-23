@@ -7,7 +7,7 @@ import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { emptyIndex, loadIndex, saveIndex } from "../../services/lib/index.mjs";
 import { planAlbums } from "../../services/photos/albums.mjs";
-import { createApi, emptyTrash, signUpload, TRASH } from "../../services/photos/api.mjs";
+import { createApi, emptyTrash, signUpload, TRASH, uploadFolder, uploadName } from "../../services/photos/api.mjs";
 import { createWatcher } from "../../services/photos/main.mjs";
 
 const secret = "s".repeat(40);
@@ -27,10 +27,11 @@ const form = (file: Buffer | null, fields: Record<string, string> = {}) => {
   for (const [key, value] of Object.entries(fields)) data.append(key, value);
   return data;
 };
-const uploadUrl = (tags = "", at = time, by = secret) => {
+const uploadUrl = (tags = "", at = time, by = secret, to: { folder?: string; name?: string } = {}) => {
   const timestamp = String(Math.floor(at / 1000));
-  return `/upload?${new URLSearchParams({ timestamp, tags, signature: signUpload({ timestamp, tags }, by) })}`;
+  return `/upload?${new URLSearchParams({ timestamp, tags, ...to, signature: signUpload({ timestamp, tags, ...to }, by) })}`;
 };
+const uploadTo = (folder: string, name = "") => uploadUrl("", time, secret, { folder, name });
 const upload = (file: Buffer | null, url = uploadUrl(), headers: Record<string, string> = {}) => fetch(base + url, { method: "POST", body: form(file), headers });
 
 beforeEach(async () => {
@@ -101,7 +102,8 @@ describe("library", () => {
     const { resources } = await (await fetch(`${base}/v1/photos`, { headers: auth })).json();
     expect(resources).toHaveLength(2);
     const photo = watcher.index.photos[resources[0].public_id];
-    expect(resources[0]).toMatchObject({ secure_url: `https://liambsullivan.com/img/upload/v${photo.version}/${resources[0].public_id}.webp`, width: 40, height: 20, format: "jpg", tags: [], folder: "" });
+    expect(resources[0]).toMatchObject({ secure_url: `https://liambsullivan.com/img/upload/v${photo.version}/${resources[0].public_id}.webp`, width: 40, height: 20, format: "jpg", tags: [], folder: "Shoot", version: photo.version });
+    expect(resources.map(({ filename }: { filename: string }) => filename).sort()).toEqual(["a.jpg", "b.jpg"]);
     expect(new Date(resources[0].created_at).getTime()).toBeGreaterThan(0);
   });
 
@@ -137,6 +139,44 @@ describe("library", () => {
     expect(filesIn(TRASH)).toEqual(["keep-me.txt"]);
   });
 
+  it("restores a deleted photo, id and tags included, and the scan then has nothing to do", async () => {
+    const id = idOf("Shoot/a.jpg");
+    const body = readFileSync(join(root, "Shoot/a.jpg"));
+    await post("/v1/tags", { ids: [id], tag: "music", command: "add" });
+    await post("/v1/delete", { ids: [id] });
+    expect(await (await post("/v1/restore", { ids: [id, "nope", "__proto__"] })).json()).toEqual({ restored: { [id]: "restored", nope: "not_found", ["__proto__"]: "not_found" } });
+    expect([readFileSync(join(root, "Shoot/a.jpg")), filesIn(TRASH)]).toEqual([body, []]);
+    for (let i = 0; i < 2; i++) expect((await scanNow()).events).toEqual([]);
+    const { resources } = await (await fetch(`${base}/v1/photos`, { headers: auth })).json();
+    expect(resources.find((photo: { public_id: string }) => photo.public_id === id)).toMatchObject({ folder: "Shoot", tags: ["music"] });
+    // Not deleted any more, so there's nothing to restore.
+    expect((await (await post("/v1/restore", { ids: [id] })).json()).restored).toEqual({ [id]: "not_found" });
+  });
+
+  it("won't restore over a file that took its place", async () => {
+    const id = idOf("Shoot/a.jpg");
+    await post("/v1/delete", { ids: [id] });
+    const other = await jpeg("yellow");
+    writeFileSync(join(root, "Shoot/a.jpg"), other);
+    expect((await (await post("/v1/restore", { ids: [id] })).json()).restored).toEqual({ [id]: "taken" });
+    expect([readFileSync(join(root, "Shoot/a.jpg")), filesIn(TRASH).length]).toEqual([other, 1]);
+  });
+
+  it("reports its folders, what it skipped and the albums it's about to change", async () => {
+    writeFileSync(join(root, "Shoot/notes.txt"), "x");
+    await scanNow();
+    const status = await (await fetch(`${base}/v1/status`, { headers: auth })).json();
+    expect(status).toMatchObject({
+      ok: true,
+      publishing: false,
+      photos: 2,
+      folders: [{ folder: "Shoot", count: 2, album: null }],
+      pending: [{ album: null, folder: "Shoot", create: true, add: 2, remove: 0 }],
+      skipped: [{ path: "Shoot/notes.txt" }],
+    });
+    expect((await fetch(`${base}/v1/status`)).status).toBe(401);
+  });
+
   it("finishes a delete when the file is already gone", async () => {
     const id = idOf("Shoot/a.jpg");
     rmSync(join(root, "Shoot/a.jpg"));
@@ -161,6 +201,30 @@ describe("uploads", () => {
     const before = Object.keys(watcher.index.photos).sort();
     for (let i = 0; i < 2; i++) expect((await scanNow()).events).toEqual([]);
     expect(Object.keys(watcher.index.photos).sort()).toEqual(before);
+  });
+
+  it("puts a photo in its album's folder under its own name, next to one that has it", async () => {
+    const first = await (await upload(await jpeg("red"), uploadTo("Shoot", "a.JPEG"))).json();
+    expect(first).toMatchObject({ folder: "Shoot", filename: "a-2.jpg" });
+    const second = await (await upload(await jpeg("pink"), uploadTo("New Shoot 11-23", "DSC 01 (edit).jpg"))).json();
+    expect([second.folder, filesIn("New Shoot 11-23")]).toEqual(["New Shoot 11-23", ["DSC 01 (edit).jpg"]]);
+    expect(filesIn("Shoot")).toEqual(["a-2.jpg", "a.jpg", "b.jpg"]);
+    for (let i = 0; i < 2; i++) expect((await scanNow()).events).toEqual([]);
+    expect(planAlbums(watcher.index).map(({ folder, ids }: any) => [folder, ids.length])).toEqual([["Shoot", 3], ["New Shoot 11-23", 1]]);
+  });
+
+  it("keeps uploads inside Published", async () => {
+    for (const bad of ["..", "../x", "a/b", "_site", ".site", "@eaDir", "#recycle", "a\\b", " x", "x ", "x.", "a\u0000b", "x".repeat(101)]) {
+      expect([bad, uploadFolder(bad)]).toEqual([bad, null]);
+    }
+    expect(["", "_unsorted", "St. Patrick's Day 2025 - Ginger Run 3-15"].map(uploadFolder)).toEqual(["_unsorted", "_unsorted", "St. Patrick's Day 2025 - Ginger Run 3-15"]);
+    expect(["../../etc/passwd.jpg", ".hidden.jpg", "~tmp.jpg", "a/b.jpg", "Müller 1.jpg", "...", "x\n.jpg"].map(uploadName)).toEqual(["etc_passwd", "hidden", "tmp", "a_b", "Müller 1", "", "x_"]);
+    const res = await upload(await jpeg("red"), uploadTo("../escape", "x.jpg"));
+    expect([res.status, existsSync(join(dir, "escape"))]).toEqual([400, false]);
+    // The folder and name are part of what was signed.
+    expect((await upload(await jpeg("red"), `${uploadTo("Shoot", "x.jpg").replace("Shoot", "Other")}`)).status).toBe(401);
+    const odd = await (await upload(await jpeg("red"), uploadTo("Shoot", "../../evil.jpg"))).json();
+    expect([odd.folder, odd.filename]).toEqual(["Shoot", "evil.jpg"]);
   });
 
   it("refuses a photo that's already published, and what isn't a photo", async () => {

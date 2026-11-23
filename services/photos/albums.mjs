@@ -129,6 +129,27 @@ export function planAlbums(index) {
   return plans;
 }
 
+const idsIn = (text) => {
+  const doc = parseDocument(text);
+  const seq = doc.errors.length ? null : doc.get("photos");
+  return isSeq(seq) ? seq.items.map((item) => item.value) : [];
+};
+
+/**
+ * The album file that already holds most of `ids` and that no folder is linked
+ * to: one renamed in the dashboard, or made there before the folder's photos
+ * were known. Null when there isn't one.
+ */
+async function findAlbumOf(ids, { repo, index, slugs }) {
+  for (const slug of slugs) {
+    if (Object.hasOwn(index.albums, slug)) continue;
+    const file = await repo.read(slug);
+    const held = file ? new Set(idsIn(file.text)) : new Set();
+    if (ids.length && ids.filter((id) => held.has(id)).length * 2 > ids.length) return { slug, file };
+  }
+  return null;
+}
+
 /** Carries out `planAlbums` for folders that have been quiet for `quietMs`, one commit per album. */
 export async function syncAlbums({ index, memory, repo, now = Date.now(), quietMs = 300_000, log = console.log }) {
   const plans = planAlbums(index);
@@ -143,13 +164,32 @@ export async function syncAlbums({ index, memory, repo, now = Date.now(), quietM
     try {
       let { slug } = plan;
       if (plan.create) {
+        const made = await findAlbumOf(plan.ids, { repo, index, slugs: await repo.slugs() });
+        if (made) {
+          // Only what it was missing is added; its title, order and photos are the dashboard's.
+          const text = mergeAlbumYaml(made.file.text, { add: plan.ids, remove: new Set() });
+          if (text) await repo.write(made.slug, text, made.file.sha, `albums: update ${made.slug}`);
+          index.albums[made.slug] = { folder: plan.folder, known: plan.ids };
+          log(`[albums] linked ${made.slug} to "${plan.folder}"`);
+          pending.delete(plan.folder);
+          changed = true;
+          continue;
+        }
         const fields = describeAlbum(plan.folder, photosIn(index, plan.folder));
         slug = slugFor(fields, new Set([...(await repo.slugs()), ...Object.keys(index.albums)]));
         await repo.write(slug, newAlbumYaml(fields, plan.ids), null, `albums: add ${fields.title}`);
         index.albums[slug] = { folder: plan.folder, known: plan.ids };
         log(`[albums] created ${slug} from "${plan.folder}" (${plan.ids.length})`);
       } else {
-        const file = plan.add.length || plan.remove.length ? await repo.read(slug) : null;
+        let file = plan.add.length || plan.remove.length ? await repo.read(slug) : null;
+        if (!file && (plan.add.length || plan.remove.length)) {
+          const renamed = await findAlbumOf(index.albums[slug].known, { repo, index, slugs: await repo.slugs() });
+          if (renamed) {
+            log(`[albums] ${slug} is now ${renamed.slug}`);
+            delete index.albums[slug];
+            ({ slug, file } = renamed);
+          }
+        }
         const text = file && mergeAlbumYaml(file.text, { add: plan.add, remove: new Set(plan.remove) });
         if (text) await repo.write(slug, text, file.sha, `albums: update ${slug}`);
         // A deleted album's photos stay published; the folder just has no album any more.
