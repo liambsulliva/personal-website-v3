@@ -1,12 +1,12 @@
 # Photo pipeline plan: publish from `/photography/Published`, without Cloudinary
 
-Branch: `env/self-host`. Goal: export a finished JPEG into one folder on the NAS and have it appear on the site, resized on the NAS, with no Cloudinary and no manual upload. Covers this repo and `cms-dashboard`. Approved in outline on 2026-11-23; nothing below is built yet except the empty folder.
+Branch: `env/self-host`. Goal: export a finished JPEG into one folder on the NAS and have it appear on the site, resized on the NAS, with no Cloudinary and no manual upload. Covers this repo and `cms-dashboard`. Approved in outline on 2026-11-23; no code is built yet; the first 463 photos are in `Published` (see "Staged on 2026-11-23").
 
 ## Decisions
 
 | Decision | Choice |
 |---|---|
-| Source of truth | `/volume1/photography/Published` (created 2026-11-23, empty). Independent of `Exports`, which stays a working folder and is only read, once, to fill `Published`. |
+| Source of truth | `/volume1/photography/Published` (created 2026-11-23). Independent of `Exports`, which stays a working folder and is only read, once, to fill `Published`. |
 | What triggers a publish | A finished file landing in `Published/<shoot name>/`. No approval step (assumed: the recommendation was accepted with the plan, not answered on its own). |
 | Formats out | WebP, and JPEG for Open Graph cards. No AVIF: 7.6 s for one 1200 px image on this CPU, and Cloudinary sent none in the 2026-11-23 samples. |
 | Containers | Two small services beside `site`, not Lambda-style workers: those handle one request at a time, and this box has about 1.2 GB free. |
@@ -98,10 +98,21 @@ Rough effort: 2 to 3 weeks. Phase 5 is the largest.
 
 ## Needs Liam
 
-- Where the 2024–2026 exports are, or a yes to using Cloudinary's copies (next section).
+- How to fill the other 378 photos: the NAS exports (reviewed list) or Cloudinary's copies.
 - A GitHub token for `photos`, limited to contents read/write on this repo, saved in the project `.env`. New albums are committed to `main`, which deploys.
 - OK for each NAS command, for the new Cloudflare hostname, Access policy and cache rule, and for merging to `main`.
 - Confirmation that the `photography` snapshots replicate off the NAS. Snapshots on the same volume don't survive losing it.
+
+## Staged on 2026-11-23
+
+Liam approved using Cloudinary's copies for the 463 photos with no finished file found.
+
+- Cloudinary's originals went to `Exports/Cloudinary/<album>/<id>.jpg`, then were copied to `Published/<album>/<id>.jpg`. 28 folders, 1.9 GB. Every file's MD5 matches Cloudinary's etag in both places, with no extra files.
+- Folder names are the album title plus `M-DD` from the album's date; photos in no album are in `_unsorted`. The file name is the photo's id, so the first index maps files to ids without guessing. These albums already exist as YAML: the first index must link each folder to its slug, or the watcher would create it again.
+- **Low resolution:** 184 of them (all the October 2025 uploads) are 1024 px or smaller, which is what the site shows today. A larger export saved over the same file name replaces it and keeps its id.
+- `Exports/c52mtsxl1yd10whoowa5.jpg` is Liam's own hand download of one of them.
+- Tags aren't in the files; they still exist only in Cloudinary until phase 1 copies them.
+- Still to do: the other 378 photos, the tags and the 79 `site/` images.
 
 ## Published photos with no finished file found
 
