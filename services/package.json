@@ -1,0 +1,12 @@
+{
+  "name": "personal-website-services",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": "24.x"
+  },
+  "dependencies": {
+    "sharp": "0.34.5",
+    "yaml": "^2.9.1"
+  }
+}
