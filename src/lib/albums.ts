@@ -6,6 +6,7 @@ import { getCollection } from "astro:content";
 import { CLOUD_NAME } from "./cloudinary";
 import { albumVersion } from "./albumData";
 import { cloudinaryTransform } from "./cloudinaryImage";
+import { absoluteUrl, deliveryUrl } from "./imageBackend";
 
 export type Album = {
   slug: string;
@@ -47,7 +48,7 @@ const STACK_CARD_TRANSFORM = "c_fill,w_352,h_440,f_auto,q_auto";
 
 export const toStackPhoto = (publicId: string, cloudName = CLOUD_NAME): StackPhoto => ({
   key: publicId,
-  src: cloudinaryTransform(`https://res.cloudinary.com/${cloudName}/image/upload/${publicId}`, STACK_CARD_TRANSFORM),
+  src: cloudinaryTransform(deliveryUrl(publicId, cloudName), STACK_CARD_TRANSFORM),
 });
 
 /** What the album carousel island receives: label text and the stack's card
@@ -72,4 +73,4 @@ export const toAlbumCard = (album: Album): AlbumCard => ({
 /** A shared album link's preview image: the cover, cropped to the 1200×630
  *  Open Graph card. JPEG, since link scrapers don't all take WebP/AVIF. */
 export const toOgImage = (publicId: string, cloudName = CLOUD_NAME): string =>
-  cloudinaryTransform(`https://res.cloudinary.com/${cloudName}/image/upload/${publicId}`, "c_fill,g_auto,w_1200,h_630,f_jpg,q_auto");
+  absoluteUrl(cloudinaryTransform(deliveryUrl(publicId, cloudName), "c_fill,g_auto,w_1200,h_630,f_jpg,q_auto"));

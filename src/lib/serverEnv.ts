@@ -20,6 +20,8 @@ import {
   CLOUDINARY_API_KEY,
   CLOUDINARY_API_SECRET,
   CLOUDINARY_CLOUD_NAME,
+  IMAGE_BACKEND,
+  PHOTO_INDEX_FILE,
   RAWG_API_KEY,
 } from "astro:env/server";
 
@@ -37,4 +39,8 @@ export const cloudName = () =>
 
 export const cloudinaryApiKey = () => read("CLOUDINARY_API_KEY", CLOUDINARY_API_KEY);
 export const cloudinaryApiSecret = () => read("CLOUDINARY_API_SECRET", CLOUDINARY_API_SECRET);
+
+/** Where images come from; anything but "nas" is Cloudinary (lib/imageBackend). */
+export const imageBackend = (): "cloudinary" | "nas" => (read("IMAGE_BACKEND", IMAGE_BACKEND) === "nas" ? "nas" : "cloudinary");
+export const photoIndexFile = () => read("PHOTO_INDEX_FILE", PHOTO_INDEX_FILE) ?? "/index/index.json";
 export const rawgApiKey = () => read("RAWG_API_KEY", RAWG_API_KEY);

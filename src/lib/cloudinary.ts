@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import bundled from "../data/cloudinary-manifest.json";
+import { imageBase } from "./imageBackend";
 import { cloudName } from "./serverEnv";
 
 /**
@@ -16,7 +17,7 @@ import { cloudName } from "./serverEnv";
 
 export const CLOUD_NAME: string = cloudName();
 
-const BASE = `https://res.cloudinary.com/${CLOUD_NAME}/image/upload`;
+const BASE = imageBase(CLOUD_NAME);
 
 export type Crop = "fill" | "limit";
 

@@ -4,7 +4,8 @@
 // the demo pack Cloudinary seeds into the console (tagged "samples").
 
 import { cached } from "./originCache";
-import { cloudinaryApiKey, cloudinaryApiSecret, cloudName as readCloudName } from "./serverEnv";
+import { searchIndex } from "./photoIndexSearch";
+import { cloudinaryApiKey, cloudinaryApiSecret, cloudName as readCloudName, imageBackend } from "./serverEnv";
 
 export const PUBLIC_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=86400";
 
@@ -58,12 +59,15 @@ type SearchBody = {
 type SearchResult = { ok: boolean; status: number; data: PhotoPage & { tags?: string[][] } };
 
 /**
- * One Search API call, cached at the origin (lib/originCache): every
- * Cloudinary read below goes through here, so the page and API routes make
- * about one call per distinct query per FRESH_MS. Results are shared; don't
- * mutate them.
+ * One search. Every read below goes through here. With IMAGE_BACKEND=nas it is
+ * answered from the photo index in memory; otherwise it is a Search API call,
+ * cached at the origin (lib/originCache), so the page and API routes make about
+ * one call per distinct query per FRESH_MS. Results are shared; don't mutate them.
  */
-export const searchPhotos = cached(fetchSearch, {
+export const searchPhotos = async (body: SearchBody): Promise<SearchResult> =>
+  imageBackend() === "nas" ? searchIndex(body) : searchCloudinary(body);
+
+const searchCloudinary = cached(fetchSearch, {
   key: (body) => JSON.stringify(body),
   keep: (result) => result.ok,
 });

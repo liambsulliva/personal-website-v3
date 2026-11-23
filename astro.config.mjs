@@ -53,6 +53,8 @@ export default defineConfig({
       CLOUDINARY_CLOUD_NAME: envField.string({ context: "server", access: "secret", optional: true }),
       CLOUDINARY_API_KEY: envField.string({ context: "server", access: "secret", optional: true }),
       CLOUDINARY_API_SECRET: envField.string({ context: "server", access: "secret", optional: true }),
+      IMAGE_BACKEND: envField.string({ context: "server", access: "secret", optional: true }),
+      PHOTO_INDEX_FILE: envField.string({ context: "server", access: "secret", optional: true }),
       RAWG_API_KEY: envField.string({ context: "server", access: "secret", optional: true }),
     },
   },

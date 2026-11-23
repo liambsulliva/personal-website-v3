@@ -36,6 +36,12 @@ const PREVIEW_WIDTHS = widthSteps(PLACEHOLDER_WIDTH, 1280);
 const PREVIEW_MAX_WIDTH = PREVIEW_WIDTHS[PREVIEW_WIDTHS.length - 1];
 const LIGHTBOX_WIDTHS = [...PREVIEW_WIDTHS, ...widthSteps(1440, 3840)];
 
+// The NAS resizer's own widths (services/img/transforms.mjs): it snaps up to
+// these, so anything else would be another URL for the same bytes.
+const NAS_PREVIEW_WIDTHS = [480, 640, 800, 960, 1200, 1280];
+const NAS_LIGHTBOX_WIDTHS = [...NAS_PREVIEW_WIDTHS, 1920, 2560, 3840];
+const NAS_MAX_WIDTH = 3840;
+
 function scaledSource(src: string, width: number, naturalWidth: number, naturalHeight: number): ImageSource {
   return { src, width, height: Math.round((width / naturalWidth) * naturalHeight) };
 }
@@ -46,8 +52,10 @@ export function toGalleryPhoto(resource: PhotoResource): GalleryPhoto {
     width >= rw
       ? cloudinaryTransform(baseUrl, transform)
       : cloudinaryTransform(baseUrl, `${transform},w_${width}`);
-  const previewWidths = cappedWidths(PREVIEW_WIDTHS, Math.min(rw, PREVIEW_MAX_WIDTH));
-  const lightboxSrcSet = cappedWidths(LIGHTBOX_WIDTHS, rw).map((width) =>
+  // By URL, not by setting: this also runs in the browser.
+  const nas = baseUrl.startsWith("/img/");
+  const previewWidths = cappedWidths(nas ? NAS_PREVIEW_WIDTHS : PREVIEW_WIDTHS, Math.min(rw, PREVIEW_MAX_WIDTH));
+  const lightboxSrcSet = cappedWidths(nas ? NAS_LIGHTBOX_WIDTHS : LIGHTBOX_WIDTHS, nas ? Math.min(rw, NAS_MAX_WIDTH) : rw).map((width) =>
     scaledSource(imageUrl(width, width > PREVIEW_MAX_WIDTH ? LIGHTBOX_TRANSFORM : PREVIEW_TRANSFORM), width, rw, rh),
   );
 
