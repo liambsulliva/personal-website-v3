@@ -4,9 +4,21 @@
 #   docker compose -f compose.yaml -f compose.photos.yaml up -d
 #
 # .env also needs: PHOTOS_SHA, PHOTOS_USER (uid:gid that owns Published),
-# and, to commit albums, PUBLISH_ALBUMS=1 and GITHUB_TOKEN. Nothing is
-# published to the LAN; only Published is mounted from the photography share.
+# and, to commit albums, PUBLISH_ALBUMS=1 and GITHUB_TOKEN. For the dashboard:
+# PHOTOS_API_SECRET (32+ random characters, the same in Vercel) and
+# DASHBOARD_ORIGIN. Nothing is published to the LAN; only Published is mounted
+# from the photography share.
+#
+# Cloudflare: /img/* on the site's hostname goes to http://img:4330, and a
+# second hostname to http://photos:4331 with Access on it, except /upload,
+# which browsers reach directly and which checks its own signature.
 services:
+  site:
+    environment:
+      IMAGE_BACKEND: ${IMAGE_BACKEND:-cloudinary}
+    volumes:
+      - ./photos/index:/index:ro
+
   img:
     image: personal-website-photos:${PHOTOS_SHA:?PHOTOS_SHA is not set in .env}
     command: node img/server.mjs
@@ -43,6 +55,8 @@ services:
     environment:
       PUBLISH_ALBUMS: ${PUBLISH_ALBUMS:-0}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      PHOTOS_API_SECRET: ${PHOTOS_API_SECRET:-}
+      DASHBOARD_ORIGIN: ${DASHBOARD_ORIGIN:-}
     volumes:
       - /volume1/photography/Published:/published
       - ./photos/index:/index
