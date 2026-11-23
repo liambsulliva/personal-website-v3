@@ -7,10 +7,12 @@
 // a fixed number of possible outputs: a crawler inventing sizes can't fill the
 // disk or the CPU. Anything else in a transform is refused (404), not ignored.
 
-export const WIDTHS = [48, 96, 128, 168, 240, 320, 352, 480, 560, 640, 800, 960, 1200, 1280, 1600, 1920, 2560, 3200, 3840];
+export const WIDTHS = [48, 96, 128, 168, 240, 320, 352, 480, 560, 640, 800, 960, 1200, 1280, 1600, 1920, 2000, 2560, 3200, 3840];
 /** Bump when outputs change, so the disk cache and ETags do too. */
 export const PIPELINE = 1;
 
+/** The format's limit on either side. */
+const WEBP_MAX = 16383;
 const RATIOS = { "1:1": [1, 1], "4:5": [4, 5], "16:9": [16, 9], "40:21": [40, 21], "15:7": [15, 7] };
 const QUALITY = { auto: 78, "auto:good": 78, "auto:eco": 65, "auto:low": 40, "auto:best": 85 };
 const FORMATS = { auto: "webp", webp: "webp", jpg: "jpeg", jpeg: "jpeg", png: "png" };
@@ -89,7 +91,10 @@ export function resolve(transform, natural) {
     spec = { ...base, crop: "limit", gravity: "center", width: w, height: null };
   }
   const { crop: c, gravity, width: w, height: h } = spec;
-  return { ...spec, natural: { width: natural.width, height: natural.height }, key: [c, gravity, w, h ?? "", format, quality, blur ? "blur" : ""].join(",") };
+  // A very tall screenshot: WebP can't hold it, so it's a JPEG, as Cloudinary did.
+  const tall = (h ?? (w * natural.height) / natural.width) > WEBP_MAX;
+  const kind = format === "webp" && tall ? "jpeg" : format;
+  return { ...spec, format: kind, natural: { width: natural.width, height: natural.height }, key: [c, gravity, w, h ?? "", kind, quality, blur ? "blur" : ""].join(",") };
 }
 
 /**

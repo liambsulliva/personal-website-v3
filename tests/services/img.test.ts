@@ -67,6 +67,15 @@ describe("transforms", () => {
     expect(spec("c_limit,q_auto:best", { width: 6000, height: 4000 })).toMatchObject({ width: 3840 });
   });
 
+  it("sends a JPEG when the image is too tall for WebP", async () => {
+    const natural = { width: 1242, height: 40275 };
+    expect(spec("c_limit,f_auto,w_320", natural)!.format).toBe("webp");
+    expect(spec("c_limit,f_auto,w_540", natural)!.format).toBe("jpeg");
+    const strip = await sharp({ create: { width: 10, height: 17000, channels: 3, background: "#777" } }).png().toBuffer();
+    const meta = await sharp(await render(strip, spec("c_limit,f_auto", { width: 10, height: 17000 })!)).metadata();
+    expect([meta.format, meta.height]).toEqual(["jpeg", 17000]);
+  });
+
   it("keeps the upper part of tall photos, and sharp's pick otherwise", () => {
     const focus = (transform: string, width: number, height: number) => spec(transform, { width, height })!.gravity;
     expect(focus("c_fill,g_auto,w_1200,h_630", 4000, 6000)).toBe("upper");
@@ -167,7 +176,7 @@ describe("img server", () => {
 
   it("caches briefly without a version, or with an old one", async () => {
     for (const path of ["/img/upload/c_limit,w_480/aaa", "/img/upload/c_limit,w_480/v1786117728/aaa.jpg"]) {
-      expect((await get(path)).headers.get("cache-control"), path).toMatch(/max-age=300\b/);
+      expect((await get(path)).headers.get("cache-control"), path).toMatch(/max-age=3600\b/);
     }
   });
 

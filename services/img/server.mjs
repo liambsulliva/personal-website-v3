@@ -15,7 +15,7 @@ import { parsePath, PIPELINE, resolve } from "./transforms.mjs";
 
 const IMMUTABLE = "public, max-age=31536000, immutable";
 /** No version in the URL, or an old one: the bytes behind it can change. */
-const SHORT = "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400";
+const SHORT = "public, max-age=3600, stale-while-revalidate=86400";
 const NO_STORE = "no-store";
 
 /** Runs at most `jobs` at once; refuses work past `maxQueue` instead of piling it up. */
