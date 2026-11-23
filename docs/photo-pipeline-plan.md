@@ -1,6 +1,6 @@
 # Photo pipeline plan: publish from `/photography/Published`, without Cloudinary
 
-Branch: `env/self-host`. Goal: export a finished JPEG into one folder on the NAS and have it appear on the site, resized on the NAS, with no Cloudinary and no manual upload. Covers this repo and `cms-dashboard`. Approved in outline on 2026-11-23; the watcher and resizer are written and tested but not deployed (see "Built on 2026-11-23"), and the first 463 photos are in `Published` (see "Staged on 2026-11-23").
+Branch: `env/self-host`. Goal: export a finished JPEG into one folder on the NAS and have it appear on the site, resized on the NAS, with no Cloudinary and no manual upload. Covers this repo and `cms-dashboard`. Approved in outline on 2026-11-23; the watcher and resizer are written and tested but not deployed (see "Built on 2026-11-23"), and all 841 published photos are in `Published` (see "Staged on 2026-11-23").
 
 ## Decisions
 
@@ -85,7 +85,7 @@ Sharp 0.34.5, WebP, one core at `nice 15`, 12 published originals:
 
 ## Phases
 
-1. **Fill `Published`.** A script that copies files and writes the first `index.json`. Uses the NAS export where it is the same photo at the same or larger size and looks the same, otherwise Cloudinary's original. The export's bytes differ from the published ones, so each substitution is listed for review before anything is copied. Also the 79 `site/` images. The 8 Cloudinary samples are left out. Writing to the share needs its exact command approved first.
+1. **Fill `Published`.** A script that copies files and writes the first `index.json`. Cloudinary's originals for every photo (done 2026-11-23). Also the 79 `site/` images (not yet). The 8 Cloudinary samples are left out. Writing to the share needs its exact command approved first.
 2. **`photos`: watcher and index.** Unit tests for ready, replace, move, removal and the mass-removal stop. Runs beside Cloudinary, and `scripts/parity.mjs` compares its JSON with the live routes by value for this phase.
 3. **`img`.** Golden tests for each transform, the allowlist and EXIF stripping. Compose services, cache rule for `/img/*`, staging first.
 4. **Site.** `IMAGE_BACKEND` in `src/lib/cloudinary*.ts`, `photos.ts` and `albums.ts`. Both values covered by tests.
@@ -98,7 +98,6 @@ Rough effort: 2 to 3 weeks. Phase 5 is the largest.
 
 ## Needs Liam
 
-- How to fill the other 378 photos: the NAS exports (reviewed list) or Cloudinary's copies.
 - A GitHub token for `photos`, limited to contents read/write on this repo, saved in the project `.env`. New albums are committed to `main`, which deploys.
 - OK for each NAS command, for the new Cloudflare hostname, Access policy and cache rule, and for merging to `main`.
 - **An off-NAS backup of `Published`, before Cloudinary is closed.** Liam confirmed on 2026-11-23 that the `photography` snapshots stay on the NAS, and that iDrive is a deprecated method. `Published` is about 3.4 GB, and Hyper Backup can send it to an S3-compatible store such as Cloudflare R2. Until that runs, Cloudinary is the only other copy of what's published.
@@ -108,7 +107,7 @@ Rough effort: 2 to 3 weeks. Phase 5 is the largest.
 Phases 2 and 3, local only: `services/` (watcher, resizer, index, seed), `scripts/cloudinary-export.mjs`, `deploy/compose.photos.yaml`, `tests/services`.
 
 - Run from the checkout against the real 463 photos, read-only: a scan takes about 60 ms, every 480 px thumbnail rendered (463 in 49 s with six requests at once, 28 KB each), and cached ones take 5 ms. The resizer alone peaked at 334 MB, full-size 24 MP renders included.
-- The first scan after seeding changes nothing: no new ids, no album commits. The seed refuses to write while any published photo is missing or differs from Cloudinary's bytes, so it waits for the other 378 photos and the 79 site images.
+- The first scan after seeding changes nothing: no new ids, no album commits. The seed refuses to write while any published photo is missing or differs from Cloudinary's bytes, so the real one waits for the 79 site images.
 - The watcher won't start without an index, since starting empty would give every photo a new id. Albums are only committed with `PUBLISH_ALBUMS=1` and a token. It must stay off while the site still reads Cloudinary: a new album would name ids Cloudinary doesn't have.
 - To let a deliberate mass removal through, create `.allow-removals` in `Published`.
 - Not yet run: the Docker image and compose file (no Docker in the agent container), the Cloudflare route, and preview warming between containers. `deploy.sh` doesn't build or start these services yet.
@@ -116,14 +115,15 @@ Phases 2 and 3, local only: `services/` (watcher, resizer, index, seed), `script
 
 ## Staged on 2026-11-23
 
-Liam approved using Cloudinary's copies for the 463 photos with no finished file found.
+Liam approved using Cloudinary's copies, first for the 463 photos with no finished file found, then for the other 378, so the gallery stays exactly as it is. Liam will upgrade sizes later by re-exporting from Lightroom.
 
-- Cloudinary's originals went to `Exports/Cloudinary/<album>/<id>.jpg`, then were copied to `Published/<album>/<id>.jpg`. 28 folders, 1.9 GB. Every file's MD5 matches Cloudinary's etag in both places, with no extra files.
+- Cloudinary's originals went to `Exports/Cloudinary/<album>/<id>.jpg`, then were copied to `Published/<album>/<id>.jpg`. 54 folders (53 albums and `_unsorted`), 3.2 GB. All 841 files' MD5s match Cloudinary's etags in both places, with no extra files.
 - Folder names are the album title plus `M-DD` from the album's date; photos in no album are in `_unsorted`. The file name is the photo's id, so the first index maps files to ids without guessing. These albums already exist as YAML: the first index must link each folder to its slug, or the watcher would create it again.
 - **Low resolution:** 184 of them (all the October 2025 uploads) are 1024 px or smaller, which is what the site shows today. A larger export saved over the same file name replaces it and keeps its id.
 - `Exports/c52mtsxl1yd10whoowa5.jpg` is Liam's own hand download of one of them.
 - Tags aren't in the files; they still exist only in Cloudinary until phase 1 copies them.
-- Still to do: the other 378 photos, the tags and the 79 `site/` images.
+- A trial index seeded from all 841 matches the live site: the same ids in the same order, the same sizes, the same 13 public tags, and all 53 albums. The next two scans change nothing.
+- Still to do: the 79 `site/` images.
 
 ## Published photos with no finished file found
 
