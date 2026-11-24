@@ -1,6 +1,6 @@
 // The photo index: one JSON file, written only by the `photos` service and
 // replaced atomically, so any reader sees a whole version. Read by `img` and
-// (with IMAGE_BACKEND=nas) the site. docs/photo-pipeline-plan.md.
+// the site. docs/photo-pipeline-plan.md.
 //
 //   photos  { <id>: Photo }   id is the old Cloudinary public_id, or 20 random characters
 //   folders { <folder path>: Folder }   every album folder (lib/albums.mjs)

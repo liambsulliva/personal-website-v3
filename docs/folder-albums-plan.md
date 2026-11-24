@@ -43,7 +43,7 @@ Branch: `env/folder-albums` (from `env/self-host` f62b759); the dashboard's half
 
 ## Speed and removals
 
-- The watcher scans every 10 s and accepts a file after two matching scans. Roadmap, not built: kernel file events, with the scan as the fallback.
+- The watcher scans every 10 s and accepts a file after two matching scans.
 - The photography page and its JSON routes are not cached by Cloudflare; the site answers from the index in memory. Images keep their hashed, immutable URLs. The Cloudflare cache-rule change is Liam's to approve as an exact command or setting.
 - Up to 99 photos missing at once is a real delete and goes through. 100 or more changes nothing until Liam presses "Confirm removal" in the dashboard, which shows the count and folders. No timer, and no `.allow-removals` file.
 - An empty or unreadable `Published` is a failed scan that changes nothing, however long it lasts.
@@ -60,6 +60,18 @@ Branch: `env/folder-albums` (from `env/self-host` f62b759); the dashboard's half
 
 `main` only gets it at the switch: the `albums` content collection and its 53 YAML files, the Cloudinary code path and the `IMAGE_BACKEND` flag, and `npm run photos:albums`. `tests/cms` and the dashboard's `scripts/contract.mjs` change together, for albums only. Rollback is deploying the commit from before the switch. The Cloudinary account itself stays open and untouched until Liam closes it.
 
+## Roadmap
+
+- **Kernel file events.** The watcher reacts to inotify events and keeps the scan as the fallback. Not built: it has to be shown that this kernel reports SMB writes through a bind mount.
+
+## Order on staging
+
+1. **The copy**, before the code. `scripts/album-yaml.mjs` reads the old YAML (from 4d5b1ab or any earlier commit) and the index, proves nothing visible changes, and writes the 53 files as a tree; they're put in place by one command Liam approves. The old watcher ignores them.
+2. **Push** the site to `staging` and the dashboard's branch, and set `CMS_BRANCH=env/folder-albums` in staging's `.env`. The pinned deploy files still work with it: the build arguments and variables they pass are ignored.
+3. **Pin** the new deploy files (`deploy/pin.sh`, read the diff). This takes the photo services off `repo`'s network. The image tag loses its `-nas`, so the next poll builds the same commit once more.
+
+Out of order it's safe, not right: until a folder's `album.yaml` is there the watcher leaves an old album alone, keeps its address from the index, and says it's waiting for the copy. Its date and order fall back to what the folder gives.
+
 ## Switch
 
 Liam's, not run from this branch.
@@ -68,10 +80,36 @@ Liam's, not run from this branch.
 2. Production switches only after the soak ends on 2026-12-04, and after a Hyper Backup of `Published` to Cloudflare R2 (`docs/photo-backup.md`) has been restored from once.
 3. Until then Liam publishes into `Published` only and production stands still, so there is nothing to reconcile.
 4. At the switch the production dashboard moves to the NAS behind Cloudflare Access, and the Vercel dashboard and its GitHub token are retired.
-5. `2026-preview` and its one photo are removed.
+5. `2026-preview` and its one photo are removed: the YAML file goes with the staging branch, the photo (`c1dhrfqby05a2u52qiwy`, in `_unsorted`) in the dashboard.
+
+How, in order:
+
+1. Run the copy's check again (`scripts/album-yaml.mjs` without `--out`): 53 already there, nothing visible differs. Albums edited on staging since then show as differences, and are right.
+2. Stop staging's `img` and `photos`, move `photos/index` to the live project, and set `PHOTOS=1`, `PHOTOS_USER` and the dashboard's settings there. Give staging `PHOTO_INDEX_DIR` pointing at it, read-only, without `PHOTOS`. Exactly one project may run `photos`.
+3. Cloudflare: the live tunnel's `/img/*` and the dashboard's hostname, behind Access.
+4. Merge `env/folder-albums` to `main`, and pin the deploy files in the live project.
+5. The cache rule. Staging needs nothing (it has no edge cache except `/img`). Nothing here is cached either way, because the origin answers `private, no-cache`; the rule should say so too:
+
+   ```bash
+   t3-vault run cloudflare-token -- sh -c 'curl -sS -X PATCH -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json" \
+     https://api.cloudflare.com/client/v4/zones/<zone id>/rulesets/<ruleset id>/rules/<rule id> \
+     --data "{\"action\":\"set_cache_settings\",\"description\":\"personal-website: cache /writing per the origin Cache-Control\",\"enabled\":true,\"expression\":\"(http.host eq \\\"liambsullivan.com\\\") and (http.request.uri.path in {\\\"/writing\\\" \\\"/writing/\\\"})\",\"action_parameters\":{\"cache\":true,\"edge_ttl\":{\"mode\":\"respect_origin\"},\"browser_ttl\":{\"mode\":\"respect_origin\"}}}"'
+   ```
+
+   Production still needs today's rule until then: its Cloudinary searches are rate-limited.
+
+**Rollback:** deploy the commit from before the switch, with its deploy files. Its image is still on the NAS (the newest three are kept) and `compose.yaml.previous` is beside `compose.yaml`; `CLOUDINARY_*` stay in the live `.env` until Cloudinary is closed. A rolled-back watcher reads the same index: the old `albums` part is still in it, and it ignores `folders`.
+
+## How it's built
+
+- **Model:** `services/lib/albums.mjs`, used by the site and the watcher. Albums are worked out from the index: `photos`, and `folders`, which keeps what each `album.yaml` said.
+- **`album.yaml`:** `services/photos/albumFile.mjs` reads and edits it, keeping comments and unknown fields; `folders.mjs` keeps records and files in step, and follows a folder renamed or moved in Finder by its inode, its link, or where its photos went. A moved album's sub-albums need no `was` of their own: an old link's beginning is followed too.
+- **Dashboard actions:** `services/photos/albumOps.mjs`. Nothing is ever written over. "Remove album" moves every file out, published or not; what's left (`album.yaml`, hidden files) goes to the 30-day trash with the folder.
+- **Site:** `/photography/<path>`, `src/lib/photoShare.ts`. The JSON routes kept their `/api/cloudinary/` names: the pinned deploy script and the uptime check ask for them. Opening a top-level album from its stack still flies its cards; sub-albums, crumbs, the back button and the browser's own fade.
 
 ## Questions
 
 Asked of Liam; the rest of the plan doesn't wait for them.
 
 - **`.` folders.** Publishing files in any `.` folder would publish `.site/deleted`, the 30-day trash. Until Liam says otherwise `.` folders stay ignored, as they were; `_` folders follow the rule above, except `_site` at the top, which holds site imagery and has never been in the gallery.
+- **The stack's flight.** "Opening an album fades the current set out and the new one in" could mean the cards no longer fly out of a top-level stack. They still do: the current set fades out, and the new one arrives by the cards. Dropping the flight is a small change.

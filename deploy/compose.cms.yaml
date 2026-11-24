@@ -26,7 +26,6 @@ services:
       AUTH_USER_HASH: ${CMS_AUTH_USER_HASH:?}
       AUTH_PASSWORD_HASH: ${CMS_AUTH_PASSWORD_HASH:?}
       SESSION_SECRET: ${CMS_SESSION_SECRET:?}
-      IMAGE_BACKEND: nas
       PHOTOS_API_URL: http://photos:4331
       PHOTOS_API_SECRET: ${PHOTOS_API_SECRET:?}
       # Browser URLs, on the dashboard's own origin.

@@ -11,7 +11,7 @@ None of this has been run. There is no official Cloudflare guide for Hyper Backu
 3. **Task:** DSM > Hyper Backup > new data backup task > S3 Storage.
    - S3 server: Custom Server URL. Address: the endpoint. Signature version: v4. Region, if asked: `auto`.
    - Bucket: the one from step 1. Directory: `published`.
-   - Source: only `photography/Published`. It includes `.site/index.json`, which holds the ids, tags and album links that the files don't.
+   - Source: only `photography/Published`. It includes `.site/index.json`, which holds the ids and tags that the files don't, and each album's `album.yaml`.
    - Turn on client-side encryption, and keep the key file and password somewhere other than the NAS: without them the backup can't be opened.
    - Schedule: daily at night. Rotation: Smart Recycle, at most 30 versions. Integrity check: weekly.
 4. **Restore test:** restore one album and `.site/index.json` to a scratch folder, and compare their checksums with the originals. Cloudinary can close only after this.
