@@ -1,34 +1,32 @@
-// The photo watcher (docs/photo-pipeline-plan.md): scans Published, keeps the
-// index, warms the resizer and commits album files.
+// The photo watcher (docs/photo-pipeline-plan.md, docs/folder-albums-plan.md):
+// scans Published, keeps the index and each album's album.yaml, warms the resizer.
 //
-// Env: PUBLISHED_DIR, INDEX_FILE, SCAN_SECONDS (60), PORT (4331), IMG_ORIGIN
-// (http://img:4330). Albums are committed only with PUBLISH_ALBUMS=1, REPO_URL
-// and REPO_SECRET (services/repo, which holds the GitHub token); without them
-// the plan is logged and nothing leaves the NAS.
-// The dashboard's API (api.mjs) runs only with PHOTOS_API_SECRET (32+
-// characters); DASHBOARD_ORIGIN is the one site that may upload from a browser.
+// Env: PUBLISHED_DIR, INDEX_FILE, SCAN_SECONDS (10), PORT (4331), IMG_ORIGIN
+// (http://img:4330). The dashboard's API (api.mjs) runs only with
+// PHOTOS_API_SECRET (32+ characters); DASHBOARD_ORIGIN is the one site that may
+// upload from a browser. It has no route to the GitHub token.
 //
-// Writes in Published: .site/index.json (the index's backup), dashboard uploads
-// (_unsorted, _site) and deletes (.site/deleted, emptied after 30 days). It
-// deletes .allow-removals, the file that lets one mass removal through.
-import { existsSync, renameSync, writeFileSync } from "node:fs";
-import { readdir, unlink } from "node:fs/promises";
+// Writes in Published: .site/index.json (the index's backup), album.yaml in
+// album folders, what the dashboard asks for (api.mjs), and deletes
+// (.site/deleted, emptied after 30 days).
+import { renameSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { isLive, loadIndex, saveIndex } from "../lib/index.mjs";
-import { folderOf, planAlbums, syncAlbums } from "./albums.mjs";
 import { createApi, emptyTrash } from "./api.mjs";
-import { repoAlbums } from "./github.mjs";
-import { scan } from "./scan.mjs";
+import { newFolderMemory, saveFolders, syncFolders } from "./folders.mjs";
+import { listPublished, scan } from "./scan.mjs";
 
 export const WARM_TRANSFORMS = [480, 640, 800, 960, 1200, 1280].map((w) => `c_limit,f_auto,q_auto,w_${w}`).concat("c_fill,w_352,h_440,f_auto,q_auto");
 export const warmPaths = (id, { version }) =>
   WARM_TRANSFORMS.map((transform) => `/img/upload/${transform}/v${version}/${id.split("/").map(encodeURIComponent).join("/")}.webp`);
 
-export function createWatcher({ root, indexFile, repo = null, warm = null, log = console.log, scanMs = 60_000, now = () => new Date() }) {
+export function createWatcher({ root, indexFile, warm = null, log = console.log, scanMs = 10_000, now = () => new Date() }) {
   const memory = { seen: new Map(), rejected: new Map() };
-  const albumMemory = new Map();
+  const folderMemory = newFolderMemory();
+  /** Photos a person said may go, though 100 or more are missing. */
+  let confirmed = new Set();
   const told = new Set();
   let status = { ok: false, lastScan: null, error: "no scan yet", photos: 0, blocked: null, skipped: [] };
   let index = loadIndex(indexFile);
@@ -36,7 +34,7 @@ export function createWatcher({ root, indexFile, repo = null, warm = null, log =
     // A new host, or a lost disk: the copy that lives with the photos.
     index = loadIndex(join(root, ".site", "index.json"));
     // Starting empty would give every published photo a new id.
-    if (!index) throw new Error(`no index at ${indexFile} or in Published/.site; run services/photos/seed.mjs first`);
+    if (!index) throw new Error(`no index at ${indexFile} or in Published/.site`);
     writeFileSync(`${indexFile}.tmp`, `${JSON.stringify(index)}\n`);
     renameSync(`${indexFile}.tmp`, indexFile);
     log(`[photos] restored the index from Published/.site (${Object.keys(index.photos).length} images)`);
@@ -58,43 +56,33 @@ export function createWatcher({ root, indexFile, repo = null, warm = null, log =
 
   async function tick() {
     try {
-      // An unmounted or wrong folder can look empty; the removal guard also catches it.
-      if (!(await readdir(root)).length && Object.keys(index.photos).length) throw new Error("Published is empty");
-      const allowFile = join(root, ".allow-removals");
-      const allowRemovals = existsSync(allowFile);
       const result = await alone(async () => {
-        const scanned = await scan({ root, index, memory, now: now(), allowRemovals });
-        index = scanned.index;
-        if (scanned.changed) await save();
-        return scanned;
+        const listing = await listPublished(root);
+        const scanned = await scan({ root, index, memory, now: now(), confirmed, listing });
+        const next = scanned.changed ? scanned.index : structuredClone(index);
+        const albums = await syncFolders({ root, index: next, folders: listing.folders, events: scanned.events, memory: folderMemory, blocked: scanned.blocked, log });
+        if (scanned.changed || albums.changed) {
+          index = next;
+          await save();
+        }
+        return { ...scanned, skipped: [...albums.problems, ...scanned.skipped] };
       });
-      // Kept until the removals have gone through (they take two scans).
-      if (allowRemovals && result.events.some(({ type }) => type === "removed")) await unlink(allowFile);
+      if (!result.blocked) confirmed = new Set();
       for (const event of result.events) log(`[photos] ${event.type} ${event.id} ${event.from ? `${event.from} -> ` : ""}${event.path}`);
       for (const { path, reason } of result.skipped) if (!told.has(`${path}:${reason}`)) log(`[photos] skipped ${path}: ${reason}`);
       told.clear();
       for (const { path, reason } of result.skipped) told.add(`${path}:${reason}`);
 
-      if (repo) {
-        // Nothing is dropped from an album while a mass removal waits for a decision.
-        // Outside `alone`: GitHub can be slow, and only this loop touches index.albums.
-        if (!result.blocked && (await syncAlbums({ index, memory: albumMemory, repo, now: now().getTime(), log }))) await alone(save);
-      } else {
-        for (const { slug, folder, add, remove } of planAlbums(index)) {
-          const line = `[albums] not publishing: ${slug ?? "new album"} from "${folder}" +${add.length} -${remove.length}`;
-          if (!albumMemory.has(line)) log(line);
-          albumMemory.set(line, true);
-        }
-      }
+      const hold = result.blocked ? `${result.blocked.missing} photos are missing at once; nothing was removed. Put them back, or confirm the removal in the dashboard.` : null;
+      if (hold && hold !== status.error) log(`[photos] ${hold}`);
       status = {
         ok: !result.blocked,
         lastScan: now().toISOString(),
-        error: result.blocked ? `${result.blocked.missing} photos are missing at once (limit ${result.blocked.limit}); nothing was removed. Put them back, or create .allow-removals in Published.` : null,
+        error: hold,
         photos: Object.values(index.photos).filter(isLive).length,
         blocked: result.blocked,
         skipped: result.skipped,
       };
-      if (status.error) log(`[photos] ${status.error}`);
       if (warm) warm(result.events.filter(({ type }) => type === "added" || type === "replaced" || type === "restored").map(({ id }) => [id, index.photos[id]]));
       return result;
     } catch (error) {
@@ -106,39 +94,40 @@ export function createWatcher({ root, indexFile, repo = null, warm = null, log =
 
   return {
     tick,
-    /** Runs `change(index)` by itself and saves. If it throws, whatever it did to files is picked up by the next scan. */
+    /**
+     * Runs `change(index)` by itself, gives its albums their links and files,
+     * and saves. If it throws, whatever it did to files is picked up by the next scan.
+     */
     mutate: (change) =>
       alone(async () => {
         const next = structuredClone(index);
         const result = await change(next);
-        // Albums may have been committed while the change ran.
-        next.albums = index.albums;
+        const { folders } = await listPublished(root);
+        await saveFolders({ root, index: next, onDisk: new Map(folders.map(({ path, file }) => [path, file])), memory: folderMemory, log });
         index = next;
         await save();
         return result;
       }),
+    /** Lets the removals a person has seen go through, and nothing that went missing since. */
+    async confirmRemoval(key) {
+      if (!status.blocked || status.blocked.key !== key) return null;
+      const { missing, ids } = status.blocked;
+      confirmed = new Set([...confirmed, ...ids]);
+      log(`[photos] removal of ${missing} photos confirmed`);
+      await tick();
+      return { confirmed: missing };
+    },
     get index() {
       return index;
     },
-    /** For the dashboard: what the service sees, and what it's about to do. */
+    /** For the dashboard: what the service sees. */
     report() {
-      const live = Object.values(index.photos).filter(isLive);
-      const counts = new Map();
-      for (const photo of live) {
-        const folder = photo.kind === "photo" ? folderOf(photo.path) : null;
-        if (folder !== null) counts.set(folder, (counts.get(folder) ?? 0) + 1);
-      }
-      return {
-        ...this.health(),
-        skipped: status.skipped,
-        publishing: Boolean(repo),
-        folders: [...counts].map(([folder, count]) => ({ folder, count, album: Object.entries(index.albums).find(([, album]) => album.folder === folder)?.[0] ?? null })),
-        pending: planAlbums(index).map(({ slug, folder, create, add, remove }) => ({ album: slug, folder, create, add: add.length, remove: remove.length })),
-      };
+      return { ...this.health(), skipped: status.skipped };
     },
     health: () => {
       const stale = !status.lastScan || now() - new Date(status.lastScan) > Math.max(5 * 60_000, scanMs * 5);
-      return { ...status, ok: status.ok && !stale, skipped: status.skipped.length };
+      const blocked = status.blocked && { missing: status.blocked.missing, folders: status.blocked.folders, key: status.blocked.key };
+      return { ...status, blocked, ok: status.ok && !stale, skipped: status.skipped.length };
     },
   };
 }
@@ -166,12 +155,10 @@ export function createWarmer(origin, { log = console.log, fetch = globalThis.fet
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const scanMs = (Number(process.env.SCAN_SECONDS) || 60) * 1000;
-  const publish = process.env.PUBLISH_ALBUMS === "1" && process.env.REPO_URL && process.env.REPO_SECRET;
+  const scanMs = (Number(process.env.SCAN_SECONDS) || 10) * 1000;
   const watcher = createWatcher({
     root: process.env.PUBLISHED_DIR || "/published",
     indexFile: process.env.INDEX_FILE || "/index/index.json",
-    repo: publish ? repoAlbums({ url: process.env.REPO_URL, secret: process.env.REPO_SECRET }) : null,
     warm: createWarmer(process.env.IMG_ORIGIN || "http://img:4330"),
     scanMs,
   });

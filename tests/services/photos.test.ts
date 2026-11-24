@@ -4,13 +4,11 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import { emptyIndex, indexReader, loadIndex, saveIndex, tagsOf } from "../../services/lib/index.mjs";
-import { describeAlbum, folderOf, mergeAlbumYaml, newAlbumYaml, parseFolder, planAlbums, slugFor, syncAlbums } from "../../services/photos/albums.mjs";
-import { repoAlbums } from "../../services/photos/github.mjs";
+import { buildAlbums } from "../../services/lib/albums.mjs";
 import { createWarmer, createWatcher, warmPaths } from "../../services/photos/main.mjs";
 import { exifDate, iptcKeywords, readMetadata } from "../../services/photos/metadata.mjs";
-import { removalLimit, scan } from "../../services/photos/scan.mjs";
+import { listPublished, REMOVAL_HOLD, scan } from "../../services/photos/scan.mjs";
 import { seed } from "../../services/photos/seed.mjs";
 import { parsePath } from "../../services/img/transforms.mjs";
 
@@ -88,7 +86,7 @@ describe("scan", () => {
 
   it("ignores what isn't a photo to publish", async () => {
     const s = scanner();
-    for (const path of ["@eaDir/a.jpg", ".hidden.jpg", "#recycle/a.jpg", "Shoot/@eaDir/a.jpg", "Shoot/.a.jpg", "Shoot/deeper/a.jpg", "Shoot/notes.txt", "Shoot/raw.ARW", "Shoot/x.gif", "Shoot/a.jpg.part", ".site/b.jpg"]) await put(path, jpeg("red"));
+    for (const path of ["@eaDir/a.jpg", ".hidden.jpg", "#recycle/a.jpg", "Shoot/@eaDir/a.jpg", "Shoot/.a.jpg", "Shoot/notes.txt", "Shoot/raw.ARW", "Shoot/x.gif", "Shoot/a.jpg.part", ".site/b.jpg"]) await put(path, jpeg("red"));
     writeFileSync(join(dir, "private.jpg"), await jpeg("blue"));
     symlinkSync(join(dir, "private.jpg"), join(root, "Shoot", "link.jpg"));
     symlinkSync(dir, join(root, "linked"));
@@ -140,14 +138,43 @@ describe("scan", () => {
     expect(s.photos[id]).toMatchObject({ path: "B/a.jpg" });
   });
 
-  it("publishes the same bytes once", async () => {
+  it("publishes folders at any depth", async () => {
+    const s = scanner();
+    for (const [i, path] of ["a.jpg", "A/b.jpg", "A/B/C/c.jpg", "_unsorted/d.jpg", "A/_extras/e.jpg", "A/_site/f.jpg"].entries()) await put(path, jpeg(colorOf(i)));
+    await s.settle();
+    expect(s.live).toEqual(["A/B/C/c.jpg", "A/_extras/e.jpg", "A/_site/f.jpg", "A/b.jpg", "_unsorted/d.jpg", "a.jpg"]);
+    expect(Object.values(s.photos).every(({ kind }) => kind === "photo")).toBe(true);
+    const { folders } = await listPublished(root);
+    expect(folders.map(({ path }: { path: string }) => path).sort()).toEqual(["A", "A/B", "A/B/C"]);
+  });
+
+  it("keeps the older of two files with the same bytes, and says so while the copy is there", async () => {
     const s = scanner();
     const body = await jpeg("red");
     await put("A/a.jpg", body);
     await s.settle();
+    const [id] = Object.keys(s.photos);
     await put("B/a.jpg", body);
-    expect((await s.settle()).events).toEqual([]);
+    const flagged = { path: "B/a.jpg", reason: "same bytes as A/a.jpg", copyOf: "A/a.jpg" };
+    for (let i = 0; i < 4; i++) {
+      const { events, skipped } = await s.run();
+      expect(events).toEqual([]);
+      if (i) expect(skipped).toEqual([flagged]);
+    }
     expect(s.live).toEqual(["A/a.jpg"]);
+    // With the original gone, the copy is the photo: same id.
+    unlinkSync(join(root, "A/a.jpg"));
+    expect((await s.settle()).events).toMatchObject([{ type: "moved", id, path: "B/a.jpg" }]);
+    expect((await s.run()).skipped).toEqual([]);
+  });
+
+  it("publishes the older of two new files with the same bytes", async () => {
+    const s = scanner();
+    const body = await jpeg("red");
+    await put("Z/first.jpg", body);
+    await put("A/second.jpg", body);
+    const { skipped } = await s.settle();
+    expect([s.live, skipped.map(({ path }: { path: string }) => path)]).toEqual([["Z/first.jpg"], ["A/second.jpg"]]);
   });
 
   it("unpublishes after two scans, and restores the same id within 30 days", async () => {
@@ -168,23 +195,58 @@ describe("scan", () => {
     expect(s.photos[id]).toBeUndefined();
   });
 
-  it("changes nothing when too many photos vanish, until told to", async () => {
-    const s = scanner();
-    for (let i = 0; i < 30; i++) await put(`A/${i}.jpg`, jpeg(colorOf(i)));
-    await s.settle();
-    for (let i = 0; i < 4; i++) unlinkSync(join(root, `A/${i}.jpg`));
-    for (let i = 0; i < 4; i++) {
-      const { blocked, events } = await s.run();
-      expect([blocked, events]).toEqual([{ missing: 4, limit: 3 }, []]);
+  describe("photos missing at once", () => {
+    /** An index of `n` photos that were in A (and B), with `left` of them on disk. */
+    async function library(n: number, left: number) {
+      const index: any = emptyIndex();
+      for (let i = 0; i < n; i++) {
+        const path = `${i % 4 ? "A" : "B"}/${i}.jpg`;
+        if (i < left) await put(path, `photo ${i}`);
+        const sig = i < left ? `${Buffer.byteLength(`photo ${i}`)}:${clock * 1000}` : "1:1";
+        index.photos[`p${i}`] = { path, kind: "photo", sig, hash: `h${i}`, version: `h${i}`, bytes: 999, createdAt: "2026-01-01T00:00:00Z" };
+      }
+      return scanner(index);
     }
-    expect((await s.run()).changed).toBe(false); // waiting doesn't rewrite the index
-    expect(s.live).toHaveLength(30);
-    expect((await s.run({ allowRemovals: true })).events).toHaveLength(4);
-    expect(s.live).toHaveLength(26);
+
+    it("are deleted up to 99", async () => {
+      const s = await library(120, 21);
+      expect(await s.run()).toMatchObject({ events: [], blocked: null });
+      const { events, blocked } = await s.run();
+      expect([events.length, blocked, s.live.length]).toEqual([99, null, 21]);
+    });
+
+    it("are held from 100, however long it lasts, until exactly those are confirmed", async () => {
+      expect(REMOVAL_HOLD).toBe(100);
+      const s = await library(120, 20);
+      expect((await s.run()).blocked).toBeNull(); // one scan isn't a deletion yet
+      for (let i = 0; i < 5; i++) {
+        const { blocked, events } = await s.run();
+        expect(events).toEqual([]);
+        expect(blocked).toMatchObject({ missing: 100, limit: 100, folders: [{ folder: "A", count: 75 }, { folder: "B", count: 25 }] });
+      }
+      expect((await s.run({ now: new Date(Date.now() + 400 * 86_400_000) })).changed).toBe(false); // no timer, and waiting doesn't rewrite the index
+      const { blocked } = await s.run();
+      unlinkSync(join(root, "A/1.jpg"));
+      await s.run({ confirmed: new Set(blocked.ids.slice(1)) });
+      expect(s.live).toHaveLength(21); // the one left out, and the one that went since
+      expect((await s.run()).events).toHaveLength(2);
+    });
+
+    it("aren't held for a move that's still settling", async () => {
+      const s = await library(120, 20);
+      writeFileSync(join(root, "A/arriving.jpg"), "x".repeat(999));
+      expect(await s.run()).toMatchObject({ blocked: null, events: [] });
+    });
   });
 
-  it("limits removals to 10%, between 3 and 20", () => {
-    expect([1, 30, 100, 150, 841].map(removalLimit)).toEqual([3, 3, 10, 15, 20]);
+  it("never takes an empty folder for a deletion", async () => {
+    const s = scanner();
+    await put("A/a.jpg", jpeg("red"));
+    await s.settle();
+    rmSync(join(root, "A"), { recursive: true });
+    mkdirSync(join(root, ".site"));
+    for (let i = 0; i < 4; i++) await expect(s.run()).rejects.toThrow("Published is empty");
+    expect(s.live).toEqual(["A/a.jpg"]);
   });
 
   it("fails without changing anything when the folder can't be read", async () => {
@@ -242,172 +304,6 @@ describe("metadata", () => {
   });
 });
 
-describe("albums", () => {
-  const photo = (path: string, takenAt: string | null = null, extra = {}) => ({ path, kind: "photo", takenAt, createdAt: "2026-05-01T00:00:00.000Z", ...extra });
-
-  it("reads title and date from the folder", () => {
-    expect(parseFolder("Bigelow Bash 4-11")).toEqual({ title: "Bigelow Bash", month: 4, day: 11 });
-    expect(parseFolder("Haven - Feb 2025")).toEqual({ title: "Haven - Feb 2025", month: null, day: null });
-    expect(parseFolder("Score 20-45")).toEqual({ title: "Score 20-45", month: null, day: null });
-    expect(["A/a.jpg", "a.jpg", "_unsorted/a.jpg", "_site/x/a.png"].map(folderOf)).toEqual(["A", null, null, null]);
-  });
-
-  it("dates an album from its photos, then its folder", () => {
-    expect(describeAlbum("Bash 4-12", [["x", photo("a", "2026-04-11T10:00:00")]])).toEqual({ title: "Bash", year: 2026, date: "2026-04-11" });
-    expect(describeAlbum("Bash 4-12", [["x", photo("a")]])).toEqual({ title: "Bash", year: 2026, date: "2026-04-12" });
-    expect(describeAlbum("Bash", [["x", photo("a")]])).toEqual({ title: "Bash", year: 2026, date: null });
-    expect(slugFor({ title: "Puli's Car Show", year: 2026, date: "2026-04-11" }, new Set(["2026-pulis-car-show-0411"]))).toBe("2026-pulis-car-show-0411-2");
-  });
-
-  it("writes a file the albums collection accepts", () => {
-    const text = newAlbumYaml({ title: 'Say "hi": a show', year: 2026, date: "2026-04-11" }, ["a", "0123"]);
-    expect(parse(text)).toEqual({ title: 'Say "hi": a show', year: 2026, date: "2026-04-11", count: 2, photos: ["a", "0123"] });
-    expect(text).toContain("\ndate: 2026-04-11\n");
-  });
-
-  it("leaves the dashboard's edits alone when it adds and drops photos", () => {
-    const text = '# note\ntitle: "Mine"\nyear: 2026\ndate: 2026-04-11\ncount: 3\nphotos:\n  - "c"\n  - "a"\n  - "b"\n';
-    expect(mergeAlbumYaml(text, { add: ["d", "a"], remove: new Set(["a"]) })).toBe('# note\ntitle: "Mine"\nyear: 2026\ndate: 2026-04-11\ncount: 3\nphotos:\n  - "c"\n  - "b"\n  - "d"\n');
-    expect(mergeAlbumYaml(text, { add: ["a"], remove: new Set() })).toBeNull();
-    expect(mergeAlbumYaml(text, { add: [], remove: new Set(["a", "b", "c"]) })).toBeNull();
-  });
-
-  it("merges every album file in the repo without touching the rest of it", async () => {
-    const { readdirSync } = await import("node:fs");
-    const folder = join(__dirname, "../../src/content/albums");
-    for (const name of readdirSync(folder)) {
-      const text = readFileSync(join(folder, name), "utf8");
-      const merged = mergeAlbumYaml(text, { add: ["zzz"], remove: new Set() })!;
-      const count = parse(text).count;
-      expect(merged.replace('  - "zzz"\n', "").replace(`count: ${count + 1}`, `count: ${count}`), name).toBe(text);
-    }
-  });
-
-  it("doesn't put back a photo the dashboard took off an album", () => {
-    const index: any = { ...emptyIndex(), photos: { a: photo("A/a.jpg"), b: photo("A/b.jpg") }, albums: { one: { folder: "A", known: ["a", "b"] } } };
-    expect(planAlbums(index)).toEqual([]);
-    index.photos.c = photo("A/c.jpg");
-    delete index.photos.b;
-    expect(planAlbums(index)).toMatchObject([{ slug: "one", add: ["c"], remove: ["b"] }]);
-  });
-
-  it("follows a renamed folder instead of making a second album", () => {
-    const index: any = { ...emptyIndex(), photos: { a: photo("New/a.jpg"), b: photo("New/b.jpg") }, albums: { one: { folder: "Old", known: ["a", "b"] } } };
-    expect(planAlbums(index)).toEqual([{ slug: "one", folder: "New", create: false, add: [], remove: [], ids: ["a", "b"] }]);
-  });
-
-  it("commits once per album, after the folder has been quiet, and retries a failure", async () => {
-    const index: any = { ...emptyIndex(), photos: { a: photo("Bash 4-11/a.jpg", "2026-04-11T10:00:00") } };
-    const writes: any[] = [];
-    let down = true;
-    let tries = 0;
-    const repo = {
-      slugs: async () => [],
-      read: async () => null,
-      write: async (...args: any[]) => {
-        tries++;
-        if (down) throw new Error("503");
-        writes.push(args);
-      },
-    };
-    const memory = new Map();
-    const sync = (now: number) => syncAlbums({ index, memory, repo, now, quietMs: 100, log: () => {} } as any);
-    await sync(0);
-    index.photos.b = photo("Bash 4-11/b.jpg", "2026-04-11T09:00:00");
-    await sync(90); // another photo arrived: the wait starts again
-    await sync(150);
-    expect([tries, index.albums]).toEqual([0, {}]);
-    await sync(200); // due, but GitHub is down
-    expect(tries).toBe(1);
-    down = false;
-    expect(await sync(260)).toBe(true);
-    expect(writes).toHaveLength(1);
-    expect(parse(writes[0][1])).toMatchObject({ title: "Bash", photos: ["b", "a"] });
-    expect(index.albums).toEqual({ "2026-bash-0411": { folder: "Bash 4-11", known: ["b", "a"] } });
-    expect(await sync(9999)).toBe(false);
-    expect(writes).toHaveLength(1);
-  });
-
-  describe("albums the dashboard made or renamed", () => {
-    const yaml = (ids: string[], title = "Mine") => newAlbumYaml({ title, year: 2026, date: null } as any, ids);
-    const repoOf = (files: Record<string, string>) => {
-      const reads: string[] = [];
-      return {
-        files,
-        reads,
-        slugs: async () => Object.keys(files),
-        read: async (slug: string) => (reads.push(slug), files[slug] ? { text: files[slug], sha: `sha-${slug}` } : null),
-        write: async (slug: string, text: string) => void (files[slug] = text),
-      };
-    };
-    const sync = async (index: any, repo: any) => {
-      const memory = new Map();
-      for (const now of [0, 200]) await syncAlbums({ index, memory, repo, now, quietMs: 100, log: () => {} } as any);
-    };
-
-    it("follows an album renamed in the dashboard", async () => {
-      const index: any = { ...emptyIndex(), photos: { a: photo("A/a.jpg"), b: photo("A/b.jpg"), c: photo("A/c.jpg") }, albums: { old: { folder: "A", known: ["a", "b"] } } };
-      const repo = repoOf({ renamed: yaml(["b", "a"], "New title"), other: yaml(["x"]) });
-      await sync(index, repo);
-      expect(index.albums).toEqual({ renamed: { folder: "A", known: ["a", "b", "c"] } });
-      expect(parse(repo.files.renamed)).toMatchObject({ title: "New title", photos: ["b", "a", "c"], count: 3 });
-      expect(Object.keys(repo.files)).toEqual(["renamed", "other"]);
-    });
-
-    it("links a folder to the album the dashboard already made of it, instead of making another", async () => {
-      const index: any = { ...emptyIndex(), photos: { a: photo("A/a.jpg"), b: photo("A/b.jpg"), c: photo("A/c.jpg") } };
-      const repo = repoOf({ "2026-mine": yaml(["c", "a"], "Mine") });
-      await sync(index, repo);
-      expect(index.albums).toEqual({ "2026-mine": { folder: "A", known: ["a", "b", "c"] } });
-      expect(parse(repo.files["2026-mine"])).toMatchObject({ title: "Mine", photos: ["c", "a", "b"] });
-      expect(Object.keys(repo.files)).toEqual(["2026-mine"]);
-    });
-
-    it("doesn't take another folder's album, or one that shares only a few photos", async () => {
-      const index: any = { ...emptyIndex(), photos: { a: photo("A/a.jpg"), b: photo("A/b.jpg"), c: photo("A/c.jpg") }, albums: { taken: { folder: "B", known: [] } } };
-      index.photos.z = photo("B/z.jpg");
-      index.albums.taken.known = ["z"];
-      const repo = repoOf({ taken: yaml(["a", "b", "c", "z"]), best: yaml(["a", "q"]) });
-      await sync(index, repo);
-      expect(Object.keys(repo.files)).toHaveLength(3);
-      expect(index.albums.taken).toEqual({ folder: "B", known: ["z"] });
-      expect(parse(repo.files.best).photos).toEqual(["a", "q"]);
-    });
-
-    it("leaves a deleted album deleted", async () => {
-      const index: any = { ...emptyIndex(), photos: { a: photo("A/a.jpg"), b: photo("A/b.jpg") }, albums: { gone: { folder: "A", known: ["a"] } } };
-      const repo = repoOf({ other: yaml(["x"]) });
-      await sync(index, repo);
-      expect(Object.keys(repo.files)).toEqual(["other"]);
-      expect(index.albums).toEqual({ gone: { folder: "A", known: ["a", "b"] } });
-    });
-  });
-
-  it("writes an album only if it's still the file that was read", async () => {
-    const calls: any[] = [];
-    let shas: Record<string, string | null> = { "src/content/albums/one.yaml": "abc" };
-    let status = 200;
-    const fetch = async (url: string, init: any) => {
-      const op = url.split("/").at(-1)!;
-      calls.push([op, JSON.parse(init.body), init.headers.Authorization]);
-      const replies: Record<string, any> = { head: { oid: "h1" }, shas: { shas }, commit: { oid: "c1" }, read: { file: { text: "t", sha: "abc" } }, list: { files: [{ path: "src/content/albums/one.yaml" }] } };
-      return Response.json(status === 200 ? replies[op] : { error: { message: "The branch moved on" } }, { status });
-    };
-    const repo = repoAlbums({ url: "http://repo:4332", secret: "s3cret", fetch } as any);
-    expect([await repo.slugs(), await repo.read("one")]).toEqual([["one"], { text: "t", sha: "abc" }]);
-    await repo.write("one", "new", "abc", "m");
-    expect(calls.at(-1)).toEqual(["commit", { space: "albums", changes: [{ path: "src/content/albums/one.yaml", content: "new" }], message: "m", expectedHead: "h1" }, "Bearer s3cret"]);
-    shas = { "src/content/albums/one.yaml": "moved" };
-    await expect(repo.write("one", "new", "abc", "m")).rejects.toThrow("changed meanwhile");
-    await expect(repo.write("one", "new", null, "m")).rejects.toThrow("changed meanwhile");
-    expect(calls.filter(([op]) => op === "commit")).toHaveLength(1);
-    shas = { "src/content/albums/one.yaml": null };
-    await repo.write("one", "new", null, "m");
-    status = 409;
-    await expect(repo.read("one")).rejects.toThrow("409 The branch moved on");
-  });
-});
-
 describe("watcher", () => {
   const indexFile = () => join(dir, "index", "index.json");
   const log: string[] = [];
@@ -415,7 +311,7 @@ describe("watcher", () => {
   beforeEach(() => void (log.length = 0));
 
   it("won't start without an index, or with a damaged one", async () => {
-    expect(() => make()).toThrow(/seed/);
+    expect(() => make()).toThrow(/no index/);
     mkdirSync(dirname(indexFile()));
     writeFileSync(indexFile(), "{");
     expect(() => make()).toThrow();
@@ -453,7 +349,6 @@ describe("watcher", () => {
     expect(Object.keys(loadIndex(indexFile())!.photos)).toHaveLength(1);
     expect(readFileSync(join(root, ".site/index.json"), "utf8")).toBe(readFileSync(indexFile(), "utf8"));
     expect([warmed.length, watcher.health()]).toMatchObject([1, { ok: true, photos: 1 }]);
-    expect(log.some((line) => line.includes('not publishing: new album from "Shoot" +1'))).toBe(true);
     // A restart carries on from the file: no new id.
     const again = make();
     await again.tick();
@@ -461,26 +356,29 @@ describe("watcher", () => {
     expect(Object.keys(again.index.photos)).toEqual(Object.keys(watcher.index.photos));
   });
 
-  it("reports a vanished share and a mass removal, and lets one through on request", async () => {
-    await saveIndex(indexFile(), emptyIndex());
+  it("reports a vanished share, and holds a mass removal until it's confirmed by what was shown", async () => {
+    const index: any = emptyIndex();
+    for (let i = 0; i < 130; i++) index.photos[`p${i}`] = { path: `A/B/${i}.jpg`, kind: "photo", sig: "1:1", hash: `h${i}`, version: `h${i}`, bytes: 999, createdAt: "2026-01-01T00:00:00Z" };
+    index.folders["A/B"] = { link: "b" };
+    await put("C/keep.jpg", jpeg("red"));
+    await saveIndex(indexFile(), index);
     const watcher = make();
-    for (let i = 0; i < 12; i++) await put(`A/${i}.jpg`, jpeg(colorOf(i)));
-    await watcher.tick();
-    await watcher.tick();
     renameSync(root, `${root}-away`);
     mkdirSync(root);
     await watcher.tick();
     expect(watcher.health()).toMatchObject({ ok: false, error: "Published is empty" });
     rmSync(root, { recursive: true });
     renameSync(`${root}-away`, root);
-    for (let i = 0; i < 5; i++) unlinkSync(join(root, `A/${i}.jpg`));
+    for (let i = 0; i < 5; i++) await watcher.tick();
+    const { blocked } = watcher.health();
+    expect(watcher.health()).toMatchObject({ ok: false, photos: 131, blocked: { missing: 130, folders: [{ folder: "A/B", count: 130 }] } });
+    expect(watcher.index.folders["A/B"]).toEqual({ link: "b" });
+    expect([await watcher.confirmRemoval("other"), await watcher.confirmRemoval(undefined)]).toEqual([null, null]);
+    expect(watcher.health().photos).toBe(131);
+    expect(await watcher.confirmRemoval(blocked!.key)).toEqual({ confirmed: 130 });
+    expect(watcher.health()).toMatchObject({ ok: true, photos: 1, blocked: null });
     await watcher.tick();
-    await watcher.tick();
-    expect(watcher.health()).toMatchObject({ ok: false, photos: 12, blocked: { missing: 5, limit: 3 } });
-    writeFileSync(join(root, ".allow-removals"), "");
-    await watcher.tick();
-    expect(watcher.health()).toMatchObject({ ok: true, photos: 7 });
-    expect(existsSync(join(root, ".allow-removals"))).toBe(false);
+    expect(Object.keys(watcher.index.folders)).toEqual(["C"]);
   });
 
   it("warms URLs the resizer accepts, and keeps going when one fails", async () => {
@@ -522,7 +420,7 @@ describe("seed", () => {
     expect(index.photos["WBB_v._a-1_x"]).toMatchObject({ createdAt: "2025-10-31T06:48:58.000Z", tagEdits: { sports: true }, path: "Bash 4-11/WBB_v._a-1_x.jpg" });
     expect(index.albums).toEqual({ "2026-bash-0411": { folder: "Bash 4-11", known: ["WBB_v._a-1_x"] } });
     const s = scanner(index);
-    expect([(await s.settle()).changed, planAlbums(s.index)]).toEqual([false, []]);
+    expect([(await s.settle()).changed, buildAlbums(s.index).all.get("Bash 4-11")?.link]).toEqual([false, "2026-bash-0411"]);
   });
 
   it("names what's missing, different or unaccounted for", async () => {

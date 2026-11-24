@@ -18,14 +18,14 @@ const entry = (body: string, extra = "") => `---\ntitle: T\nwing: design\nsectio
 describe("what's published today", () => {
   it("is all allowed", () => {
     let count = 0;
-    for (const dir of ["career", "sections", "albums", "entries"]) {
+    for (const dir of ["career", "sections", "entries"]) {
       for (const name of readdirSync(join(CONTENT, dir))) {
         const path = `src/content/${dir}/${name}`;
         expect([path, changeProblem(spaces.content, { path, content: readFileSync(join(CONTENT, dir, name), "utf8") })]).toEqual([path, null]);
         count++;
       }
     }
-    expect(count).toBeGreaterThan(90);
+    expect(count).toBeGreaterThan(30);
     const manifest = "src/data/cloudinary-manifest.json";
     expect(changeProblem(spaces.content, { path: manifest, content: readFileSync(join(__dirname, "../..", manifest), "utf8") })).toBeNull();
   });
@@ -169,7 +169,7 @@ describe("entries can't hold code", () => {
 describe("paths and files", () => {
   const ok = "a: 1\n";
   it("takes content files and nothing else", () => {
-    for (const path of ["src/content/albums/2026-x.yaml", "src/content/career/a.yaml", "src/content/sections/design.yaml"]) expect(changeProblem(spaces.content, { path, content: ok })).toBeNull();
+    for (const path of ["src/content/career/a.yaml", "src/content/sections/design.yaml"]) expect(changeProblem(spaces.content, { path, content: ok })).toBeNull();
     for (const path of [
       ".github/workflows/x.yml",
       "Dockerfile",
@@ -181,12 +181,13 @@ describe("paths and files", () => {
       "src/content/entries/x.md",
       "src/content/entries/X.mdx",
       "src/content/entries/a/b.mdx",
-      "src/content/albums/../../../deploy/deploy.sh",
-      "src/content/albums/../x.yaml",
-      "src/content/albums/x.yaml\n",
-      "/src/content/albums/x.yaml",
-      "src/content/albums/x.yaml/",
-      "src\\content\\albums\\x.yaml",
+      "src/content/albums/x.yaml",
+      "src/content/career/../../../deploy/deploy.sh",
+      "src/content/career/../x.yaml",
+      "src/content/career/x.yaml\n",
+      "/src/content/career/x.yaml",
+      "src/content/career/x.yaml/",
+      "src\\content\\career\\x.yaml",
       "src/data/other.json",
       "services/repo/server.mjs",
       "",
@@ -194,31 +195,28 @@ describe("paths and files", () => {
     ]) {
       expect([path, changeProblem(spaces.content, { path, content: ok })]).toEqual([path, "That path can't be written"]);
     }
-    for (const path of [null, 1, {}, ["src/content/albums/x.yaml"]]) expect(changeProblem(spaces.content, { path, content: ok } as any)).not.toBeNull();
+    for (const path of [null, 1, {}, ["src/content/career/x.yaml"]]) expect(changeProblem(spaces.content, { path, content: ok } as any)).not.toBeNull();
   });
 
   it("keeps each file to what its type is", () => {
-    expect(changeProblem(spaces.content, { path: "src/content/albums/x.yaml", content: "a: !!js/function 'x'\n" })).not.toBeNull();
-    expect(changeProblem(spaces.content, { path: "src/content/albums/x.yaml", content: "a: !evil x\n" })).not.toBeNull();
-    expect(changeProblem(spaces.content, { path: "src/content/albums/x.yaml", content: "a: &x [1]\nb: *x\n" })).not.toBeNull();
-    expect(changeProblem(spaces.content, { path: "src/content/albums/x.yaml", content: 'title: "Wow! !important"\n' })).toBeNull();
-    expect(changeProblem(spaces.content, { path: "src/content/albums/x.yaml", content: "a: [" })).not.toBeNull();
+    expect(changeProblem(spaces.content, { path: "src/content/career/x.yaml", content: "a: !!js/function 'x'\n" })).not.toBeNull();
+    expect(changeProblem(spaces.content, { path: "src/content/career/x.yaml", content: "a: !evil x\n" })).not.toBeNull();
+    expect(changeProblem(spaces.content, { path: "src/content/career/x.yaml", content: "a: &x [1]\nb: *x\n" })).not.toBeNull();
+    expect(changeProblem(spaces.content, { path: "src/content/career/x.yaml", content: 'title: "Wow! !important"\n' })).toBeNull();
+    expect(changeProblem(spaces.content, { path: "src/content/career/x.yaml", content: "a: [" })).not.toBeNull();
     expect(changeProblem(spaces.content, { path: "src/data/cloudinary-manifest.json", content: "[]" })).not.toBeNull();
     expect(changeProblem(spaces.content, { path: "src/data/cloudinary-manifest.json", content: null })).not.toBeNull();
-    expect(changeProblem(spaces.content, { path: "src/content/albums/x.yaml", content: null })).toBeNull();
-    expect(changeProblem(spaces.content, { path: "src/content/albums/x.yaml", content: `a: "${"x".repeat(600_000)}"` })).toContain("large");
-    expect(changeProblem(spaces.content, { path: "src/content/albums/x.yaml", content: 7 } as any)).not.toBeNull();
+    expect(changeProblem(spaces.content, { path: "src/content/career/x.yaml", content: null })).toBeNull();
+    expect(changeProblem(spaces.content, { path: "src/content/career/x.yaml", content: `a: "${"x".repeat(600_000)}"` })).toContain("large");
+    expect(changeProblem(spaces.content, { path: "src/content/career/x.yaml", content: 7 } as any)).not.toBeNull();
     expect(changeProblem(spaces.drafts, { path: "drafts/src~content~entries~x.mdx.json", content: "{}" })).toBeNull();
     for (const path of ["vercel.json", "drafts/../vercel.json", "drafts/x.json", "server/x.ts"]) expect(changeProblem(spaces.drafts, { path, content: "{}" })).not.toBeNull();
-    expect(changeProblem(spaces.albums, { path: "src/content/entries/x.mdx", content: entry("Hi") })).not.toBeNull();
-    expect(changeProblem(spaces.albums, { path: "src/content/albums/x.yaml", content: null })).not.toBeNull();
   });
 });
 
 describe("the service", () => {
   const TOKEN = "github_pat_never_leaves";
   const cms = "c".repeat(40);
-  const photos = "p".repeat(40);
   const HEAD = "a".repeat(40);
   let server: Server, base: string;
   let sent: Array<{ query: string; variables: any; auth: string | null }>;
@@ -235,7 +233,7 @@ describe("the service", () => {
       if (query.includes("qualifiedName")) return { data: { repository: { ref: { target: { oid: HEAD, url: "u", committedDate: "d", messageHeadline: "m" } } } } };
       if (query.includes("on Tree")) {
         const blob = (path: string) => ({ path, type: "blob", oid: HEAD, object: { text: "a: 1\n" } });
-        return { data: { repository: { object: { entries: [blob("src/content/albums/x.yaml"), blob("src/content/albums/.secret"), { path: "src/content/albums/sub", type: "tree", oid: HEAD, object: {} }] } } } };
+        return { data: { repository: { object: { entries: [blob("src/content/career/x.yaml"), blob("src/content/career/.secret"), { path: "src/content/career/sub", type: "tree", oid: HEAD, object: {} }] } } } };
       }
       return { data: { repository: { object: { oid: HEAD, text: "a: 1\n" }, f0: { oid: HEAD }, f1: null } } };
     };
@@ -246,7 +244,7 @@ describe("the service", () => {
       return value instanceof Response ? value : Response.json(value);
     };
     const hub = github({ token: TOKEN, fetch } as any);
-    server = createServer(createRepo({ spaces, secrets: { cms, photos }, hub, allowCommit: () => allow(), log: (line: string) => logged.push(line) } as any));
+    server = createServer(createRepo({ spaces, secrets: { cms }, hub, allowCommit: () => allow(), log: (line: string) => logged.push(line) } as any));
     await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
@@ -261,22 +259,19 @@ describe("the service", () => {
     expect(text).not.toContain(TOKEN);
     return { status: res.status, body: JSON.parse(text) };
   };
-  const change = { path: "src/content/albums/x.yaml", content: "a: 1\n" };
+  const change = { path: "src/content/career/x.yaml", content: "a: 1\n" };
   const commit = (extra: object = {}, secret = cms) => post("commit", { space: "content", changes: [change], message: "m", ...extra }, secret);
 
   it("answers only its callers, each in its own spaces", async () => {
     for (const secret of [null, "", "x", `${cms}x`, TOKEN]) expect((await post("head", { space: "content" }, secret)).status).toBe(401);
     expect((await post("head", { space: "content" })).status).toBe(200);
     expect((await post("head", { space: "drafts" })).status).toBe(200);
-    expect((await post("head", { space: "albums" })).status).toBe(403);
-    for (const space of ["content", "drafts"]) expect((await commit({ space }, photos)).status).toBe(403);
-    expect((await commit({ space: "albums" }, photos)).status).toBe(200);
-    for (const space of ["__proto__", "constructor", "", null, { repo: "x/y" }]) expect((await post("head", { space })).status).toBe(403);
+    for (const space of ["albums", "__proto__", "constructor", "", null, { repo: "x/y" }]) expect((await post("head", { space })).status).toBe(403);
     expect((await fetch(`${base}/healthz`)).status).toBe(200);
   });
 
   it("an empty secret is nobody", async () => {
-    const open = createServer(createRepo({ spaces, secrets: { cms: "", photos: undefined }, hub: null, log: () => {} } as any));
+    const open = createServer(createRepo({ spaces, secrets: { cms: "" }, hub: null, log: () => {} } as any));
     await new Promise<void>((done) => open.listen(0, "127.0.0.1", done));
     const url = `http://127.0.0.1:${(open.address() as AddressInfo).port}/v1/head`;
     for (const authorization of ["Bearer ", "Bearer undefined", "Bearer"]) expect((await fetch(url, { method: "POST", headers: { authorization }, body: '{"space":"content"}' })).status).toBe(401);
@@ -308,7 +303,7 @@ describe("the service", () => {
     expect(res).toMatchObject({ status: 422, body: { problems: [{ path: bad.path }, { path: "deploy/deploy.sh" }] } });
     expect(sent).toEqual([]);
     expect(logged.join()).toContain("refused cms");
-    for (const extra of [{ changes: [] }, { changes: [change, change] }, { changes: [null] }, { changes: "x" }, { changes: Array.from({ length: 201 }, (_, i) => ({ path: `src/content/albums/a${i}.yaml`, content: "a: 1" })) }, { message: " " }, { message: 1 }, { expectedHead: "main" }]) {
+    for (const extra of [{ changes: [] }, { changes: [change, change] }, { changes: [null] }, { changes: "x" }, { changes: Array.from({ length: 201 }, (_, i) => ({ path: `src/content/career/a${i}.yaml`, content: "a: 1" })) }, { message: " " }, { message: 1 }, { expectedHead: "main" }]) {
       expect([JSON.stringify(extra).slice(0, 60), (await commit(extra)).status]).toEqual([JSON.stringify(extra).slice(0, 60), 400]);
     }
     expect(sent).toEqual([]);
@@ -316,14 +311,14 @@ describe("the service", () => {
 
   it("reads only what it would write", async () => {
     expect((await post("read", { space: "content", path: change.path })).body).toEqual({ file: { sha: HEAD, text: "a: 1\n" } });
-    expect((await post("list", { space: "content", dir: "src/content/albums" })).body.files.map((f: any) => f.path)).toEqual([change.path]);
-    expect((await post("shas", { space: "content", paths: [change.path, "src/content/albums/y.yaml"] })).body).toEqual({ shas: { [change.path]: HEAD, "src/content/albums/y.yaml": null } });
+    expect((await post("list", { space: "content", dir: "src/content/career" })).body.files.map((f: any) => f.path)).toEqual([change.path]);
+    expect((await post("shas", { space: "content", paths: [change.path, "src/content/career/y.yaml"] })).body).toEqual({ shas: { [change.path]: HEAD, "src/content/career/y.yaml": null } });
     const asked = sent.length;
-    for (const path of [".env", "deploy/.env.example", "src/lib/serverEnv.ts", "", 'x") { viewer { login } } #', "src/content/albums/x.yaml:main"]) {
+    for (const path of [".env", "deploy/.env.example", "src/lib/serverEnv.ts", "", 'x") { viewer { login } } #', "src/content/career/x.yaml:main"]) {
       expect((await post("read", { space: "content", path })).status).toBe(403);
       expect((await post("shas", { space: "content", paths: [path] })).status).toBe(403);
     }
-    for (const dir of ["", ".", "src", "src/content", "deploy", "src/content/albums/"]) expect((await post("list", { space: "content", dir })).status).toBe(403);
+    for (const dir of ["", ".", "src", "src/content", "deploy", "src/content/albums", "src/content/career/"]) expect((await post("list", { space: "content", dir })).status).toBe(403);
     expect(sent).toHaveLength(asked);
     // A path is always a variable, never part of a query.
     for (const { query } of sent) expect(query).not.toContain("src/content");

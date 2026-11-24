@@ -5,11 +5,15 @@
 //   replaced  the same for a known path with other bytes: keeps its id
 //   moved     a known photo's bytes at a new path, its old path gone: keeps its id
 //   restored  an unpublished photo's bytes are back within 30 days: keeps its id
-//   removed   missing for two scans running, unless too many vanish at once
+//   removed   missing for two scans running; 100 or more at once wait for a person
+//
+// Folders and their album.yaml are folders.mjs's.
 import { createHash, randomBytes } from "node:crypto";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
+import { dirName, isAlbumFolder } from "../lib/albums.mjs";
 import { TAG_RE } from "../lib/index.mjs";
+import { ALBUM_FILE, sigOf } from "./albumFile.mjs";
 import { readMetadata } from "./metadata.mjs";
 
 const MAX_BYTES = 50e6;
@@ -21,33 +25,54 @@ const SITE_DIR = "_site";
 /** Dotfiles, DSM's @eaDir and #recycle, Lightroom's and SMB's temporaries. */
 const isHidden = (name) => /^[.@#~]/.test(name) || /\.(tmp|part|crdownload|download)$/i.test(name) || name === "Thumbs.db";
 
-/** Files that could be published: root and one folder deep, and any depth under _site. Symlinks aren't followed. */
+/**
+ * What's in Published, at any depth. Symlinks aren't followed.
+ * files: what could be published; folders: every album folder, with its
+ * album.yaml's sig (null without one).
+ */
 export async function listPublished(root) {
   const files = [];
+  const folders = [];
   const skipped = [];
-  async function walk(dir, depth) {
-    for (const entry of await readdir(join(root, dir), { withFileTypes: true })) {
+  const statOrNull = (path) =>
+    stat(join(root, path)).catch((error) => {
+      if (error.code === "ENOENT") return null; // gone between the listing and here: treat it as not there
+      throw error; // the share is failing: change nothing
+    });
+  async function walk(dir, names) {
+    for (const entry of names) {
       if (isHidden(entry.name)) continue;
       const path = dir ? `${dir}/${entry.name}` : entry.name;
       const site = path === SITE_DIR || path.startsWith(`${SITE_DIR}/`);
       if (entry.isDirectory()) {
-        if (site || depth === 0) await walk(path, depth + 1);
-        else skipped.push({ path, reason: "folders inside a shoot folder aren't published" });
+        const info = await statOrNull(path);
+        const inside = info && (await readdir(join(root, path), { withFileTypes: true }).catch((error) => {
+          if (error.code === "ENOENT") return null;
+          throw error;
+        }));
+        if (!inside) continue;
+        if (isAlbumFolder(path)) {
+          const file = inside.some((child) => child.name === ALBUM_FILE && child.isFile()) ? await statOrNull(`${path}/${ALBUM_FILE}`) : null;
+          folders.push({ path, ino: info.ino, file: file && sigOf(file) });
+        }
+        await walk(path, inside);
       } else if (!entry.isFile()) {
         skipped.push({ path, reason: "not a regular file" });
+      } else if (entry.name === ALBUM_FILE && isAlbumFolder(dir)) {
+        continue;
       } else if (!(site ? SITE_EXT : PHOTO_EXT).test(entry.name)) {
         skipped.push({ path, reason: "not an image type that's published" });
       } else {
-        // Gone between the listing and here: treat it as not there.
-        const info = await stat(join(root, path)).catch(() => null);
+        const info = await statOrNull(path);
         if (!info) continue;
         if (info.size > MAX_BYTES) skipped.push({ path, reason: "over 50 MB" });
-        files.push({ path, kind: site ? "site" : "photo", size: info.size, sig: `${info.size}:${Math.trunc(info.mtimeMs)}`, tooBig: info.size > MAX_BYTES });
+        files.push({ path, kind: site ? "site" : "photo", size: info.size, sig: sigOf(info), mtime: Math.trunc(info.mtimeMs), tooBig: info.size > MAX_BYTES });
       }
     }
   }
-  await walk("", 0);
-  return { files, skipped };
+  const top = await readdir(root, { withFileTypes: true });
+  await walk("", top);
+  return { files, folders, skipped, empty: top.every((entry) => isHidden(entry.name)) };
 }
 
 const ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
@@ -60,16 +85,24 @@ export function newId(taken, random = randomBytes) {
 
 export const versionOf = (hash) => hash.slice(0, 12);
 
-/** How many photos may disappear at once before a person has to say so. */
-export const removalLimit = (live) => Math.max(3, Math.min(20, Math.floor(live / 10)));
+/** This many photos missing at once is held until a person confirms it. */
+export const REMOVAL_HOLD = 100;
+
+/** What a confirmation is for: exactly these photos. */
+const holdKey = (ids) => createHash("sha256").update([...ids].sort().join("\n")).digest("hex").slice(0, 16);
 
 /**
- * @param index  the current index (not modified)
- * @param memory { seen: Map<path, sig>, rejected: Map<path, sig> }, kept by the caller between scans
+ * @param index      the current index (not modified)
+ * @param memory     { seen: Map<path, sig>, rejected: Map<path, { sig, reason, twin? }> }, kept by the caller between scans
+ * @param confirmed  ids whose removal a person has confirmed
+ * @param listing    listPublished(root), when the caller already has it
  * Returns { index, changed, events, blocked, skipped }  events: [{ type, id, path, from? }]
+ *   blocked: { missing, limit, folders: [{ folder, count }], ids, key }
  */
-export async function scan({ root, index, memory, now = new Date(), allowRemovals = false, id = newId }) {
-  const { files, skipped } = await listPublished(root);
+export async function scan({ root, index, memory, now = new Date(), confirmed = new Set(), id = newId, listing }) {
+  const { files, empty, skipped } = listing ?? (await listPublished(root));
+  // An unmounted or wrong folder looks empty, and is not a deletion however long it lasts.
+  if (empty && Object.values(index.photos).some((photo) => !photo.goneAt)) throw new Error("Published is empty");
   const next = structuredClone(index);
   const photos = next.photos;
   const events = [];
@@ -86,12 +119,24 @@ export async function scan({ root, index, memory, now = new Date(), allowRemoval
   // A photo is there while its file is, even one now too big or damaged: that keeps the last good version.
   const isMissing = (photo) => !photo.goneAt && !onDisk.has(photo.path);
 
+  const refuse = (file, reason, twin = {}) => {
+    memory.rejected.set(file.path, { sig: file.sig, reason, ...twin });
+    skipped.push({ path: file.path, reason, ...(twin.twin ? { copyOf: twin.twin } : {}) });
+  };
   const seen = new Map();
-  for (const file of files) {
+  // Of two new files with the same bytes, the older is published.
+  for (const file of files.toSorted((a, b) => a.mtime - b.mtime || a.path.localeCompare(b.path))) {
     seen.set(file.path, file.sig);
     const known = byPath.get(file.path);
     if (known && photos[known].sig === file.sig) continue;
-    if (file.tooBig || memory.rejected.get(file.path) === file.sig) continue;
+    if (file.tooBig) continue;
+    const refused = memory.rejected.get(file.path);
+    // A copy is looked at again once the file it copies has gone or changed.
+    if (refused?.sig === file.sig && !(refused.twin && (!onDisk.has(refused.twin) || photos[refused.id]?.goneAt || photos[refused.id]?.hash !== refused.hash))) {
+      skipped.push({ path: file.path, reason: refused.reason, ...(refused.twin ? { copyOf: refused.twin } : {}) });
+      continue;
+    }
+    memory.rejected.delete(file.path);
     if (memory.seen.get(file.path) !== file.sig) {
       pendingSizes.add(file.size); // still being written, or just arrived
       continue;
@@ -112,8 +157,7 @@ export async function scan({ root, index, memory, now = new Date(), allowRemoval
     try {
       meta = await readMetadata(buffer);
     } catch (error) {
-      memory.rejected.set(file.path, file.sig);
-      skipped.push({ path: file.path, reason: `doesn't decode: ${error.message}` });
+      refuse(file, `doesn't decode: ${error.message}`);
       continue;
     }
     meta.fileTags = meta.fileTags.filter((tag) => TAG_RE.test(tag));
@@ -140,15 +184,14 @@ export async function scan({ root, index, memory, now = new Date(), allowRemoval
       continue;
     }
     if (file.kind === "photo" && twins.some((twin) => !photos[twin].goneAt)) {
-      memory.rejected.set(file.path, file.sig);
-      skipped.push({ path: file.path, reason: `same bytes as ${photos[twins.find((twin) => !photos[twin].goneAt)].path}` });
+      const twin = twins.find((other) => !photos[other].goneAt);
+      refuse(file, `same bytes as ${photos[twin].path}`, { twin: photos[twin].path, id: twin, hash });
       continue;
     }
     // Site imagery is addressed by name, as site/… public_ids always were.
     const fresh = file.kind === "site" ? `site/${file.path.slice(SITE_DIR.length + 1).replace(SITE_EXT, "")}` : id(photos);
     if (file.kind === "site" && photos[fresh] && !photos[fresh].goneAt) {
-      memory.rejected.set(file.path, file.sig);
-      skipped.push({ path: file.path, reason: `${fresh} is already ${photos[fresh].path}` });
+      refuse(file, `${fresh} is already ${photos[fresh].path}`);
       continue;
     }
     photos[fresh] = { ...facts, createdAt: photos[fresh]?.createdAt ?? now.toISOString() };
@@ -159,19 +202,30 @@ export async function scan({ root, index, memory, now = new Date(), allowRemoval
   memory.seen = seen;
   for (const path of memory.rejected.keys()) if (!onDisk.has(path)) memory.rejected.delete(path);
 
-  // Removals last, once every move has been recognised.
-  const missing = Object.entries(photos).filter(([, photo]) => isMissing(photo));
-  const live = Object.values(photos).filter((photo) => !photo.goneAt).length;
-  const limit = removalLimit(live);
-  const blocked = missing.length > limit && !allowRemovals ? { missing: missing.length, limit } : null;
-  for (const [photoId, photo] of missing) {
-    // A same-sized file is still settling: probably this photo, being moved.
-    if (pendingSizes.has(photo.bytes)) continue;
+  // Removals last, once every move has been recognised. A same-sized file that
+  // is still settling is probably a missing photo being moved.
+  const missing = Object.entries(photos).filter(([, photo]) => isMissing(photo) && !pendingSizes.has(photo.bytes));
+  for (const [, photo] of missing) {
     if ((photo.missing ?? 0) < 2) {
       photo.missing = (photo.missing ?? 0) + 1;
       touched = true;
     }
-    if (photo.missing < 2 || blocked) continue;
+  }
+  let blocked = null;
+  if (missing.length >= REMOVAL_HOLD && missing.some(([photoId, photo]) => photo.missing >= 2 && !confirmed.has(photoId))) {
+    const counts = new Map();
+    for (const [, photo] of missing) counts.set(dirName(photo.path), (counts.get(dirName(photo.path)) ?? 0) + 1);
+    const ids = missing.map(([photoId]) => photoId);
+    blocked = {
+      missing: missing.length,
+      limit: REMOVAL_HOLD,
+      folders: [...counts].map(([folder, count]) => ({ folder, count })).sort((a, b) => b.count - a.count || a.folder.localeCompare(b.folder)),
+      ids,
+      key: holdKey(ids),
+    };
+  }
+  for (const [photoId, photo] of missing) {
+    if (photo.missing < 2 || (blocked && !confirmed.has(photoId))) continue;
     photo.goneAt = now.toISOString();
     touched = true;
     events.push({ type: "removed", id: photoId, path: photo.path });

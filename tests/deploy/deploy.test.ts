@@ -459,11 +459,14 @@ describe.skipIf(!hasTools)("deploy.sh (poll a branch, build, switch)", () => {
       const services = Object.assign({}, ...files.map((file) => file.services)) as Record<string, { environment?: Record<string, string>; networks: string[]; volumes?: string[]; privileged?: boolean; ports?: unknown }>;
       const holding = Object.entries(services).filter(([, { environment }]) => /GITHUB_TOKEN/.test(JSON.stringify(environment ?? {}))).map(([name]) => name);
       expect(holding).toEqual(["repo"]);
+      // Nor a way to ask for a commit: only the dashboard has one.
+      const asking = Object.entries(services).filter(([, { environment }]) => /REPO_\w*SECRET/.test(JSON.stringify(environment ?? {}))).map(([name]) => name);
+      expect(asking.sort()).toEqual(["cms", "repo"]);
       expect(Object.fromEntries(Object.entries(services).map(([name, { networks }]) => [name, networks]))).toEqual({
         site: ["web"],
         cloudflared: ["web", "library"],
         img: ["library"],
-        photos: ["library", "repo"],
+        photos: ["library"],
         repo: ["repo"],
         cms: ["library", "repo"],
       });

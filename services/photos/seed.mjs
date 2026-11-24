@@ -15,7 +15,7 @@ import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { parse } from "yaml";
 import { emptyIndex, saveIndex, TAG_RE } from "../lib/index.mjs";
-import { folderOf, photosIn } from "./albums.mjs";
+import { albumOf, buildAlbums } from "../lib/albums.mjs";
 import { readMetadata } from "./metadata.mjs";
 import { listPublished, versionOf } from "./scan.mjs";
 
@@ -63,13 +63,13 @@ export async function seed({ exported, root, albums }) {
   problems.extra = files.filter(({ path }) => !used.has(path)).map(({ path }) => path);
 
   for (const { slug, photos } of albums) {
-    const folders = new Set(photos.map((id) => index.photos[id]).filter(Boolean).map(({ path }) => folderOf(path)));
+    const folders = new Set(photos.map((id) => index.photos[id]).filter(Boolean).map(({ path }) => albumOf(path)));
     const [folder] = folders;
     if (folders.size !== 1 || folder === null || Object.values(index.albums).some((album) => album.folder === folder)) {
       problems.albums.push(`${slug}: ${folders.size === 1 ? "folder is shared or not an album folder" : `${folders.size} folders`} (${[...folders].join(", ")})`);
       continue;
     }
-    index.albums[slug] = { folder, known: photosIn(index, folder).map(([id]) => id) };
+    index.albums[slug] = { folder, known: buildAlbums(index).all.get(folder).photos };
   }
   return { index, problems };
 }

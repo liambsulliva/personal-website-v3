@@ -43,10 +43,9 @@ main() {
         echo "IMAGE_BACKEND=nas"
         echo "PHOTOS=1"
         echo "PHOTOS_USER=$(stat -c '%u:%g' /volume1/photography/Published)"
-        for key in PHOTOS_API_SECRET REPO_CMS_SECRET REPO_PHOTOS_SECRET; do
+        for key in PHOTOS_API_SECRET REPO_CMS_SECRET; do
           echo "$key=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')"
         done
-        echo "PUBLISH_ALBUMS=0"
         echo "DRAFTS_BRANCH=drafts-staging"
         echo "SITE_SHA="
         # A plain `docker compose` in this folder sees the photo services too.

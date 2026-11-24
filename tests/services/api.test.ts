@@ -6,7 +6,6 @@ import { join } from "node:path";
 import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { emptyIndex, loadIndex, saveIndex } from "../../services/lib/index.mjs";
-import { planAlbums } from "../../services/photos/albums.mjs";
 import { createApi, emptyTrash, signUpload, TRASH, uploadFolder, uploadName } from "../../services/photos/api.mjs";
 import { createWatcher } from "../../services/photos/main.mjs";
 
@@ -18,7 +17,7 @@ let warmed: any[];
 let time: number;
 
 const jpeg = (color = "red", size = 40) => sharp({ create: { width: size, height: 20, channels: 3, background: color } }).jpeg().toBuffer();
-const filesIn = (path: string) => (existsSync(join(root, path)) ? readdirSync(join(root, path)).sort() : []);
+const filesIn = (path: string) => (existsSync(join(root, path)) ? readdirSync(join(root, path)).filter((name) => name !== "album.yaml").sort() : []);
 const auth = { authorization: `Bearer ${secret}` };
 const post = (path: string, body: unknown, headers: Record<string, string> = auth) => fetch(base + path, { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body) });
 const form = (file: Buffer | null, fields: Record<string, string> = {}) => {
@@ -162,18 +161,11 @@ describe("library", () => {
     expect([readFileSync(join(root, "Shoot/a.jpg")), filesIn(TRASH).length]).toEqual([other, 1]);
   });
 
-  it("reports its folders, what it skipped and the albums it's about to change", async () => {
+  it("reports its state and what it skipped", async () => {
     writeFileSync(join(root, "Shoot/notes.txt"), "x");
     await scanNow();
     const status = await (await fetch(`${base}/v1/status`, { headers: auth })).json();
-    expect(status).toMatchObject({
-      ok: true,
-      publishing: false,
-      photos: 2,
-      folders: [{ folder: "Shoot", count: 2, album: null }],
-      pending: [{ album: null, folder: "Shoot", create: true, add: 2, remove: 0 }],
-      skipped: [{ path: "Shoot/notes.txt" }],
-    });
+    expect(status).toMatchObject({ ok: true, photos: 2, blocked: null, skipped: [{ path: "Shoot/notes.txt" }] });
     expect((await fetch(`${base}/v1/status`)).status).toBe(401);
   });
 
@@ -197,7 +189,7 @@ describe("uploads", () => {
     const photo = await res.json();
     expect(photo).toMatchObject({ width: 40, height: 20, tags: ["music", "sports"], format: "jpg" });
     expect(filesIn("_unsorted")).toEqual([`${photo.public_id}.jpg`]);
-    expect([warmed.length, planAlbums(watcher.index).length]).toEqual([1, 1]); // the test's own Shoot folder only
+    expect(warmed.length).toBe(1);
     const before = Object.keys(watcher.index.photos).sort();
     for (let i = 0; i < 2; i++) expect((await scanNow()).events).toEqual([]);
     expect(Object.keys(watcher.index.photos).sort()).toEqual(before);
@@ -210,7 +202,6 @@ describe("uploads", () => {
     expect([second.folder, filesIn("New Shoot 11-23")]).toEqual(["New Shoot 11-23", ["DSC 01 (edit).jpg"]]);
     expect(filesIn("Shoot")).toEqual(["a-2.jpg", "a.jpg", "b.jpg"]);
     for (let i = 0; i < 2; i++) expect((await scanNow()).events).toEqual([]);
-    expect(planAlbums(watcher.index).map(({ folder, ids }: any) => [folder, ids.length])).toEqual([["Shoot", 3], ["New Shoot 11-23", 1]]);
   });
 
   it("keeps uploads inside Published", async () => {

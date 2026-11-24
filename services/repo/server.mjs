@@ -1,8 +1,8 @@
 // The only holder of the GitHub token (docs/photo-pipeline-plan.md, "Who can
-// do what"). The dashboard and the photo watcher ask it to read and commit
-// content; it decides the repository, the branch and the files, checks what's
-// in them, and never hands the token out. Reachable only inside the project's
-// network.
+// do what"). The dashboard asks it to read and commit content; it decides the
+// repository, the branch and the files, checks what's in them, and never hands
+// the token out. Reachable only from the dashboard's network; nothing that
+// touches photos is on it.
 //
 //   POST /v1/head    { space }                                -> { oid, url, date, message }
 //   POST /v1/list    { space, dir }                           -> { files: [{ path, sha, text }] }
@@ -10,10 +10,10 @@
 //   POST /v1/shas    { space, paths }                         -> { shas: { path: sha | null } }
 //   POST /v1/commit  { space, changes, message, expectedHead } -> { oid, url }
 //
-// Each caller has its own secret: `cms` gets content and drafts, `photos` albums.
+// Each caller has its own secret. The dashboard, `cms`, is the only one.
 //
 // Env: GITHUB_TOKEN, SITE_REPO, SITE_BRANCH, DRAFTS_REPO, DRAFTS_BRANCH,
-// REPO_CMS_SECRET, REPO_PHOTOS_SECRET (32+ characters), PORT (4332).
+// REPO_CMS_SECRET (32+ characters), PORT (4332).
 import { createHash, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
 import { pathToFileURL } from "node:url";
@@ -46,7 +46,7 @@ export function limiter(most, ms, now = Date.now) {
 }
 
 /**
- * @param options.secrets  { cms, photos }: who may call, by secret
+ * @param options.secrets  { cms }: who may call, by secret
  * @param options.hub      github(), or null without a token
  */
 export function createRepo({ spaces, secrets, hub, allowCommit = limiter(60, 600_000), log = console.log }) {
@@ -142,12 +142,11 @@ export function createRepo({ spaces, secrets, hub, allowCommit = limiter(60, 600
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const { GITHUB_TOKEN: token, SITE_REPO, SITE_BRANCH, DRAFTS_REPO, DRAFTS_BRANCH, REPO_CMS_SECRET: cms, REPO_PHOTOS_SECRET: photos } = process.env;
+  const { GITHUB_TOKEN: token, SITE_REPO, SITE_BRANCH, DRAFTS_REPO, DRAFTS_BRANCH, REPO_CMS_SECRET: cms } = process.env;
   for (const [name, value] of Object.entries({ SITE_REPO, SITE_BRANCH, DRAFTS_REPO, DRAFTS_BRANCH })) if (!value) throw new Error(`${name} is not set`);
-  for (const secret of [cms, photos]) if (secret && secret.length < 32) throw new Error("secrets must be at least 32 characters");
-  if (cms && cms === photos) throw new Error("each caller needs its own secret");
+  if (cms && cms.length < 32) throw new Error("REPO_CMS_SECRET must be at least 32 characters");
   const spaces = spacesFor({ siteRepo: SITE_REPO, siteBranch: SITE_BRANCH, draftsRepo: DRAFTS_REPO, draftsBranch: DRAFTS_BRANCH });
-  const server = createServer(createRepo({ spaces, secrets: { cms, photos }, hub: token ? github({ token }) : null }));
+  const server = createServer(createRepo({ spaces, secrets: { cms }, hub: token ? github({ token }) : null }));
   server.requestTimeout = 60_000;
   server.listen(Number(process.env.PORT || 4332), process.env.HOST || "0.0.0.0");
   for (const signal of ["SIGTERM", "SIGINT"]) process.once(signal, () => server.close(() => process.exit(0)));

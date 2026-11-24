@@ -4,9 +4,8 @@ import { entryProblem } from "./mdx.mjs";
 import { plainYaml } from "./yaml.mjs";
 
 const NAME = "[a-z0-9]+(?:-[a-z0-9]+)*";
-const YAML_FILE = new RegExp(`^src/content/(?:career|sections|albums)/${NAME}\\.yaml$`);
+const YAML_FILE = new RegExp(`^src/content/(?:career|sections)/${NAME}\\.yaml$`);
 const ENTRY_FILE = new RegExp(`^src/content/entries/${NAME}\\.mdx$`);
-const ALBUM_FILE = new RegExp(`^src/content/albums/${NAME}\\.yaml$`);
 const MANIFEST = "src/data/cloudinary-manifest.json";
 // The dashboard's own naming: the site path with ~ for /.
 const DRAFT_FILE = /^drafts\/src~(?:content|data)~[A-Za-z0-9._~-]+\.json$/;
@@ -30,7 +29,7 @@ export function spacesFor({ siteRepo, siteBranch, draftsRepo, draftsBranch }) {
     content: {
       ...site,
       who: "cms",
-      dirs: new Set(["entries", "sections", "career", "albums"].map((name) => `src/content/${name}`)),
+      dirs: new Set(["entries", "sections", "career"].map((name) => `src/content/${name}`)),
       allows: inContent,
       deletes: (path) => path !== MANIFEST,
     },
@@ -42,7 +41,6 @@ export function spacesFor({ siteRepo, siteBranch, draftsRepo, draftsBranch }) {
       allows: (path) => DRAFT_FILE.test(path),
       deletes: () => true,
     },
-    albums: { ...site, who: "photos", dirs: new Set(["src/content/albums"]), allows: (path) => ALBUM_FILE.test(path), deletes: () => false },
   };
 }
 

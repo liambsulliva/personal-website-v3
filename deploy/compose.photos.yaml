@@ -1,14 +1,14 @@
 # The photo services (docs/photo-pipeline-plan.md), added to compose.yaml's
 # project by deploy.sh when .env has PHOTOS=1.
 #
-# .env also needs PHOTOS_USER (uid:gid that owns Published), and, to commit
-# albums, PUBLISH_ALBUMS=1, GITHUB_TOKEN and REPO_PHOTOS_SECRET; for the
+# .env also needs PHOTOS_USER (uid:gid that owns Published); for the
 # dashboard's API, PHOTOS_API_SECRET and, only for a dashboard on another
 # origin, DASHBOARD_ORIGIN. Secrets are 32+ random characters. Nothing is
 # published to the LAN; only Published is mounted from the photography share.
 #
-# GITHUB_TOKEN goes to `repo` and nowhere else: the others ask it to commit
-# content, and it decides the repository, the branch and the files.
+# GITHUB_TOKEN goes to `repo` and nowhere else. The dashboard asks it to commit
+# content, and it decides the repository, the branch and the files. `img` and
+# `photos` aren't on its network.
 #
 # One project may run `photos`: it owns the index. The tunnel sends /img/* to
 # http://img:4330; http://photos:4331 stays inside the project's network, except
@@ -49,16 +49,13 @@ services:
     image: ${STACK:-personal-website}-photos:${PHOTOS_SHA:?}
     command: node photos/main.mjs
     restart: unless-stopped
-    networks: [library, repo]
+    networks: [library]
     init: true
     read_only: true
     user: ${PHOTOS_USER:?}
     environment:
       PUBLISHED_DIR: /published
       INDEX_FILE: /index/index.json
-      PUBLISH_ALBUMS: ${PUBLISH_ALBUMS:-0}
-      REPO_URL: http://repo:4332
-      REPO_SECRET: ${REPO_PHOTOS_SECRET:-}
       PHOTOS_API_SECRET: ${PHOTOS_API_SECRET:-}
       DASHBOARD_ORIGIN: ${DASHBOARD_ORIGIN:-}
     volumes:
@@ -92,7 +89,6 @@ services:
       DRAFTS_REPO: ${DRAFTS_REPO:-liambsulliva/cms-dashboard}
       DRAFTS_BRANCH: ${DRAFTS_BRANCH:-drafts}
       REPO_CMS_SECRET: ${REPO_CMS_SECRET:-}
-      REPO_PHOTOS_SECRET: ${REPO_PHOTOS_SECRET:-}
     mem_limit: 192m
     memswap_limit: 192m
     cpu_shares: 256
