@@ -292,6 +292,7 @@ export default function PhotoGallery({
   const cursorRef = useRef(cursor);
   const queueRef = useRef<{ running: boolean; pending: Request | null }>({ running: false, pending: null });
   const transitionRef = useRef<AlbumTransition | null>(null);
+  const destinationRef = useRef<Source>(source); // where the running queue will end up
   const cardsRef = useRef<CardFlight[]>([]);
   const clearRef = useRef<Animation | null>(null); // the gallery is faded back while set
   // false while the gallery is stepped out (album clear, chip swap): the share
@@ -702,6 +703,9 @@ export default function PhotoGallery({
     await fill(next.kind === "tag" ? next.tag : (snapshotRef.current?.tag ?? ""));
   };
 
+  const destinationOf = (next: Request): Source =>
+    next.kind === "restore" ? { kind: "tag", tag: snapshotRef.current?.tag ?? "" } : next;
+
   const request = (next: Request) => {
     const queue = queueRef.current;
     if (queue.running) {
@@ -709,11 +713,13 @@ export default function PhotoGallery({
       // A second click on the album that's opening is a no-op.
       if (next.kind === "album" && transition?.path === next.path && transition.phase !== "collapse" && !transition.reversed) return;
       // Anything else closes it: an explode in progress turns around.
+      destinationRef.current = destinationOf(next);
       if (transition && transition.phase !== "collapse" && transition.phase !== "fill") transition.reversed = true;
       queue.pending = next;
       return;
     }
     queue.running = true;
+    destinationRef.current = destinationOf(next);
     setTransitioning(true);
     void (async () => {
       let next_: Request | null = next;
@@ -778,6 +784,26 @@ export default function PhotoGallery({
       window.removeEventListener("popstate", back);
       off();
     };
+  }, []);
+
+  // Esc goes up a level, as the back button does: a sub-album to its parent, a
+  // top-level album to the full gallery. Mid-transition it's up from where that
+  // is headed. Captured, so an open photo or the site's menu is still open here
+  // and keeps the key to itself.
+  const lightboxRef = useRef(false);
+  lightboxRef.current = index >= 0;
+  useEffect(() => {
+    const up = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.repeat || event.isComposing) return;
+      if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+      const flight = flightRef.current?.phase;
+      const opening = flight !== undefined && flight !== "lighten" && flight !== "shrink";
+      if (lightboxRef.current || opening || document.querySelector("details[data-logomark][open]")) return;
+      const from = queueRef.current.running ? destinationRef.current : sourceRef.current;
+      if (from.kind === "album") goRef.current(new URL(parentHref(from.path), window.location.href));
+    };
+    window.addEventListener("keydown", up, { capture: true });
+    return () => window.removeEventListener("keydown", up, { capture: true });
   }, []);
 
   // Arriving on a shared link: the open stack / selected chip is brought into
@@ -1090,6 +1116,7 @@ export default function PhotoGallery({
             goRef.current(new URL(parent, window.location.href));
           }}
           aria-label={`Back to ${view?.crumbs.at(-2)?.title ?? "all photos"}`}
+          aria-keyshortcuts="Escape"
           aria-hidden={!backable}
           tabIndex={backable ? undefined : -1}
           className={`share-button squishy -ml-2 flex size-8 shrink-0 items-center justify-center ${

@@ -112,4 +112,5 @@ How, in order:
 
 - **`.` folders** (2026-11-24): never published.
 - **The stack's flight** (2026-11-24): the carousel and its card flight stay; sub-albums fade.
+- **Esc** (2026-11-24): goes up a level, as the back button does. An open photo or the site's menu closes first.
 - **Sub-albums' place** (2026-11-24): a row of their own above the photos, which scrolls sideways like the top-level carousel and never wraps. Tiles inside the masonry were tried (7bb3f3d) and taken out: the sizing was off.
