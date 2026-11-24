@@ -30,7 +30,7 @@ Branch: `env/folder-albums` (from `env/self-host` f62b759); the dashboard's half
 
 ## What is shown
 
-- Top-level albums are the stack carousel. Sub-albums appear only as tiles inside their parent: the same three-print stack card with title and count, placed before the photos, ordered by `order` if listed, else newest first.
+- Top-level albums are the stack carousel. Sub-albums appear only as tiles inside their parent: the same three-print stack card with title and count, as the first tiles of its masonry grid (Liam, 2026-11-24), ordered by `order` if listed, else newest first.
 - A folder's own photos are only the files directly in it. Its label counts everything beneath it. With no photos of its own, its cover comes from its first sub-album.
 - A folder with no sub-albums needs 5 photos to be shown, at any depth. A folder with at least one sub-album is exempt. A folder that would open to nothing (no photos of its own and no visible sub-album) is never shown.
 - Photos of hidden albums still appear in the full gallery. Nothing is held back: an album appears at its fifth photo and grows.

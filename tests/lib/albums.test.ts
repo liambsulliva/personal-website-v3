@@ -104,6 +104,10 @@ describe("the page", () => {
     expect(crumbs(html)).toEqual([["/photography", "Photography"], ["/photography/2026-otakon-2026", "Otakon 2026"]]);
     expect(html).toContain('property="og:url" content="https://liambsullivan.com/photography/2026-otakon-2026"');
     expect(html.indexOf('data-album-stack="2026-otakon-2026/day-1"')).toBeLessThan(html.indexOf("data-photo-index"));
+    // In the masonry with the photos, whose own numbers (the lightbox's) don't count it.
+    expect(html.indexOf("react-photo-album--masonry")).toBeLessThan(html.indexOf('data-album-stack="2026-otakon-2026/day-1"'));
+    expect(html.match(/data-photo-index="0"/g)).toHaveLength(1);
+    expect(html).toContain('aria-label="Open photo 1"');
     expect(html).toMatch(/<a href="\/photography" aria-label="Back to all photos"/);
     const sub = (await page("/photography/2026-otakon-2026/day-1")).html;
     expect(sub).toMatch(/<a href="\/photography\/2026-otakon-2026" aria-label="Back to Otakon 2026"/);
