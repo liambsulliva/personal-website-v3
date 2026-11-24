@@ -23,7 +23,7 @@ const KEEP_GONE_MS = 30 * 86_400_000;
 const SITE_DIR = "_site";
 
 /** Dotfiles, DSM's @eaDir and #recycle, Lightroom's and SMB's temporaries. */
-const isHidden = (name) => /^[.@#~]/.test(name) || /\.(tmp|part|crdownload|download)$/i.test(name) || name === "Thumbs.db";
+export const isHidden = (name) => /^[.@#~]/.test(name) || /\.(tmp|part|crdownload|download)$/i.test(name) || name === "Thumbs.db";
 
 /**
  * What's in Published, at any depth. Symlinks aren't followed.

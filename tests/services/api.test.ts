@@ -101,7 +101,7 @@ describe("library", () => {
     const { resources } = await (await fetch(`${base}/v1/photos`, { headers: auth })).json();
     expect(resources).toHaveLength(2);
     const photo = watcher.index.photos[resources[0].public_id];
-    expect(resources[0]).toMatchObject({ secure_url: `https://liambsullivan.com/img/upload/v${photo.version}/${resources[0].public_id}.webp`, width: 40, height: 20, format: "jpg", tags: [], folder: "Shoot", version: photo.version });
+    expect(resources[0]).toMatchObject({ secure_url: `https://liambsullivan.com/img/upload/v${photo.version}/${resources[0].public_id}.webp`, width: 40, height: 20, format: "jpg", tags: [], folder: "Shoot", album: "Shoot", version: photo.version });
     expect(resources.map(({ filename }: { filename: string }) => filename).sort()).toEqual(["a.jpg", "b.jpg"]);
     expect(new Date(resources[0].created_at).getTime()).toBeGreaterThan(0);
   });
@@ -183,6 +183,179 @@ describe("library", () => {
   });
 });
 
+describe("albums", () => {
+  let colour = 0;
+  async function photos(folder: string, n = 5) {
+    mkdirSync(join(root, folder), { recursive: true });
+    for (let i = 1; i <= n; i++) writeFileSync(join(root, folder, `${i}.jpg`), await jpeg(`#${(++colour * 4111).toString(16).padStart(6, "0").slice(-6)}`));
+  }
+  const settle = async () => {
+    for (let i = 0; i < 3; i++) await scanNow();
+  };
+  const call = async (op: string, body: unknown) => {
+    const res = await post(`/v1/albums/${op}`, body);
+    return { status: res.status, ...(await res.json()) };
+  };
+  const list = async (): Promise<any[]> => (await (await fetch(`${base}/v1/albums`, { headers: auth })).json()).albums;
+  const album = async (folder: string) => (await list()).find((item) => item.folder === folder);
+  const yaml = (folder: string) => readFileSync(join(root, folder, "album.yaml"), "utf8");
+  /** Nothing the API did looks like a change to the next scans. */
+  const quiet = async () => {
+    for (let i = 0; i < 3; i++) expect((await scanNow()).events).toEqual([]);
+  };
+
+  it("lists every album, hidden and empty ones too", async () => {
+    await photos("Otakon 2026/Day 1");
+    mkdirSync(join(root, "Empty"));
+    await settle();
+    expect((await list()).map(({ folder, title, parent, shown, count }) => [folder, title, parent, shown, count]).sort()).toEqual([
+      ["Empty", "Empty", null, false, 0],
+      ["Otakon 2026", "Otakon 2026", null, true, 5],
+      ["Otakon 2026/Day 1", "Day 1", "Otakon 2026", true, 5],
+      ["Shoot", "Shoot", null, false, 2],
+    ]);
+    expect(await album("Otakon 2026")).toMatchObject({ photos: [], subs: ["Otakon 2026/Day 1"], cover: [1, 2, 3].map((n) => idOf(`Otakon 2026/Day 1/${n}.jpg`)), broken: null });
+    expect((await fetch(`${base}/v1/albums`)).status).toBe(401);
+  });
+
+  it("creates a folder, at the top or inside an album", async () => {
+    expect(await call("create", { title: "Otakon 2026" })).toEqual({ status: 200, folder: "Otakon 2026" });
+    expect(await call("create", { title: "Day 1", parent: "Otakon 2026" })).toEqual({ status: 200, folder: "Otakon 2026/Day 1" });
+    expect([existsSync(join(root, "Otakon 2026/Day 1/album.yaml")), (await album("Otakon 2026/Day 1")).shown]).toEqual([true, false]);
+    expect((await call("create", { title: "otakon 2026" })).status).toBe(409);
+    expect((await call("create", { title: "x", parent: "Nowhere" })).status).toBe(404);
+    for (const title of ["", " x", "_unsorted", ".x", "a/b", "..", "Bash 4-11", "x".repeat(101), undefined, 7, { a: 1 }]) expect([title, (await call("create", { title })).status]).toEqual([title, 400]);
+    for (const parent of ["..", "../x", "_unsorted", ".site", null, ["Shoot"]]) expect([parent, (await call("create", { title: "x", parent })).status]).toEqual([parent, 404]);
+    await quiet();
+  });
+
+  it("renames the folder, keeping its day and its link", async () => {
+    await photos("Bash 4-11");
+    await photos("Bash 4-11/Day 1");
+    await settle();
+    const before = [idOf("Bash 4-11/1.jpg"), (await album("Bash 4-11")).path, (await album("Bash 4-11/Day 1")).path];
+    expect(await call("rename", { folder: "Bash 4-11", title: "Bigelow Bash" })).toEqual({ status: 200, folder: "Bigelow Bash 4-11" });
+    expect([idOf("Bigelow Bash 4-11/1.jpg"), (await album("Bigelow Bash 4-11")).path, (await album("Bigelow Bash 4-11/Day 1")).path]).toEqual(before);
+    expect([existsSync(join(root, "Bash 4-11")), yaml("Bigelow Bash 4-11")]).toEqual([false, expect.not.stringContaining("\nwas:")]);
+    expect(await call("rename", { folder: "Shoot", title: "SHOOT" })).toEqual({ status: 200, folder: "SHOOT" });
+    expect((await call("rename", { folder: "SHOOT", title: "Bigelow bash 4-11" })).status).toBe(400);
+    expect((await call("rename", { folder: "Bigelow Bash 4-11", title: "a/b" })).status).toBe(400);
+    expect((await call("rename", { folder: "Gone", title: "x" })).status).toBe(404);
+    await photos("Other 4-11", 1);
+    await settle();
+    expect((await call("rename", { folder: "Other 4-11", title: "bigelow bash" })).status).toBe(409);
+    await quiet();
+  });
+
+  it("moves an album into another and out again, its old link kept", async () => {
+    await photos("Day 1 7-31");
+    await photos("Otakon");
+    await settle();
+    const [otakon, old] = [(await album("Otakon")).path, (await album("Day 1 7-31")).path];
+    await call("update", { folder: "Otakon", order: ["2.jpg"] });
+    expect(await call("move", { folder: "Day 1 7-31", parent: "Otakon" })).toEqual({ status: 200, folder: "Otakon/Day 1 7-31" });
+    expect(await album("Otakon/Day 1 7-31")).toMatchObject({ path: `${otakon}/${old}`, parent: "Otakon", count: 5 });
+    expect(yaml("Otakon/Day 1 7-31")).toContain(`was:\n  - ${old}\n`);
+    for (const parent of ["Otakon", "Otakon/Day 1 7-31"]) expect((await call("move", { folder: "Otakon", parent })).status).toBe(400);
+    for (const parent of ["Nope", "_unsorted", "..", undefined]) expect((await call("move", { folder: "Otakon", parent })).status).toBe(404);
+    await call("update", { folder: "Otakon", order: ["Day 1 7-31", "2.jpg"] });
+    expect(await call("move", { folder: "Otakon/Day 1 7-31", parent: "" })).toEqual({ status: 200, folder: "Day 1 7-31" });
+    expect([(await album("Day 1 7-31")).path, (await album("Otakon")).order]).toEqual([old, ["2.jpg"]]);
+    expect((await call("create", { title: "Shoot", parent: "Otakon" })).status).toBe(200);
+    expect((await call("move", { folder: "Shoot", parent: "Otakon" })).status).toBe(409);
+    await quiet();
+  });
+
+  it("sets the date and the order, cover first, and takes them out", async () => {
+    await photos("Bash");
+    await settle();
+    expect((await call("update", { folder: "Bash", date: "2019-03-04", order: ["4.jpg", "2.jpg"] })).status).toBe(200);
+    expect(await album("Bash")).toMatchObject({ date: "2019-03-04", dateSet: "2019-03-04", year: 2019, order: ["4.jpg", "2.jpg"], cover: ["4.jpg", "2.jpg", "1.jpg"].map((name) => idOf(`Bash/${name}`)) });
+    expect(yaml("Bash")).toMatch(/date: 2019-03-04\norder:\n  - 4\.jpg\n  - 2\.jpg\n/);
+    await quiet();
+    await call("update", { folder: "Bash", date: null });
+    expect([(await album("Bash")).dateSet, (await album("Bash")).order]).toEqual([null, ["4.jpg", "2.jpg"]]);
+    await call("update", { folder: "Bash", order: [] });
+    expect(yaml("Bash")).not.toMatch(/^(date|order):/m);
+    for (const bad of [{ date: "March" }, { date: 2019 }, { date: ["2019-03-04"] }, { order: "x" }, { order: ["a/b"] }, { order: [1] }, { order: [""] }]) expect([bad, (await call("update", { folder: "Bash", ...bad })).status]).toEqual([bad, 400]);
+  });
+
+  it("won't replace an album.yaml it can't read", async () => {
+    await settle();
+    writeFileSync(join(root, "Shoot/album.yaml"), "date: [\n");
+    await settle();
+    expect(await call("update", { folder: "Shoot", date: "2019-03-04" })).toMatchObject({ status: 409, error: { message: expect.stringContaining("Shoot/album.yaml") } });
+    expect([yaml("Shoot"), (await album("Shoot")).broken]).toEqual(["date: [\n", expect.any(String)]);
+  });
+
+  it("moves photos between albums and _unsorted, with their ids, never over another", async () => {
+    await photos("Bash");
+    await settle();
+    await call("update", { folder: "Bash", order: ["3.jpg", "1.jpg"] });
+    const ids = [idOf("Bash/1.jpg"), idOf("Bash/2.jpg")];
+    writeFileSync(join(root, "Shoot/1.jpg"), "not a photo yet");
+    const move = async (body: object) => (await post("/v1/photos/move", body)).json();
+    expect(await move({ ids: [...ids, "nope"], folder: "Shoot" })).toEqual({ moved: { [ids[0]]: "moved", [ids[1]]: "moved", nope: "not_found" } });
+    expect(ids.map((id) => watcher.index.photos[id].path)).toEqual(["Shoot/1-2.jpg", "Shoot/2.jpg"]);
+    expect([readFileSync(join(root, "Shoot/1.jpg"), "utf8"), (await album("Bash")).order, filesIn("Bash")]).toEqual(["not a photo yet", ["3.jpg"], ["3.jpg", "4.jpg", "5.jpg"]]);
+    expect(await move({ ids, folder: "_unsorted" })).toEqual({ moved: { [ids[0]]: "moved", [ids[1]]: "moved" } });
+    expect(filesIn("_unsorted")).toEqual(["1-2.jpg", "2.jpg"]);
+    await quiet();
+    for (const folder of ["Nope", "..", "_site", "", null]) expect((await post("/v1/photos/move", { ids, folder })).status).toBe(404);
+    for (const bad of [[], "x"]) expect((await post("/v1/photos/move", { ids: bad, folder: "Shoot" })).status).toBe(400);
+  });
+
+  it("removes an album and keeps everything in it", async () => {
+    await photos("Con");
+    await photos("Con/Day 1");
+    await photos("Con/_extras", 1);
+    await photos("Day 1", 1);
+    writeFileSync(join(root, "Con/notes.psd"), "mine");
+    writeFileSync(join(root, "Con/.DS_Store"), "x");
+    mkdirSync(join(root, "_unsorted"));
+    writeFileSync(join(root, "_unsorted/1.jpg"), await jpeg("white"));
+    await settle();
+    const ids = Object.keys(watcher.index.photos).sort();
+    const [one, deep, trashed, link] = [idOf("Con/1.jpg"), idOf("Con/Day 1/1.jpg"), idOf("Con/5.jpg"), (await album("Con/Day 1")).path];
+    await post("/v1/delete", { ids: [trashed] });
+    expect(await call("remove", { folder: "Con" })).toEqual({ status: 200, photos: 4, albums: 1 });
+    expect([existsSync(join(root, "Con")), filesIn("_unsorted"), filesIn("Day 1 2"), filesIn("_extras")]).toEqual([false, ["1-2.jpg", "1.jpg", "2.jpg", "3.jpg", "4.jpg", "notes.psd"], ["1.jpg", "2.jpg", "3.jpg", "4.jpg", "5.jpg"], ["1.jpg"]]);
+    expect([watcher.index.photos[one].path, watcher.index.photos[deep].path, Object.keys(watcher.index.photos).sort()]).toEqual(["_unsorted/1-2.jpg", "Day 1 2/1.jpg", ids]);
+    expect([(await list()).map(({ folder }) => folder).sort(), yaml("Day 1 2")]).toEqual([["Day 1", "Day 1 2", "Shoot"], expect.stringContaining(`- ${link}`)]);
+    expect((await (await post("/v1/restore", { ids: [trashed] })).json()).restored).toEqual({ [trashed]: "restored" });
+    expect(watcher.index.photos[trashed].path).toBe("_unsorted/5.jpg");
+    await quiet();
+    // album.yaml and hidden files wait in the trash with the folder, then go.
+    expect(filesIn(TRASH).filter((name) => name.endsWith("-album-Con"))).toHaveLength(1);
+    await emptyTrash(root, time + 31 * 86_400_000);
+    expect(filesIn(TRASH)).toEqual([]);
+    expect((await call("remove", { folder: "Con" })).status).toBe(404);
+  });
+
+  it("refuses to act outside Published's albums", async () => {
+    for (const folder of ["..", ".", "", "_unsorted", "_site", ".site", "Shoot/..", "/etc", null, 1, "__proto__"]) {
+      for (const op of ["rename", "move", "update", "remove"]) expect([folder, op, (await call(op, { folder, title: "x", parent: "" })).status]).toEqual([folder, op, 404]);
+    }
+    expect((await post("/v1/albums/remove", { folder: "Shoot" }, {})).status).toBe(401);
+    expect(filesIn("Shoot")).toEqual(["a.jpg", "b.jpg"]);
+  });
+
+  it("confirms only the removal that was shown", async () => {
+    expect((await post("/v1/confirm-removal", { key: "x" })).status).toBe(409);
+    const index: any = structuredClone(watcher.index);
+    for (let i = 0; i < 100; i++) index.photos[`p${i}`] = { path: `Big/${i}.jpg`, kind: "photo", sig: "1:1", hash: `h${i}`, version: `h${i}`, bytes: 999, createdAt: "2026-01-01T00:00:00Z" };
+    await watcher.mutate((live: any) => void Object.assign(live, index));
+    await settle();
+    const status = async () => (await fetch(`${base}/v1/status`, { headers: auth })).json();
+    const { blocked } = await status();
+    expect(blocked).toEqual({ missing: 100, folders: [{ folder: "Big", count: 100 }], key: expect.any(String) });
+    expect((await post("/v1/confirm-removal", { key: `${blocked.key}x` })).status).toBe(409);
+    expect((await status()).photos).toBe(102);
+    expect(await (await post("/v1/confirm-removal", { key: blocked.key })).json()).toEqual({ confirmed: 100 });
+    expect(await status()).toMatchObject({ ok: true, photos: 2, blocked: null });
+  });
+});
+
 describe("uploads", () => {
   it("publishes a photo with its tags at once, and the scan then has nothing to do", async () => {
     const res = await upload(await jpeg("red"), uploadUrl("music,sports"));
@@ -205,10 +378,10 @@ describe("uploads", () => {
   });
 
   it("keeps uploads inside Published", async () => {
-    for (const bad of ["..", "../x", "a/b", "_site", ".site", "@eaDir", "#recycle", "a\\b", " x", "x ", "x.", "a\u0000b", "x".repeat(101)]) {
+    for (const bad of ["..", "../x", "a/../b", "a//b", "/a", "a/", "a/_x", "A/album.yaml", "x.part", "_site", ".site", "@eaDir", "#recycle", "a\\b", " x", "x ", "x.", "a\u0000b", "x".repeat(101)]) {
       expect([bad, uploadFolder(bad)]).toEqual([bad, null]);
     }
-    expect(["", "_unsorted", "St. Patrick's Day 2025 - Ginger Run 3-15"].map(uploadFolder)).toEqual(["_unsorted", "_unsorted", "St. Patrick's Day 2025 - Ginger Run 3-15"]);
+    expect(["", "_unsorted", "St. Patrick's Day 2025 - Ginger Run 3-15", "Otakon 2026/Day 1"].map(uploadFolder)).toEqual(["_unsorted", "_unsorted", "St. Patrick's Day 2025 - Ginger Run 3-15", "Otakon 2026/Day 1"]);
     expect(["../../etc/passwd.jpg", ".hidden.jpg", "~tmp.jpg", "a/b.jpg", "Müller 1.jpg", "...", "x\n.jpg"].map(uploadName)).toEqual(["etc_passwd", "hidden", "tmp", "a_b", "Müller 1", "", "x_"]);
     const res = await upload(await jpeg("red"), uploadTo("../escape", "x.jpg"));
     expect([res.status, existsSync(join(dir, "escape"))]).toEqual([400, false]);

@@ -3,10 +3,18 @@
 //
 //   GET  /v1/photos, /v1/site-images     { resources: [Photo] }
 //   POST /v1/tags                        { ids, tag, command: "add" | "remove" }
-//   GET  /v1/status                      the watcher's health, folders and pending albums
+//   GET  /v1/status                      the watcher's health, what it skipped, a removal it holds
+//   POST /v1/confirm-removal             { key } (the held removal's) -> { confirmed }
 //   POST /v1/delete                      { ids } -> { deleted: { id: "deleted" | "not_found" } }
 //   POST /v1/restore                     { ids } -> { restored: { id: "restored" | "not_found" | "taken" } }
 //   POST /v1/site-image                  multipart: file, public_id (replaces)
+//   GET  /v1/albums                      { albums: [Album] }, hidden ones included (albumOps.mjs)
+//   POST /v1/albums/create               { title, parent } -> { folder }
+//   POST /v1/albums/rename               { folder, title } -> { folder }
+//   POST /v1/albums/move                 { folder, parent } -> { folder }    "" is the top
+//   POST /v1/albums/update               { folder, date?, order? } -> { folder }
+//   POST /v1/albums/remove               { folder } -> { photos, albums }   moved out of it
+//   POST /v1/photos/move                 { ids, folder } -> { moved: { id: "moved" | "not_found" } }
 //   POST /upload?timestamp&tags&folder&name&signature   multipart: file
 //
 // /v1 needs `Authorization: Bearer <PHOTOS_API_SECRET>`, on top of Cloudflare
@@ -14,9 +22,12 @@
 // short-lived signature the dashboard's server makes with the same secret,
 // checked before any of the file is read.
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import { link, mkdir, readdir, rename, stat, unlink, writeFile } from "node:fs/promises";
+import { link, mkdir, readdir, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { albumOf, dirName } from "../lib/albums.mjs";
 import { isLive, TAG_RE, tagsOf } from "../lib/index.mjs";
+import { sigOf } from "./albumFile.mjs";
+import { createAlbum, isFolderName, listAlbums, moveAlbum, movePhotos, OpError, removeAlbum, renameAlbum, UNSORTED, updateAlbum } from "./albumOps.mjs";
 import { readMetadata } from "./metadata.mjs";
 import { newId, versionOf } from "./scan.mjs";
 
@@ -32,12 +43,7 @@ const EXT = { jpeg: "jpg", png: "png", webp: "webp", tiff: "tif", gif: "gif", sv
 const PHOTO_FORMATS = new Set(["jpeg", "png", "webp", "tiff"]);
 export const TRASH = ".site/deleted";
 
-class ApiError extends Error {
-  constructor(status, message) {
-    super(message);
-    this.status = status;
-  }
-}
+class ApiError extends OpError {}
 
 const digest = (text) => createHash("sha256").update(text).digest();
 const same = (a, b) => timingSafeEqual(digest(String(a)), digest(String(b)));
@@ -63,7 +69,8 @@ const toPhoto = (id, photo, origin) => ({
   format: EXT[photo.format] ?? photo.format,
   bytes: photo.bytes,
   created_at: photo.createdAt,
-  folder: photo.kind === "site" ? id.slice(0, id.lastIndexOf("/")) : photo.path.slice(0, Math.max(0, photo.path.indexOf("/"))),
+  folder: photo.kind === "site" ? id.slice(0, id.lastIndexOf("/")) : dirName(photo.path),
+  album: photo.kind === "photo" ? albumOf(photo.path) : null,
   filename: photo.path.slice(photo.path.lastIndexOf("/") + 1),
   version: photo.version,
   taken_at: photo.takenAt ?? undefined,
@@ -71,14 +78,12 @@ const toPhoto = (id, photo, origin) => ({
 });
 
 /**
- * A folder an upload may go to: _unsorted, or a shoot folder the watcher would
- * publish. Null for anything else (a path, a hidden or reserved name).
+ * A folder an upload may go to: _unsorted, or an album's path. Null for
+ * anything else (a way out of Published, a hidden or reserved name).
  */
 export function uploadFolder(name) {
-  if (name === "" || name === "_unsorted") return "_unsorted";
-  // eslint-disable-next-line no-control-regex
-  if (name.length > 100 || name !== name.trim() || /^[._@#~]|[\\/:*?"<>|\x00-\x1f]|\.$/.test(name)) return null;
-  return name;
+  if (name === "" || name === UNSORTED) return UNSORTED;
+  return name.split("/").every(isFolderName) ? name : null;
 }
 
 /** "IMG 1.jpeg" → "IMG 1": the file's own name, without anything a path could be made of. */
@@ -94,7 +99,7 @@ export async function emptyTrash(root, now = Date.now()) {
   const dir = join(root, TRASH);
   for (const name of await readdir(dir).catch(() => [])) {
     const at = Number(/^(\d{13})-/.exec(name)?.[1]);
-    if (at && now - at > KEEP_DELETED_MS) await unlink(join(dir, name));
+    if (at && now - at > KEEP_DELETED_MS) await rm(join(dir, name), { recursive: true, force: true });
   }
 }
 
@@ -173,7 +178,7 @@ export function createApi({ watcher, root, secret, origin = "https://liambsulliv
       await unlink(temp).catch(() => {});
     }
     const info = await stat(file);
-    return `${info.size}:${Math.trunc(info.mtimeMs)}`;
+    return sigOf(info);
   }
 
   async function toTrash(path, id) {
@@ -267,7 +272,7 @@ export function createApi({ watcher, root, secret, origin = "https://liambsulliv
           continue;
         }
         const info = await stat(file);
-        photo.sig = `${info.size}:${Math.trunc(info.mtimeMs)}`;
+        photo.sig = sigOf(info);
         delete photo.goneAt;
         delete photo.missing;
         restored[id] = "restored";
@@ -328,6 +333,22 @@ export function createApi({ watcher, root, secret, origin = "https://liambsulliv
     return toPhoto(...result, origin);
   }
 
+  const context = (index) => ({ root, index, toTrash });
+  /** An album action: alone with the index, applied at once. */
+  const action = (name, run) => async (req) => {
+    const input = await json(req);
+    const result = await watcher.mutate((index) => run(context(index), input));
+    log(`[api] ${name} ${JSON.stringify(input).slice(0, 300)}`);
+    return result;
+  };
+
+  async function confirmRemoval(req) {
+    const { key } = await json(req);
+    const result = await watcher.confirmRemoval(String(key));
+    if (!result) throw new ApiError(409, "What's missing has changed; look again");
+    return result;
+  }
+
   const ROUTES = {
     "GET /v1/photos": () => list("photo"),
     "GET /v1/site-images": () => list("site"),
@@ -336,6 +357,14 @@ export function createApi({ watcher, root, secret, origin = "https://liambsulliv
     "POST /v1/delete": remove,
     "POST /v1/restore": restore,
     "POST /v1/site-image": siteImage,
+    "POST /v1/confirm-removal": confirmRemoval,
+    "GET /v1/albums": () => ({ albums: listAlbums(watcher.index) }),
+    "POST /v1/albums/create": action("create", createAlbum),
+    "POST /v1/albums/rename": action("rename", renameAlbum),
+    "POST /v1/albums/move": action("move", moveAlbum),
+    "POST /v1/albums/update": action("update", updateAlbum),
+    "POST /v1/albums/remove": action("remove", removeAlbum),
+    "POST /v1/photos/move": action("move photos", (at, input) => movePhotos(at, { ...input, ids: idsOf(input) })),
     "POST /upload": upload,
   };
 
@@ -361,8 +390,9 @@ export function createApi({ watcher, root, secret, origin = "https://liambsulliv
       if (!route) throw new ApiError(404, "Not found");
       send(200, await route(req));
     } catch (error) {
-      if (!(error instanceof ApiError)) log(`[api] ${req.method} ${path}: ${error.stack ?? error}`);
-      send(error instanceof ApiError ? error.status : 500, { error: { message: error instanceof ApiError ? error.message : "The photo service failed; nothing was confirmed" } });
+      const known = error instanceof OpError;
+      if (!known) log(`[api] ${req.method} ${path}: ${error.stack ?? error}`);
+      send(known ? error.status : 500, { error: { message: known ? error.message : "The photo service failed; nothing was confirmed" } });
     }
   };
 }

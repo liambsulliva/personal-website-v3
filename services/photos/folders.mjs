@@ -154,7 +154,8 @@ export async function syncFolders({ root, index, folders, events = [], memory, b
       }
       if (!from) continue;
       relocate(index, from, at);
-      for (const folder of [...vanished]) if (folder === from || isUnder(folder, from)) vanished.delete(folder);
+      vanished.clear();
+      for (const folder of Object.keys(records)) if (!listed.has(folder)) vanished.add(folder);
       changed = true;
       log(`[albums] ${from} is now ${at}`);
     }
