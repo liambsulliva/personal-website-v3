@@ -147,11 +147,6 @@ type Source = GallerySource;
 // A chip or stack click. `restore`: the open stack's empty slot, back to the
 // tag the album replaced.
 type Request = Source | { kind: "restore" };
-/** A sub-album's width:height for the masonry, which only uses it to pick a
- *  column: the real height is the prints' plus a caption of 2–4 lines. */
-const STACK_RATIO = { width: 2, height: 3 };
-/** What the masonry holds: sub-albums' stacks, then the photos. */
-type Tile = { key: string; src: string; width: number; height: number; album?: AlbumCard; previewSrcSet?: string };
 type Page = { photos: GalleryPhoto[]; cursor: string | null; view: AlbumView | null };
 
 /** Every photo for a chip ("" = All), to shuffle (api/cloudinary/pool). */
@@ -280,6 +275,7 @@ export default function PhotoGallery({
   const rootRef = useRef<HTMLDivElement>(null);
   const galleryRef = useRef<HTMLDivElement>(null);
   const albumRef = useRef<HTMLDivElement>(null);
+  const tilesRef = useRef<HTMLDivElement>(null);
   const flightRef = useRef<Flight | null>(null);
   const viewIndexRef = useRef(-1);
   const zoomRef = useRef(1);
@@ -528,7 +524,7 @@ export default function PhotoGallery({
     transition.phase = "fly";
     albumMark("E4-fly");
     void revealGallery({ fade: false });
-    albumRef.current?.querySelectorAll<HTMLElement>("[data-album-stack]").forEach((stack) => fadeIn(stack));
+    if (tilesRef.current) fadeIn(tilesRef.current);
     const all = tiles();
     const onScreen = all.filter(({ box }) => inViewport(box)).slice(0, MAX_FLYERS);
     // Below the fold: the preview cards still leave, out the bottom edge.
@@ -836,14 +832,10 @@ export default function PhotoGallery({
     }
   };
   const filtered = source.kind === "album" || source.tag !== "";
-  const tileCards = useMemo(() => view?.tiles ?? [], [view]);
-  const masonry = useMemo<Tile[]>(
-    () => [...tileCards.map((album) => ({ key: `album:${album.path}`, src: "", ...STACK_RATIO, album })), ...photos],
-    [tileCards, photos],
-  );
+  const tileCards = view?.tiles ?? [];
   // Shown with a filtered gallery that has something on screen; a click in
   // progress keeps it (spinner, check) whatever the gallery does.
-  const filled = galleryShown && masonry.length > 0;
+  const filled = galleryShown && (photos.length > 0 || tileCards.length > 0);
   const shareable = (filtered && filled) || share !== "idle";
   const parent = source.kind === "album" ? parentHref(source.path) : null;
   // It stays with an album that failed to load: that's the way out of it.
@@ -1121,36 +1113,41 @@ export default function PhotoGallery({
       <div ref={galleryRef} className="w-full min-w-0" data-name="Gallery" aria-busy={loading}>
         {/* What an album transition fades back and brings forward. */}
         <div ref={albumRef} className="w-full min-w-0 origin-top">
-        {masonry.length > 0 ? (
+        {tileCards.length > 0 && (
+          <div
+            ref={tilesRef}
+            className={`flex flex-wrap gap-4 md:gap-6 ${photos.length > 0 ? "mb-8" : ""}`}
+            role="group"
+            aria-label={`Albums in ${view?.title}`}
+            data-name="SubAlbums"
+          >
+            {tileCards.map((album) => (
+              <AlbumStack key={album.path} album={album} open={false} load onSelect={({ path }) => request({ kind: "album", path })} />
+            ))}
+          </div>
+        )}
+        {photos.length > 0 ? (
           <PhotoAlbum
             layout="masonry"
-            photos={masonry}
+            photos={photos}
             spacing={(containerWidth) => (containerWidth < 640 ? 8 : containerWidth < 1024 ? 16 : 24)}
             columns={(containerWidth) => (containerWidth < 640 ? 3 : containerWidth < 1024 ? 4 : 5)}
             defaultContainerWidth={1312}
             sizes={ALBUM_SIZES}
-            renderPhoto={({ photo, layout, wrapperStyle, imageProps: { sizes } }) => {
-              if (photo.album) {
-                // Not the ratio's height: its caption is text, so it has its own.
-                const tile = { marginBottom: wrapperStyle?.marginBottom };
-                return <AlbumStack album={photo.album} open={false} load tile={tile} onSelect={({ path }) => request({ kind: "album", path })} />;
-              }
-              const photoIndex = layout.index - tileCards.length;
-              return (
-                <button
-                  type="button"
-                  aria-label={`Open photo ${photoIndex + 1}`}
-                  className="gallery-tile squishy squishy-tile relative block appearance-none overflow-hidden rounded-md border-0 bg-skeleton p-0"
-                  style={wrapperStyle}
-                  data-photo-index={photoIndex}
-                  onClick={(event) => openPhoto(event.currentTarget, photoIndex)}
-                >
-                  <ProgressiveImage placeholderSrc={photo.src} srcSet={photo.previewSrcSet} sizes={sizes} alt={`Photo ${photoIndex + 1}`} />
-                </button>
-              );
-            }}
+            renderPhoto={({ photo, layout, wrapperStyle, imageProps: { sizes } }) => (
+              <button
+                type="button"
+                aria-label={`Open photo ${layout.index + 1}`}
+                className="gallery-tile squishy squishy-tile relative block appearance-none overflow-hidden rounded-md border-0 bg-skeleton p-0"
+                style={wrapperStyle}
+                data-photo-index={layout.index}
+                onClick={(event) => openPhoto(event.currentTarget, layout.index)}
+              >
+                <ProgressiveImage placeholderSrc={photo.src} srcSet={photo.previewSrcSet} sizes={sizes} alt={`Photo ${layout.index + 1}`} />
+              </button>
+            )}
           />
-        ) : !loading && !error ? (
+        ) : !loading && !error && tileCards.length === 0 ? (
           <p className="m-0 py-12 text-center text-[16px] text-muted">No photos found.</p>
         ) : null}
         </div>
