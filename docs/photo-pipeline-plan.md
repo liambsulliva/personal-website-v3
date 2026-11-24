@@ -2,6 +2,8 @@
 
 Branch: `env/self-host`. Goal: export a finished JPEG into one folder on the NAS and have it appear on the site, resized on the NAS, with no Cloudinary and no manual upload. Covers this repo and `cms-dashboard`. Approved in outline on 2026-11-23; the watcher and resizer are written and tested but not deployed (see "Built on 2026-11-23"), and all 841 published photos are in `Published` (see "Staged on 2026-11-23").
 
+> **Superseded in part on 2026-11-24:** albums are folders with an `album.yaml`, not files in this repo, and the removal rules, scan interval and dashboard changed with that. Where this file disagrees (folder rules, "Album" and "Removal", album commits, `PUBLISH_ALBUMS`, `.allow-removals`, the `IMAGE_BACKEND` switch), `docs/folder-albums-plan.md` is right.
+
 ## Decisions
 
 | Decision | Choice |

@@ -2,6 +2,8 @@
 
 A private copy of the site, and later the dashboard, on the NAS. Push to the `staging` branch and it's at https://staging.liambsullivan.com within about 10 minutes, behind Cloudflare Access. Nothing here touches the live site: separate folder, containers, images, tunnel and branch.
 
+> Albums are changing to folders (`docs/folder-albums-plan.md`). Where this file talks about album files, album commits or `IMAGE_BACKEND`, that plan is right.
+
 ```
 push to staging ─▶ DSM task (5 min) ─▶ deploy.sh ─▶ personal-website-staging
                                                       ├ cloudflared  tunnel nas-staging
