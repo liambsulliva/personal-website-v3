@@ -754,7 +754,7 @@ export default function PhotoGallery({
   }, [source, view, albums]);
 
   // Back, Forward and the header's trail ask for an address of this page.
-  const goRef = useRef((_: URL) => false);
+  const goRef = useRef<(url: URL) => boolean>(() => false);
   goRef.current = (url: URL) => {
     const target = sourceFromHref(url);
     if (!queueRef.current.running && sameSource(target, sourceRef.current)) return false;

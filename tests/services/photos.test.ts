@@ -33,7 +33,7 @@ function scanner(index = emptyIndex()) {
   const memory = { seen: new Map(), rejected: new Map() };
   let current: any = index;
   const run = async (opts = {}) => {
-    const result = await scan({ root, index: current, memory, ...opts });
+    const result = await scan({ root, index: current, memory, ...opts } as any);
     current = result.index;
     return result;
   };
@@ -222,7 +222,7 @@ describe("scan", () => {
         expect(blocked).toMatchObject({ missing: 100, limit: 100, folders: [{ folder: "A", count: 75 }, { folder: "B", count: 25 }] });
       }
       expect((await s.run({ now: new Date(Date.now() + 400 * 86_400_000) })).changed).toBe(false); // no timer, and waiting doesn't rewrite the index
-      const { blocked } = await s.run();
+      const { blocked }: any = await s.run();
       unlinkSync(join(root, "A/1.jpg"));
       await s.run({ confirmed: new Set(blocked.ids.slice(1)) });
       expect(s.live).toHaveLength(21); // the one left out, and the one that went since
@@ -367,12 +367,12 @@ describe("watcher", () => {
     rmSync(root, { recursive: true });
     renameSync(`${root}-away`, root);
     for (let i = 0; i < 5; i++) await watcher.tick();
-    const { blocked } = watcher.health();
+    const { blocked } = watcher.health() as any;
     expect(watcher.health()).toMatchObject({ ok: false, photos: 131, blocked: { missing: 130, folders: [{ folder: "A/B", count: 130 }] } });
     expect(watcher.index.folders["A/B"]).toEqual({ link: "b" });
     expect([await watcher.confirmRemoval("other"), await watcher.confirmRemoval(undefined)]).toEqual([null, null]);
     expect(watcher.health().photos).toBe(131);
-    expect(await watcher.confirmRemoval(blocked!.key)).toEqual({ confirmed: 130 });
+    expect(await watcher.confirmRemoval(blocked.key)).toEqual({ confirmed: 130 });
     expect(watcher.health()).toMatchObject({ ok: true, photos: 1, blocked: null });
     await watcher.tick();
     expect(Object.keys(watcher.index.folders)).toEqual(["C"]);

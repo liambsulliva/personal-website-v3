@@ -78,7 +78,7 @@ describe("album.yaml", () => {
     expect(readdirSync(join(root, "Bash 4-11")).filter((name) => name.startsWith("."))).toEqual([]);
     const before = yaml("Bash 4-11");
     await settle();
-    expect([yaml("Bash 4-11"), (await watcher.tick())?.skipped]).toEqual([before, []]);
+    expect([yaml("Bash 4-11"), ((await watcher.tick()) as any).skipped]).toEqual([before, []]);
     expect(watcher.health().skipped).toBe(0);
   });
 
@@ -121,7 +121,7 @@ describe("album.yaml", () => {
     expect(yaml("Bash")).toBe(text);
     writeFileSync(join(root, "Bash/album.yaml"), "date: 2019-03-04\n");
     await settle();
-    expect(fields("Bash")).toEqual({ date: "2019-03-04", link: parseAlbumFile(text).link });
+    expect(fields("Bash")).toEqual({ date: "2019-03-04", link: (parseAlbumFile(text) as any).link });
   });
 
   it("waits for the one-time copy before touching an old album", async () => {

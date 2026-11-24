@@ -10,8 +10,9 @@ export function showBreadcrumb(crumbs: readonly Crumb[]) {
   const shown = items();
   const list = shown[0]?.parentElement;
   if (!list) return;
+  const toEnd = () => void (list.scrollLeft = list.scrollWidth);
   const link = (item: HTMLElement) => item.querySelector("a")!;
-  if (shown.length === crumbs.length && crumbs.every(({ label, href }, i) => link(shown[i]).textContent?.trim() === label && link(shown[i]).getAttribute("href") === href)) return;
+  if (shown.length === crumbs.length && crumbs.every(({ label, href }, i) => link(shown[i]).textContent?.trim() === label && link(shown[i]).getAttribute("href") === href)) return toEnd();
   const next = crumbs.map(({ label, href }, i) => {
     const current = i === crumbs.length - 1;
     // Copied, so it keeps the attribute Breadcrumb's scoped styles match on.
@@ -26,6 +27,7 @@ export function showBreadcrumb(crumbs: readonly Crumb[]) {
   });
   shown.forEach((item) => item.remove());
   list.append(...next);
+  toEnd();
 }
 
 /** Calls `open(url)` for a plain click on a crumb; it returns true when it took the click. */

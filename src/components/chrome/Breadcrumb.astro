@@ -63,6 +63,16 @@ const segments = crumbs?.map((crumb, index, all) => ({ ...crumb, current: index 
     color: var(--fg-muted);
     opacity: 0.6;
   }
+  /* Titles get long: the trail scrolls sideways, and stays at its end (lib/breadcrumb). */
+  .breadcrumb--titles ol {
+    overflow-x: auto;
+    overflow-y: hidden;
+    text-overflow: clip;
+    scrollbar-width: none;
+  }
+  .breadcrumb--titles ol::-webkit-scrollbar {
+    display: none;
+  }
   .breadcrumb--titles .breadcrumb__slash {
     margin-inline: 0.5em;
   }
