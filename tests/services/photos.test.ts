@@ -83,7 +83,7 @@ describe("scan", () => {
 
   it("ignores what isn't a photo to publish", async () => {
     const s = scanner();
-    for (const path of ["@eaDir/a.jpg", ".hidden.jpg", "#recycle/a.jpg", "Shoot/@eaDir/a.jpg", "Shoot/.a.jpg", "Shoot/notes.txt", "Shoot/raw.ARW", "Shoot/x.gif", "Shoot/a.jpg.part", ".site/b.jpg"]) await put(path, jpeg("red"));
+    for (const path of ["@eaDir/a.jpg", ".hidden.jpg", "#recycle/a.jpg", "Shoot/@eaDir/a.jpg", "Shoot/.a.jpg", "Shoot/notes.txt", "Shoot/raw.ARW", "Shoot/x.gif", "Shoot/a.jpg.part", ".site/b.jpg", ".meta/a.jpg", "Shoot/.meta/deep/a.jpg"]) await put(path, jpeg("red"));
     writeFileSync(join(dir, "private.jpg"), await jpeg("blue"));
     symlinkSync(join(dir, "private.jpg"), join(root, "Shoot", "link.jpg"));
     symlinkSync(dir, join(root, "linked"));

@@ -23,7 +23,8 @@ Branch: `env/folder-albums` (from `env/self-host` f62b759); the dashboard's half
   | `was` | Old full links (see Links). |
 
 - A photo is in one album or none. Tags and alt text stay in the index.
-- Files directly in `Published`, and files in any `_` or `.` folder at any depth, are published with no album. Such folders are never albums. (Open: see "Questions".)
+- Files directly in `Published`, and files in any `_` folder at any depth, are published with no album. Such folders are never albums. The exception is `_site` at the top, which holds site imagery and is never in the gallery.
+- Nothing in a `.` folder or a `.` file is published, at any depth: they're macOS metadata and the 30-day trash (`.site/deleted`). Settled by Liam on 2026-11-24.
 - The same bytes in two places: the older one stays published, the copy is ignored and flagged in the dashboard.
 - The 53 existing albums keep today's dates, order, covers and links, copied once from the YAML into their `album.yaml` files. The copy is repeatable and changes nothing visible.
 
@@ -111,5 +112,4 @@ How, in order:
 
 Asked of Liam; the rest of the plan doesn't wait for them.
 
-- **`.` folders.** Publishing files in any `.` folder would publish `.site/deleted`, the 30-day trash. Until Liam says otherwise `.` folders stay ignored, as they were; `_` folders follow the rule above, except `_site` at the top, which holds site imagery and has never been in the gallery.
 - **The stack's flight.** "Opening an album fades the current set out and the new one in" could mean the cards no longer fly out of a top-level stack. They still do: the current set fades out, and the new one arrives by the cards. Dropping the flight is a small change.
