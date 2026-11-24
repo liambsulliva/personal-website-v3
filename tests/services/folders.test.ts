@@ -137,6 +137,13 @@ describe("album.yaml", () => {
     await settle();
     expect([albums().all.get("Puli 4-11"), watcher.report().skipped]).toMatchObject([{ date: "2026-04-11", path: "2026-puli-s-car-show-0411" }, []]);
     expect(yaml("Puli 4-11")).toBe("link: 2026-puli-s-car-show-0411\ndate: 2026-04-11\n");
+    // Gone for good, its old address goes too: a new folder of that name is a new album.
+    rmSync(join(root, "Puli 4-11"), { recursive: true });
+    mkdirSync(join(root, "Other"));
+    await settle(5);
+    await photos("Puli 4-11");
+    await settle(4);
+    expect([existsSync(join(root, "Puli 4-11/album.yaml")), pathOf("Puli 4-11")]).toEqual([true, expect.stringMatching(/-puli-0411$/)]);
   });
 
   it("keeps the link in the index when the folder can't be written", async () => {

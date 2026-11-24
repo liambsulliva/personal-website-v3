@@ -28,6 +28,11 @@ describe("folders", () => {
     expect(["a.jpg", "A/a.jpg", "A/B/a.jpg", "_unsorted/a.jpg", "A/_extras/a.jpg", "A/_extras/B/a.jpg", "A/.x/a.jpg"].map(albumOf)).toEqual([null, "A", "A/B", null, null, null, null]);
   });
 
+  it("has no album for a name an object already has", () => {
+    expect(["constructor/a.jpg", "A/constructor/a.jpg"].map(albumOf)).toEqual([null, "A/constructor"]);
+    expect([...buildAlbums(indexOf(many("toString", 5))).all.keys()]).toEqual([]);
+  });
+
   it("keeps photos in no album out of every count", () => {
     const { all } = buildAlbums(indexOf([...many("A", 2), "A/_extras/x.jpg", "_unsorted/y.jpg", "z.jpg"]));
     expect([...all.keys()]).toEqual(["A"]);

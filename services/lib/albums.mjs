@@ -16,8 +16,8 @@ export const dirName = (path) => path.slice(0, Math.max(0, path.lastIndexOf("/")
 export const joinPath = (folder, name) => (folder ? `${folder}/${name}` : name);
 export const isUnder = (path, folder) => path.startsWith(`${folder}/`);
 
-/** Is this folder an album? Not Published itself, and nothing in a `_` or `.` folder. */
-export const isAlbumFolder = (folder) => folder !== "" && !folder.split("/").some((name) => NONE.test(name));
+/** Is this folder an album? Not Published itself, and nothing in a `_` or `.` folder (or one no object can have as a key). */
+export const isAlbumFolder = (folder) => folder !== "" && !(folder in {}) && !folder.split("/").some((name) => NONE.test(name));
 
 /** The album folder a photo is in, or null (the root, or any `_` or `.` folder). */
 export function albumOf(path) {

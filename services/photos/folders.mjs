@@ -17,6 +17,12 @@ function put(record, name, value) {
 /** Holds back an old album whose album.yaml hasn't been copied from the YAML yet. */
 const awaitsCopy = (index, folder) => !index.folders[folder]?.link && Object.values(index.albums ?? {}).some((album) => album.folder === folder);
 
+/** An album's folder is gone, and so is the address the old albums kept for it. */
+export function forget(index, folder) {
+  delete index.folders[folder];
+  for (const [slug, album] of Object.entries(index.albums ?? {})) if (album.folder === folder) delete index.albums[slug];
+}
+
 /**
  * An album's folder is now `to`: its record and its sub-albums' go along, and
  * so do the paths of photos in the trash. Under another parent, the link it had
@@ -203,7 +209,7 @@ export async function syncFolders({ root, index, folders, events = [], memory, b
     const scans = (memory.gone.get(folder) ?? 0) + 1;
     memory.gone.set(folder, scans);
     if (scans < 3 || blocked || holding.has(folder)) continue;
-    delete records[folder];
+    forget(index, folder);
     memory.gone.delete(folder);
     changed = true;
     log(`[albums] ${folder} is gone`);

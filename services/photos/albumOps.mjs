@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { baseName, buildAlbums, dirName, isAlbumFolder, isUnder, joinPath, parseFolder } from "../lib/albums.mjs";
 import { isLive } from "../lib/index.mjs";
 import { ALBUM_FILE, FIELDS } from "./albumFile.mjs";
-import { relocate } from "./folders.mjs";
+import { forget, relocate } from "./folders.mjs";
 import { isHidden } from "./scan.mjs";
 
 export const UNSORTED = "_unsorted";
@@ -25,6 +25,7 @@ export const isFolderName = (name) =>
   name.length <= 100 &&
   name === name.trim() &&
   name.toLowerCase() !== ALBUM_FILE &&
+  !(name in {}) &&
   !isHidden(name) &&
   // eslint-disable-next-line no-control-regex
   !/^[._@#~]|[\\/:*?"<>|\x00-\x1f]|\.$/.test(name);
@@ -211,7 +212,7 @@ export async function removeAlbum({ root, index, toTrash }, { folder }) {
     if (photo.kind === "photo" && photo.goneAt && dirName(photo.path) === folder) photo.path = joinPath(UNSORTED, baseName(photo.path));
   }
   await toTrash(folder, "album");
-  delete index.folders[folder];
+  forget(index, folder);
   renameInOrder(index, parent, album.name);
   return result;
 }

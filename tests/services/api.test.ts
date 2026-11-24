@@ -224,7 +224,7 @@ describe("albums", () => {
     expect([existsSync(join(root, "Otakon 2026/Day 1/album.yaml")), (await album("Otakon 2026/Day 1")).shown]).toEqual([true, false]);
     expect((await call("create", { title: "otakon 2026" })).status).toBe(409);
     expect((await call("create", { title: "x", parent: "Nowhere" })).status).toBe(404);
-    for (const title of ["", " x", "_unsorted", ".x", "a/b", "..", "Bash 4-11", "x".repeat(101), undefined, 7, { a: 1 }]) expect([title, (await call("create", { title })).status]).toEqual([title, 400]);
+    for (const title of ["", " x", "_unsorted", ".x", "a/b", "..", "Bash 4-11", "x".repeat(101), "constructor", undefined, 7, { a: 1 }]) expect([title, (await call("create", { title })).status]).toEqual([title, 400]);
     for (const parent of ["..", "../x", "_unsorted", ".site", null, ["Shoot"]]) expect([parent, (await call("create", { title: "x", parent })).status]).toEqual([parent, 404]);
     await quiet();
   });
