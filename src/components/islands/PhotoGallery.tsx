@@ -9,7 +9,6 @@ import ProgressiveImage from "./ProgressiveImage";
 import TagMenu from "./TagMenu";
 import Loader from "./Loader";
 import AlbumCarousel from "./AlbumCarousel";
-import AlbumStack from "./AlbumStack";
 import Glyph from "./Glyph";
 import Toast, { type ToastMessage } from "./Toast";
 import shareIcon from "../icons/svg/share.svg?raw";
@@ -276,6 +275,13 @@ export default function PhotoGallery({
   const galleryRef = useRef<HTMLDivElement>(null);
   const albumRef = useRef<HTMLDivElement>(null);
   const tilesRef = useRef<HTMLDivElement>(null);
+  // Each album's row of sub-albums keeps its place while one of them is open.
+  const rowsRef = useRef(new Map<string, { left: number }>());
+  const rowPosition = (path: string) => {
+    const position = rowsRef.current.get(path) ?? { left: 0 };
+    rowsRef.current.set(path, position);
+    return position;
+  };
   const flightRef = useRef<Flight | null>(null);
   const viewIndexRef = useRef(-1);
   const zoomRef = useRef(1);
@@ -1073,8 +1079,9 @@ export default function PhotoGallery({
           (visibility rides the fade, so a hidden button can't take focus).
           Quiet by default: muted ink washed toward the page, full muted on
           hover. The share glyph sits 8px in from the content edge; the back
-          arrow's own box starts 8px out, so its glyph lines up with the photos. */}
-      <div className="absolute bottom-full left-0 flex h-8 items-center" data-name="BackRow">
+          arrow's own box starts 8px out, so its glyph lines up with the photos.
+          Raised over a row of sub-albums, whose track is padded up to here. */}
+      <div className="absolute bottom-full left-0 z-10 flex h-8 items-center" data-name="BackRow">
         <a
           href={parent ?? undefined}
           onClick={(event) => {
@@ -1092,7 +1099,7 @@ export default function PhotoGallery({
           <Glyph svg={backIcon} size={18} />
         </a>
       </div>
-      <div className="absolute right-0 bottom-full flex h-8 items-center" data-name="ShareRow">
+      <div className="absolute right-0 bottom-full z-10 flex h-8 items-center" data-name="ShareRow">
         <button
           type="button"
           onClick={copyLink}
@@ -1114,16 +1121,16 @@ export default function PhotoGallery({
         {/* What an album transition fades back and brings forward. */}
         <div ref={albumRef} className="w-full min-w-0 origin-top">
         {tileCards.length > 0 && (
-          <div
-            ref={tilesRef}
-            className={`flex flex-wrap gap-4 md:gap-6 ${photos.length > 0 ? "mb-8" : ""}`}
-            role="group"
-            aria-label={`Albums in ${view?.title}`}
-            data-name="SubAlbums"
-          >
-            {tileCards.map((album) => (
-              <AlbumStack key={album.path} album={album} open={false} load onSelect={({ path }) => request({ kind: "album", path })} />
-            ))}
+          // Flex: the row's own margins would otherwise collapse out of it.
+          <div ref={tilesRef} className={`flex ${photos.length > 0 ? "mb-8" : ""}`} data-name="SubAlbums">
+            <AlbumCarousel
+              key={view?.path}
+              albums={tileCards}
+              openPath={null}
+              label={`Albums in ${view?.title}`}
+              position={rowPosition(view?.path ?? "")}
+              onSelect={({ path }) => request({ kind: "album", path })}
+            />
           </div>
         )}
         {photos.length > 0 ? (

@@ -104,6 +104,8 @@ describe("the page", () => {
     expect(crumbs(html)).toEqual([["/photography", "Photography"], ["/photography/2026-otakon-2026", "Otakon 2026"]]);
     expect(html).toContain('property="og:url" content="https://liambsullivan.com/photography/2026-otakon-2026"');
     expect(html.indexOf('data-album-stack="2026-otakon-2026/day-1"')).toBeLessThan(html.indexOf("data-photo-index"));
+    // Its own scrolling row, as the top-level albums are.
+    expect(html.match(/class="album-track[^"]*overflow-x-auto[^>]*aria-label="[^"]*"/g)?.map((track) => track.match(/aria-label="(.*)"/)![1])).toEqual(["Photo albums", "Albums in Otakon 2026"]);
     expect(html).toMatch(/<a href="\/photography" aria-label="Back to all photos"/);
     const sub = (await page("/photography/2026-otakon-2026/day-1")).html;
     expect(sub).toMatch(/<a href="\/photography\/2026-otakon-2026" aria-label="Back to Otakon 2026"/);

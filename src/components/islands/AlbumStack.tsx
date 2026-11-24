@@ -4,10 +4,9 @@ import { springEasing } from "./lightboxFlight";
 import ProgressiveImage from "./ProgressiveImage";
 
 // Figma AlbumStack (190:586): three prints of a shoot, fanned on hover; in the
-// carousel, or as a sub-album's tile inside its parent. The
-// button and its [data-album-stack] / [data-album-card] hooks are what
-// PhotoGallery's explode flight measures; the motion itself lives in
-// global.css (Album stacks).
+// top-level carousel, or in its parent's row of sub-albums. The button and its
+// [data-album-stack] / [data-album-card] hooks are what PhotoGallery's explode
+// flight measures; the motion itself lives in global.css (Album stacks).
 
 type AlbumStackProps = {
   album: AlbumCard;
