@@ -1,23 +1,18 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import bundled from "../data/cloudinary-manifest.json";
-import { imageBase } from "./imageBackend";
-import { cloudName } from "./serverEnv";
+import { IMAGE_BASE } from "./photoIndex";
 
 /**
- * Cloudinary delivery URLs for site imagery (public_id under site/…, see
- * scripts/cloudinary-map.mjs). Every URL is f_auto,q_auto. Fixed slots use
- * c_fill + g_auto (smart crop); free-aspect figures use c_limit.
+ * URLs for site imagery (public_id under site/…, files in Published/_site).
+ * The transforms are Cloudinary's, which the resizer on the NAS understands
+ * (services/img). Every URL is f_auto,q_auto. Fixed slots use c_fill + g_auto
+ * (smart crop); free-aspect figures use c_limit.
  *
- * CldImage skips ids that aren't in this file. The CMS writes new covers
- * here on upload so `npm run cloudinary:seed` isn't required for dashboard
- * imagery. Vitest re-reads the file from disk so a contract case that
+ * CldImage skips ids that aren't in the manifest. The CMS writes new covers
+ * there on upload. Vitest re-reads the file from disk so a contract case that
  * stages the manifest is what CldImage sees.
  */
-
-export const CLOUD_NAME: string = cloudName();
-
-const BASE = imageBase(CLOUD_NAME);
 
 export type Crop = "fill" | "limit";
 
@@ -72,7 +67,7 @@ export function cldTransform({
 }
 
 export const cldUrl = (id: string, options: CldOptions = {}) =>
-  `${BASE}/${cldTransform(options)}/${id}`;
+  `${IMAGE_BASE}/${cldTransform(options)}/${id}`;
 
 /** Re-transform a full secure_url from the API (photography). */
 export const cldFromSecureUrl = (secureUrl: string, options: CldOptions = {}) =>
@@ -94,7 +89,7 @@ export function cldSrcSet(id: string, options: CldOptions = {}, widths = DEFAULT
 export const cldPlaceholder = (id: string, options: CldOptions = {}) =>
   cldUrl(id, { ...options, width: 48, quality: "auto:low", blur: 600 });
 
-/** react-photo-album photos (with srcSet) for Cloudinary site assets. */
+/** react-photo-album photos (with srcSet) for site images. */
 export function albumPhotos(items: { id: string; alt: string }[], widths = [480, 768, 1200, 1600]) {
   return items.map(({ id, alt }) => {
     const size = sizes()[id] ?? { width: 1600, height: 900 };

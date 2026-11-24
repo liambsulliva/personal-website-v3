@@ -1,17 +1,4 @@
 export const PLACEHOLDER_WIDTH = 480;
-export const CANDIDATE_STEP = 160;
-
-export function widthSteps(
-  from: number,
-  to: number,
-  step = CANDIDATE_STEP,
-): number[] {
-  const widths: number[] = [];
-  for (let width = from; width <= to; width += step) {
-    widths.push(width);
-  }
-  return widths;
-}
 
 export function cloudinaryTransform(
   secureUrl: string,

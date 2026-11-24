@@ -1,6 +1,6 @@
 // The Node build's routing, tested against the real server: server.mjs over
 // the built dist/, started on a free port with tests/build/upstream-stub.mjs
-// preloaded in place of Cloudinary, RAWG and WordPress. Runs after
+// preloaded in place of RAWG and WordPress, and a small photo index. Runs after
 // `DEPLOY_TARGET=node npm run test:build`; skipped otherwise.
 //
 // The cases marked (regression) are the ones a plain adapter swap gets wrong
@@ -13,8 +13,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { albumVersion } from "../../src/lib/albumData";
-import { listAlbums } from "../../src/lib/albums";
+import { emptyIndex, saveIndex } from "../../services/lib/index.mjs";
 import { LEGACY_REDIRECTS } from "../../src/lib/redirects.mjs";
 import { SWITCH_MENU_PROJECT_URL } from "../../src/lib/switchMenuEmbed";
 import { BUILT, DIST, ENTRY, ROOT, TARGET, redirectTargetExists, writeupPages } from "./site";
@@ -25,8 +24,6 @@ const HOST = "liambsullivan.com";
 // Credentials the server gets at start, never at build: the stub refuses
 // any other, so a route that answers proves it read these at runtime.
 const SECRETS = {
-  CLOUDINARY_API_KEY: "runtime-key-7f3a",
-  CLOUDINARY_API_SECRET: "runtime-secret-9c1e",
   RAWG_API_KEY: "runtime-rawg-4b2d",
 };
 
@@ -75,19 +72,33 @@ const calls = (): Call[] =>
 
 const title = (html: string) => html.match(/<title>([^<]*)<\/title>/)?.[1];
 
+/** 25 photos, more than the gallery's first page of 20, five of them in an album and five in its sub-album. */
+function photoIndex() {
+  const index = emptyIndex();
+  const tags = ["music", "soccer", "featured", "_internal"];
+  for (let i = 0; i < 25; i++) {
+    const id = `stub-${String(i).padStart(2, "0")}`;
+    const folder = i < 5 ? "Otakon 2026 7-31" : i < 10 ? "Otakon 2026 7-31/Day 1" : "_unsorted";
+    index.photos[id] = { path: `${folder}/${id}.jpg`, kind: "photo", version: "abcdef123456", width: 3000, height: 2000, takenAt: null, fileTags: [tags[i % tags.length]], createdAt: "2026-08-01T00:00:00Z" };
+  }
+  index.folders = { "Otakon 2026 7-31": { link: "2026-otakon-2026", order: ["stub-04.jpg"] }, "Otakon 2026 7-31/Day 1": { link: "day-1", was: ["2026-day-1"] } };
+  return index;
+}
+
 const TEST_SHA = "0123456789abcdef0123456789abcdef01234567";
 
 beforeAll(async () => {
   if (!RUN) return;
   scratch = mkdtempSync(join(tmpdir(), "site-server-"));
   port = await freePort();
+  await saveIndex(join(scratch, "index.json"), photoIndex());
   server = spawn(process.execPath, ["--import", join(ROOT, "tests/build/upstream-stub.mjs"), ENTRY], {
     cwd: ROOT,
     env: {
       PATH: process.env.PATH,
       HOST: "127.0.0.1",
       PORT: String(port),
-      CLOUDINARY_CLOUD_NAME: "stub-cloud",
+      PHOTO_INDEX_FILE: join(scratch, "index.json"),
       SITE_SHA: TEST_SHA,
       ...SECRETS,
       UPSTREAM_LOG: join(scratch, "upstream.log"),
@@ -234,76 +245,60 @@ describe.skipIf(!RUN)("Node server (server.mjs over dist/)", () => {
     });
   });
 
-  describe("photography and the Cloudinary routes", () => {
-    it("(regression) reads the Cloudinary credentials when it starts, not at build", async () => {
+  describe("photography and its JSON routes", () => {
+    const FRESH = "private, no-cache";
+
+    it("(regression) reads the photo index when it runs, not at build, and Cloudflare keeps none of it", async () => {
       const res = await get("/photography", viaTunnel);
       expect(res.status, output).toBe(200);
       expect(title(res.body)).toBe("Photography - Liam Sullivan");
-      expect(res.body).toContain("stub-");
-      const searches = calls().filter((call) => call.upstream === "cloudinary");
-      expect(searches.length).toBeGreaterThan(0);
-      expect(searches.every((call) => call.authorized)).toBe(true);
+      expect(res.body).toContain("/img/upload/");
+      expect(res.body).not.toContain("res.cloudinary.com");
+      expect(res.headers["cache-control"]).toBe(FRESH);
+      expect(calls().filter(({ upstream }) => upstream !== "wordpress")).toEqual([]);
+      for (const path of ["pool", "tags", "search?expression=resource_type%3Aimage", "album?slug=2026-otakon-2026", "album?slug=nope"]) {
+        expect([path, (await get(`/api/cloudinary/${path}`)).headers["cache-control"]]).toEqual([path, FRESH]);
+      }
     });
 
-    it("(regression) a second /photography render makes no upstream call", async () => {
-      await get("/photography", viaTunnel);
-      const before = calls().length;
-      // Precondition: the first render did reach Cloudinary.
-      expect(calls().filter((call) => call.upstream === "cloudinary" && call.authorized).length).toBeGreaterThan(0);
-      const res = await get("/photography", viaTunnel);
-      expect(res.status).toBe(200);
-      expect(calls().length).toBe(before);
-      expect(res.headers["cache-control"]).toBe("public, s-maxage=300, stale-while-revalidate=86400");
+    it("renders albums, sub-albums and tags at their addresses, with or without a slash", async () => {
+      for (const [path, name] of [["/photography/2026-otakon-2026", "Otakon 2026"], ["/photography/2026-otakon-2026/day-1/", "Day 1"]]) {
+        const res = await get(path, viaTunnel);
+        expect([path, res.status, title(res.body), res.headers["cache-control"]]).toEqual([path, 200, `${name} - Liam Sullivan`, FRESH]);
+        expect(res.body).toContain(`property="og:url" content="https://liambsullivan.com${path.replace(/\/$/, "")}"`);
+      }
+      expect(title((await get("/photography?tag=music", viaTunnel)).body)).toMatch(/^Music Photos - /);
     });
 
-    it("renders a shared album link and a shared tag link as that source", async () => {
-      const [album] = await listAlbums();
-      const byAlbum = await get(`/photography?album=${album.slug}`, viaTunnel);
-      expect(byAlbum.status).toBe(200);
-      expect(title(byAlbum.body)).toBe(`${album.title} - Liam Sullivan`);
-      expect(byAlbum.body).toMatch(new RegExp(`property="og:url" content="https://liambsullivan\\.com/photography/?\\?album=${album.slug}"`));
-      const byTag = await get("/photography?tag=music", viaTunnel);
-      expect(title(byTag.body)).toMatch(/^Music Photos - /);
+    it("redirects old album links, and opens the full gallery for a link to nothing", async () => {
+      for (const [path, to] of [["/photography?album=2026-otakon-2026", "/photography/2026-otakon-2026"], ["/photography/?album=2026-otakon-2026&ref=x", "/photography/2026-otakon-2026?ref=x"], ["/photography/2026-day-1", "/photography/2026-otakon-2026/day-1"]]) {
+        const res = await get(path, viaTunnel);
+        expect([path, res.status, res.headers.location, res.headers["cache-control"]]).toEqual([path, 301, to, FRESH]);
+      }
+      const gone = await get("/photography/nope/deeper", viaTunnel);
+      expect([gone.status, title(gone.body)]).toEqual([200, "Photography - Liam Sullivan"]);
     });
 
-    it("answers the four Cloudinary API routes with their JSON shapes", async () => {
-      const [album] = await listAlbums();
+    it("answers the four routes with their JSON shapes", async () => {
       const search = await get("/api/cloudinary/search?expression=resource_type%3Aimage&max_results=5");
       expect(search.status).toBe(200);
-      expect(Object.keys(JSON.parse(search.body))).toContain("resources");
-      expect(JSON.parse(search.body).resources[0]).toEqual(
-        expect.objectContaining({ public_id: expect.any(String), secure_url: expect.any(String), width: 3000, height: 2000 }),
-      );
-      const tags = JSON.parse((await get("/api/cloudinary/tags")).body);
-      expect(tags).toEqual({ tags: ["music", "soccer"] });
+      expect(JSON.parse(search.body).resources[0]).toEqual({ public_id: expect.any(String), secure_url: expect.stringContaining("/img/upload/v"), width: 3000, height: 2000 });
+      expect(JSON.parse((await get("/api/cloudinary/tags")).body)).toEqual({ tags: ["music", "soccer"] });
       const pool = JSON.parse((await get("/api/cloudinary/pool?tag=music")).body);
-      expect(Object.keys(pool)).toEqual(["resources"]);
-      expect(pool.resources.length).toBeGreaterThan(0);
-      const albumRes = await get(`/api/cloudinary/album?slug=${album.slug}`);
-      expect(albumRes.status).toBe(200);
-      expect(JSON.parse(albumRes.body).resources.map((r: { public_id: string }) => r.public_id)).toEqual(album.photos);
+      expect([Object.keys(pool), pool.resources.length]).toEqual([["resources"], 7]);
+      const album = JSON.parse((await get("/api/cloudinary/album?slug=2026-otakon-2026")).body);
+      expect(album.resources.map((r: { public_id: string }) => r.public_id)).toEqual(["stub-04", "stub-00", "stub-01", "stub-02", "stub-03"]);
+      expect(album.album).toMatchObject({ path: "2026-otakon-2026", tiles: [{ path: "2026-otakon-2026/day-1", title: "Day 1" }] });
       expect((await get("/api/cloudinary/pool?tag=_internal")).status).toBe(403);
       expect((await get("/api/cloudinary/album?slug=nope")).status).toBe(404);
     });
 
-    it("(regression) keeps an album for a day only under its current photo list's URL", async () => {
-      // Cloudflare isn't purged on deploy, so a CMS publish that changes an
-      // album must change the URL the gallery asks for.
-      const albums = await listAlbums();
-      const page = (await get("/photography", viaTunnel)).body;
-      for (const album of albums.slice(0, 3)) {
-        const version = albumVersion(album);
-        // The island's props carry each album's version ([0, value] is Astro's string encoding).
-        expect(page).toContain(`&quot;version&quot;:[0,&quot;${version}&quot;]`);
-        const current = await get(`/api/cloudinary/album?slug=${album.slug}&v=${version}`);
-        expect(current.status).toBe(200);
-        expect(current.headers["cache-control"]).toBe("public, s-maxage=86400, stale-while-revalidate=604800");
-        for (const stale of [`/api/cloudinary/album?slug=${album.slug}`, `/api/cloudinary/album?slug=${album.slug}&v=old`]) {
-          const res = await get(stale);
-          expect(res.status).toBe(200);
-          expect(res.headers["cache-control"]).toBe("public, s-maxage=300, stale-while-revalidate=86400");
-        }
-      }
+    it("shows a change to the index without a restart", async () => {
+      const index = photoIndex();
+      index.folders["Otakon 2026 7-31"].date = "2020-01-02";
+      await saveIndex(join(scratch, "index.json"), index);
+      await new Promise((resolve) => setTimeout(resolve, 1100)); // the index is looked at once a second
+      expect((await get("/photography", viaTunnel)).body).toContain("Jan 2020 · 10 photos");
     });
   });
 
@@ -367,7 +362,7 @@ describe.skipIf(!RUN)("Node server (server.mjs over dist/)", () => {
       const env = join(ROOT, ".env");
       if (existsSync(env)) {
         for (const line of readFileSync(env, "utf8").split("\n")) {
-          const [, key, value] = line.match(/^\s*(CLOUDINARY_API_KEY|CLOUDINARY_API_SECRET|RAWG_API_KEY)\s*=\s*"?([^"\s]+)"?/) ?? [];
+          const [, key, value] = line.match(/^\s*(RAWG_API_KEY)\s*=\s*"?([^"\s]+)"?/) ?? [];
           if (key && value) values.push(value);
         }
       }

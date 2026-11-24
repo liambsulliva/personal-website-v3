@@ -1,8 +1,6 @@
-// In-memory cache for the upstream calls SSR routes make at request time
-// (Cloudinary Search, the Berlin WordPress feed). Vercel's CDN honoured the
-// routes' s-maxage; behind Cloudflare nothing is cached unless a Cache Rule
-// says so, and the Cloudinary Admin API is rate-limited per hour. This bounds
-// upstream calls at the origin whatever the CDN does:
+// In-memory cache for the upstream call an SSR page makes at request time (the
+// Berlin WordPress feed). It bounds upstream calls at the origin whatever the
+// CDN does:
 //
 // - a result is fresh for FRESH_MS; concurrent misses share one call;
 // - after that it is served stale while one background refresh runs;
@@ -12,6 +10,9 @@
 //   come from query strings, so they must be bounded).
 //
 // Callers get the cached object itself: treat results as read-only.
+
+/** For a page whose upstream is cached here. */
+export const PUBLIC_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=86400";
 
 export const FRESH_MS = 300_000; // the routes' s-maxage
 export const RETRY_MS = 30_000;

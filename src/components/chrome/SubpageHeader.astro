@@ -14,9 +14,11 @@ interface Props {
   section?: SectionKey;
   /** A PageTitle follows and brings its own top spacing */
   titled?: boolean;
+  /** Titles to show instead of the URL's path */
+  crumbs?: { label: string; href: string }[];
 }
 
-const { section, titled = false } = Astro.props;
+const { section, titled = false, crumbs } = Astro.props;
 ---
 
 <header
@@ -25,7 +27,7 @@ const { section, titled = false } = Astro.props;
 >
   <div class="flex w-full items-center justify-between gap-4" data-name="bar">
     <!-- Section pages mirror their URL; section-less pages (404) show the name alone. -->
-    <Breadcrumb path={section ? Astro.url.pathname : undefined} />
+    <Breadcrumb path={section ? Astro.url.pathname : undefined} crumbs={crumbs} />
     <nav class="hidden items-start md:flex" aria-label="Sections" data-name="compact-nav">
       {
         SECTIONS.map((item) => (

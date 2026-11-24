@@ -1,13 +1,11 @@
-// Photo shaping for the photography page (server) and its islands. Ported 1:1
-// from v2 commit d0baf91 (CloudinaryFetcher): 480px
-// placeholders, 160px width steps, v2's exact transformation strings (so the
-// derived assets are shared with v2's Cloudinary cache).
+// Photo shaping for the photography page (server) and its islands. Ported from
+// v2 commit d0baf91 (CloudinaryFetcher): 480px placeholders and v2's
+// transformation strings.
 import {
   PLACEHOLDER_WIDTH,
   cappedWidths,
   cloudinaryTransform,
   toSrcSet,
-  widthSteps,
 } from "./cloudinaryImage";
 
 export type PhotoResource = {
@@ -32,15 +30,12 @@ export type GalleryPhoto = {
 // ── Gallery (v2 CloudinaryFetcher) ──────────────────────────────
 const PREVIEW_TRANSFORM = "c_limit,f_auto,q_auto";
 const LIGHTBOX_TRANSFORM = "c_limit,f_auto,q_auto:best";
-const PREVIEW_WIDTHS = widthSteps(PLACEHOLDER_WIDTH, 1280);
-const PREVIEW_MAX_WIDTH = PREVIEW_WIDTHS[PREVIEW_WIDTHS.length - 1];
-const LIGHTBOX_WIDTHS = [...PREVIEW_WIDTHS, ...widthSteps(1440, 3840)];
-
-// The NAS resizer's own widths (services/img/transforms.mjs): it snaps up to
+// The resizer's own widths (services/img/transforms.mjs): it snaps up to
 // these, so anything else would be another URL for the same bytes.
-const NAS_PREVIEW_WIDTHS = [480, 640, 800, 960, 1200, 1280];
-const NAS_LIGHTBOX_WIDTHS = [...NAS_PREVIEW_WIDTHS, 1920, 2560, 3840];
-const NAS_MAX_WIDTH = 3840;
+const PREVIEW_WIDTHS = [PLACEHOLDER_WIDTH, 640, 800, 960, 1200, 1280];
+const PREVIEW_MAX_WIDTH = 1280;
+const LIGHTBOX_MAX_WIDTH = 3840;
+const LIGHTBOX_WIDTHS = [...PREVIEW_WIDTHS, 1920, 2560, LIGHTBOX_MAX_WIDTH];
 
 function scaledSource(src: string, width: number, naturalWidth: number, naturalHeight: number): ImageSource {
   return { src, width, height: Math.round((width / naturalWidth) * naturalHeight) };
@@ -52,10 +47,8 @@ export function toGalleryPhoto(resource: PhotoResource): GalleryPhoto {
     width >= rw
       ? cloudinaryTransform(baseUrl, transform)
       : cloudinaryTransform(baseUrl, `${transform},w_${width}`);
-  // By URL, not by setting: this also runs in the browser.
-  const nas = baseUrl.startsWith("/img/");
-  const previewWidths = cappedWidths(nas ? NAS_PREVIEW_WIDTHS : PREVIEW_WIDTHS, Math.min(rw, PREVIEW_MAX_WIDTH));
-  const lightboxSrcSet = cappedWidths(nas ? NAS_LIGHTBOX_WIDTHS : LIGHTBOX_WIDTHS, nas ? Math.min(rw, NAS_MAX_WIDTH) : rw).map((width) =>
+  const previewWidths = cappedWidths(PREVIEW_WIDTHS, Math.min(rw, PREVIEW_MAX_WIDTH));
+  const lightboxSrcSet = cappedWidths(LIGHTBOX_WIDTHS, Math.min(rw, LIGHTBOX_MAX_WIDTH)).map((width) =>
     scaledSource(imageUrl(width, width > PREVIEW_MAX_WIDTH ? LIGHTBOX_TRANSFORM : PREVIEW_TRANSFORM), width, rw, rh),
   );
 

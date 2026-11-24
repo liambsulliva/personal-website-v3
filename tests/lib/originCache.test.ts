@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cached, clearOriginCache, FRESH_MS, MAX_ENTRIES, RETRY_MS, STALE_MS } from "../../src/lib/originCache";
-import { searchAlbumPhotos, searchAllPhotos, searchPhotos } from "../../src/lib/cloudinaryServer";
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
@@ -118,39 +117,5 @@ describe("cached (origin cache for upstream calls)", () => {
     expect(fn).toHaveBeenCalledTimes(MAX_ENTRIES + 1);
     await get("k0");
     expect(fn).toHaveBeenCalledTimes(MAX_ENTRIES + 2);
-  });
-});
-
-describe("Cloudinary reads go through the cache", () => {
-  const photo = (public_id: string) => ({ public_id, secure_url: `https://x/${public_id}`, width: 1, height: 1, tags: ["music"] });
-  beforeEach(() => {
-    vi.stubEnv("CLOUDINARY_CLOUD_NAME", "demo");
-    vi.stubEnv("CLOUDINARY_API_KEY", "key");
-    vi.stubEnv("CLOUDINARY_API_SECRET", "secret");
-  });
-
-  it("makes one Search call per distinct query per window", async () => {
-    const fetch = vi.fn(async () => Response.json({ resources: [photo("b"), photo("a")] }));
-    vi.stubGlobal("fetch", fetch);
-    await searchAllPhotos("resource_type:image");
-    await searchAllPhotos("resource_type:image");
-    await searchPhotos({ expression: "resource_type:image AND tags=music", max_results: 20 });
-    expect(fetch).toHaveBeenCalledTimes(2);
-  });
-
-  it("does not cache an error from Cloudinary", async () => {
-    const fetch = vi.fn(async () => Response.json({ error: { message: "rate limited" } }, { status: 420 }));
-    vi.stubGlobal("fetch", fetch);
-    expect((await searchAllPhotos("resource_type:image")).ok).toBe(false);
-    expect((await searchAllPhotos("resource_type:image")).ok).toBe(false);
-    expect(fetch).toHaveBeenCalledTimes(2);
-  });
-
-  it("orders an album without reordering the shared cached result", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ resources: [photo("b"), photo("a")] })));
-    const album = await searchAlbumPhotos(["a", "b"]);
-    expect(album.resources.map((r) => r.public_id)).toEqual(["a", "b"]);
-    const again = await searchAllPhotos('resource_type:image AND (public_id="a" OR public_id="b")');
-    expect(again.resources.map((r) => r.public_id)).toEqual(["b", "a"]);
   });
 });

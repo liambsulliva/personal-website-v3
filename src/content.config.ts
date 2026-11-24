@@ -11,7 +11,7 @@ const career = defineCollection({
     dates: z.string(),
     // Figma's Education row renders "Pitt", so 4 rather than 2.
     monogram: z.string().max(4).optional(),
-    logo: z.string().optional(), // Cloudinary public_id (site/career/*)
+    logo: z.string().optional(), // image id (site/career/*)
     // One-color wordmark that disappears on the dark field: render it white there.
     whiteLogoOnDark: z.boolean().default(false),
     href: z.string().url(),
@@ -28,7 +28,7 @@ export const LAYOUTS = ["list", "grid-3", "grid-2-wide", "hero", "feed"] as cons
  * a section of its wing's page, and the section's layout decides which card it
  * renders as. A body is a write-up at /<wing>/<slug>; no body ⇒ the card links
  * to `href` (or `github`). Every field is open to every entry; the layouts
- * use what they need. Images are Cloudinary public_ids.
+ * use what they need. Images are ids under site/.
  */
 const entries = defineCollection({
   loader: glob({ pattern: "**/*.{md,mdx}", base: "./src/content/entries" }),
@@ -78,24 +78,4 @@ const sections = defineCollection({
   }),
 });
 
-/**
- * Albums: one per photo-shoot folder on the NAS, for the /photography stacks.
- * The source of truth: title, year and date are edited here by hand, and
- * `npm run photos:albums -- build` keeps them, refreshing only photos and count.
- * The photos are Cloudinary public_ids in capture order; the first three are
- * the stack's cards.
- */
-const albums = defineCollection({
-  loader: glob({ pattern: "**/*.{yaml,yml}", base: "./src/content/albums" }),
-  schema: z
-    .object({
-      title: z.string(),
-      year: z.number().int(),
-      date: z.coerce.date().nullable(), // null: nothing in the album is dated, the label shows the year
-      count: z.number().int().positive(),
-      photos: z.array(z.string()).min(1),
-    })
-    .refine((album) => album.count === album.photos.length, { message: "count must match photos" }),
-});
-
-export const collections = { career, entries, sections, albums };
+export const collections = { career, entries, sections };

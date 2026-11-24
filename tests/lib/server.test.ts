@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getBerlinPosts } from "../../src/lib/berlin";
 import { clearOriginCache } from "../../src/lib/originCache";
-import { publicTags } from "../../src/lib/cloudinaryServer";
+import { publicTags } from "../../src/lib/photoSearch";
 import {
   isRawgProxyRequestAllowed,
   isSwitchMenuDocumentPath,

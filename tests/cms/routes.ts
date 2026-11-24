@@ -1,5 +1,9 @@
 // Renders a site route through the real page/endpoint modules, the way the
-// deployed site would, with only the network mocked (WordPress + Cloudinary).
+// deployed site would, with only the network mocked (WordPress) and a small
+// photo index in place of the NAS's.
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { experimental_AstroContainer as AstroContainer } from "astro/container";
 import { loadRenderers } from "astro:container";
 import { getContainerRenderer as reactRenderer } from "@astrojs/react";
@@ -13,7 +17,7 @@ const PAGES: Record<string, () => Promise<PageModule>> = {
   "/design": () => import("../../src/pages/design/index.astro"),
   "/writing": () => import("../../src/pages/writing/index.astro"),
   "/career": () => import("../../src/pages/career.astro"),
-  "/photography": () => import("../../src/pages/photography.astro"),
+  "/photography": () => import("../../src/pages/photography/[...path].astro"),
   "/engineering/[slug]": () => import("../../src/pages/engineering/[slug].astro"),
   "/design/[slug]": () => import("../../src/pages/design/[slug].astro"),
   "/writing/[slug]": () => import("../../src/pages/writing/[slug].astro"),
@@ -31,25 +35,18 @@ export const WORDPRESS_POSTS = [
   { ID: 2, title: "Fixture Post June", date: "2024-06-01T10:00:00+00:00", URL: "https://pbtw.example/june", featured_image: "" },
 ];
 
-const resource = (public_id: string) => ({
-  public_id,
-  secure_url: `https://res.cloudinary.com/demo/image/upload/${public_id}`,
-  width: 4000,
-  height: 6000,
-  tags: ["portraits"],
-});
+/** A photo index with two photos, in no album. */
+export function writePhotoIndex(): string {
+  const photo = (id: string) => ({ path: `_unsorted/${id}.jpg`, kind: "photo", version: "abcdef123456", width: 4000, height: 6000, fileTags: ["portraits"], createdAt: "2026-01-01T00:00:00.000Z" });
+  const file = join(mkdtempSync(join(tmpdir(), "cms-contract-")), "index.json");
+  writeFileSync(file, JSON.stringify({ indexVersion: 1, photos: { "library-a": photo("library-a"), "library-b": photo("library-b") }, folders: {}, albums: {} }));
+  return file;
+}
 
 /** fetch() for the duration of the contract: everything else is refused. */
-export async function mockFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+export async function mockFetch(input: RequestInfo | URL): Promise<Response> {
   const url = String(input instanceof Request ? input.url : input);
   if (url.includes("public-api.wordpress.com")) return Response.json({ posts: WORDPRESS_POSTS });
-  if (url.includes("api.cloudinary.com") && url.endsWith("/resources/search")) {
-    const { expression = "" } = JSON.parse(String(init?.body ?? "{}")) as { expression?: string };
-    const ids = [...expression.matchAll(/public_id="([^"]+)"/g)].map((m) => m[1]!);
-    // Reversed on purpose: callers must restore the album's own order.
-    return Response.json({ resources: (ids.length ? ids : ["library-a", "library-b"]).reverse().map(resource) });
-  }
-  if (url.includes("api.cloudinary.com") && url.includes("/tags/")) return Response.json({ tags: ["portraits"] });
   throw new Error(`Unexpected network request in the CMS contract: ${url}`);
 }
 
@@ -66,12 +63,6 @@ export async function renderRoute(route: string): Promise<Rendered> {
     const res = await GET({ site: new URL("https://example.test") } as never);
     return { status: res.status, body: await res.text() };
   }
-  if (path === "/api/cloudinary/album") {
-    const { GET } = await import("../../src/pages/api/cloudinary/album.ts");
-    const res = await GET({ request: new Request(url), url } as never);
-    return { status: res.status, body: await res.text() };
-  }
-
   const dynamic = path.match(/^\/(engineering|design|writing)\/([^/]+)$/);
   const key = dynamic ? `/${dynamic[1]}/[slug]` : path;
   const load = PAGES[key];

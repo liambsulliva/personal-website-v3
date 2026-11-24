@@ -13,10 +13,8 @@
 //
 // JSON routes compare shapes (keys and value types), not values: a local
 // server with stubbed upstreams returns other photos than production.
-import { readdirSync, readFileSync } from "node:fs";
 import { request as http } from "node:http";
 import { request as https } from "node:https";
-import { parse } from "yaml";
 import { LEGACY_REDIRECTS } from "../src/lib/redirects.mjs";
 
 const args = process.argv.slice(2);
@@ -92,16 +90,11 @@ async function check(name, path, pick, headers) {
   return { ref, cand };
 }
 
-// Write-ups from the reference's sitemap, one per wing; an album from the content.
+// Write-ups from the reference's sitemap, one per wing; the first album it shows.
 const sitemap = text(await get(reference, "/sitemap.xml"));
 const writeups = [...sitemap.matchAll(/<loc>https?:\/\/[^/]+(\/(?:engineering|design|writing)\/[^<]+\/)<\/loc>/g)].map((m) => m[1]);
 const perWing = Object.values(Object.groupBy(writeups, (path) => path.split("/")[1])).map((paths) => paths[0]);
-const albumDir = new URL("../src/content/albums/", import.meta.url);
-const album = readdirSync(albumDir)
-  .filter((file) => file.endsWith(".yaml"))
-  .map((file) => ({ slug: file.replace(/\.yaml$/, ""), ...parse(readFileSync(new URL(file, albumDir), "utf8")) }))
-  .filter((a) => a.count >= 5)
-  .sort((a, b) => b.count - a.count)[0];
+const album = [...text(await get(reference, "/photography")).matchAll(/data-album-stack="([^"]+)"/g)].map((m) => m[1])[0];
 
 console.log(`reference ${reference}\ncandidate ${candidate}${as ? ` (as ${as})` : ""}\n`);
 
@@ -119,14 +112,15 @@ for (const path of ["/", "/me/", "/career/", "/engineering/", "/design/", "/writ
 await check("page /me (no slash)", "/me", (res) => [res.status, title(res)]);
 
 // Shared photography links render that source.
-await check(`photography ?album=${album.slug}`, `/photography?album=${album.slug}`, (res) => [res.status, title(res), ogUrl(res)]);
+await check(`photography ${album}`, `/photography/${album}`, (res) => [res.status, title(res), ogUrl(res)]);
+await check(`photography ?album=${album}`, `/photography?album=${album}`, (res) => [res.status, res.headers.location ?? null]);
 await check("photography ?tag=music", "/photography?tag=music", (res) => [res.status, title(res), ogUrl(res)]);
 
-// The four Cloudinary routes: status and JSON shape.
+// The four photo routes: status and JSON shape.
 await check("api cloudinary/search", "/api/cloudinary/search?expression=resource_type%3Aimage&max_results=3", json);
 await check("api cloudinary/tags", "/api/cloudinary/tags", json);
 await check("api cloudinary/pool ?tag=music", "/api/cloudinary/pool?tag=music", json);
-await check(`api cloudinary/album ?slug=${album.slug}`, `/api/cloudinary/album?slug=${album.slug}`, json);
+await check(`api cloudinary/album ?slug=${album}`, `/api/cloudinary/album?slug=${album}`, json);
 await check("api cloudinary/pool hidden tag", "/api/cloudinary/pool?tag=_internal", (res) => res.status);
 
 // Switch menu: the embed's RAWG call (as the iframe sends it), a direct visit, frame headers.

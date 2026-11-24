@@ -3,7 +3,6 @@ import { tocFromBody } from "../../src/lib/toc";
 import { stripHtml } from "../../src/lib/berlin";
 import {
   sanitizePublicCloudinarySearch,
-  publicCloudinarySearchUrl,
   isPublicTag,
 } from "../../src/lib/cloudinarySearchPolicy";
 import { cldTransform, cldSrcSet } from "../../src/lib/cloudinary";
@@ -41,7 +40,7 @@ describe("stripHtml (Berlin titles)", () => {
   });
 });
 
-describe("public Cloudinary search policy", () => {
+describe("public search policy", () => {
   it("allows the gallery's untagged and tagged expressions", () => {
     expect(
       sanitizePublicCloudinarySearch({
@@ -88,21 +87,9 @@ describe("public Cloudinary search policy", () => {
       })?.max_results,
     ).toBe(1);
   });
-
-  it("builds the gallery's next-page URL", () => {
-    expect(
-      publicCloudinarySearchUrl({
-        expression: "resource_type:image",
-        max_results: 20,
-        next_cursor: "abc",
-      }),
-    ).toBe(
-      "/api/cloudinary/search?expression=resource_type%3Aimage&max_results=20&next_cursor=abc",
-    );
-  });
 });
 
-describe("Cloudinary site imagery URLs", () => {
+describe("site imagery URLs", () => {
   it("smart-crops fixed slots and limits free-aspect figures", () => {
     expect(cldTransform({ aspect: "16:9", width: 480 })).toBe(
       "f_auto,q_auto,c_fill,g_auto,ar_16:9,w_480",
@@ -148,7 +135,7 @@ describe("tag chips", () => {
 describe("photo shaping", () => {
   const resource = {
     public_id: "DSC_0001",
-    secure_url: "https://res.cloudinary.com/demo/image/upload/v1/DSC_0001.jpg",
+    secure_url: "/img/upload/v1/DSC_0001.webp",
     width: 1000,
     height: 800,
   };

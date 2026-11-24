@@ -21,13 +21,9 @@ services:
     tmpfs:
       - /tmp:size=16m
     environment:
-      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:?}
-      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:?}
-      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:?}
       RAWG_API_KEY: ${RAWG_API_KEY:?}
-      IMAGE_BACKEND: ${IMAGE_BACKEND:-cloudinary}
     volumes:
-      # Empty, and unread, unless IMAGE_BACKEND is nas.
+      # The photo index, from whichever project runs `photos`.
       - ${PHOTO_INDEX_DIR:-./photos/index}:/index:ro
     mem_limit: 384m
     memswap_limit: 384m

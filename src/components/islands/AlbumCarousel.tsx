@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
-import type { AlbumCard } from "../../lib/albums";
+import type { AlbumCard } from "../../lib/albumData";
 import AlbumStack from "./AlbumStack";
 import { CarouselNavigationButton } from "./Carousel";
 
@@ -9,7 +9,7 @@ import { CarouselNavigationButton } from "./Carousel";
 
 type AlbumCarouselProps = {
   albums: AlbumCard[];
-  openSlug: string | null;
+  openPath: string | null;
   disabled?: boolean;
   onSelect: (album: AlbumCard, button: HTMLButtonElement) => void;
 };
@@ -22,14 +22,14 @@ const EAGER_STACKS = 6;
 const scrollBehavior = (): ScrollBehavior =>
   document.documentElement.hasAttribute("data-reduced-motion") ? "auto" : "smooth";
 
-export default function AlbumCarousel({ albums, openSlug, disabled = false, onSelect }: AlbumCarouselProps) {
+export default function AlbumCarousel({ albums, openPath, disabled = false, onSelect }: AlbumCarouselProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   // SSR assumes the Figma state (overflowing, at the start) so hydration only
   // ever toggles the buttons, never moves anything.
   const [overflow, setOverflow] = useState(true);
   const [canPrev, setCanPrev] = useState(false);
   const [canNext, setCanNext] = useState(true);
-  const [loaded, setLoaded] = useState(() => new Set(albums.slice(0, EAGER_STACKS).map((album) => album.slug)));
+  const [loaded, setLoaded] = useState(() => new Set(albums.slice(0, EAGER_STACKS).map((album) => album.path)));
 
   useEffect(() => {
     const track = trackRef.current;
@@ -40,7 +40,7 @@ export default function AlbumCarousel({ albums, openSlug, disabled = false, onSe
         if (!near.length) return;
         setLoaded((previous) => {
           const next = new Set(previous);
-          near.forEach((slug) => slug && next.add(slug));
+          near.forEach((path) => path && next.add(path));
           return next.size === previous.size ? previous : next;
         });
       },
@@ -101,10 +101,10 @@ export default function AlbumCarousel({ albums, openSlug, disabled = false, onSe
       >
         {albums.map((album) => (
           <AlbumStack
-            key={album.slug}
+            key={album.path}
             album={album}
-            open={album.slug === openSlug}
-            load={loaded.has(album.slug)}
+            open={album.path === openPath}
+            load={loaded.has(album.path)}
             disabled={disabled}
             onSelect={onSelect}
           />

@@ -20,7 +20,6 @@ const EXTENSIONS: Record<string, RegExp> = {
   entries: /\.mdx?$/,
   sections: /\.ya?ml$/,
   career: /\.(ya?ml|md)$/,
-  albums: /\.ya?ml$/,
 };
 
 type Entry = { id: string; collection: string; data: Record<string, unknown>; body?: string; filePath: string };

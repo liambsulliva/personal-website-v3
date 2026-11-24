@@ -3,15 +3,18 @@
  * Header bar trail: "Liam Sullivan" (home, with the hover strum) followed by
  * the page's URL path, styled like the slug itself: "/engineering/kingdra-app".
  * Every segment links to its level; the last one is the current page, so
- * clicking it reloads.
+ * clicking it reloads. With `crumbs` it shows those titles instead
+ * (/photography's albums), which the gallery keeps in step as it opens them
+ * (lib/breadcrumb).
  */
 interface Props {
   /** URL pathname to mirror; omit for the name alone */
   path?: string;
+  crumbs?: { label: string; href: string }[];
 }
 
-const { path = "" } = Astro.props;
-const segments = path
+const { path = "", crumbs } = Astro.props;
+const segments = crumbs?.map((crumb, index, all) => ({ ...crumb, current: index === all.length - 1 })) ?? path
   .split("/")
   .filter(Boolean)
   .map((segment, index, all) => ({
@@ -21,7 +24,7 @@ const segments = path
   }));
 ---
 
-<nav class="min-w-0" aria-label="Breadcrumb">
+<nav class:list={["min-w-0", { "breadcrumb--titles": crumbs }]} aria-label="Breadcrumb" data-breadcrumb={crumbs && ""}>
   <!-- Inline items on a block list so a long path ellipsizes as one line on phones.
        truncate clips on every side, so py-3/-my-3 leaves room for the name's
        7px strum without moving the layout. -->
@@ -39,7 +42,7 @@ const segments = path
     </li>
     {
       segments.map((segment, index) => (
-        <li class:list={["inline font-mono text-[13px] md:text-[14px]", { "ml-2": index === 0 }]}>
+        <li class:list={["inline font-mono text-[13px] md:text-[14px]", { "ml-2": index === 0 && !crumbs }]} data-crumb={crumbs && ""}>
           <span class="breadcrumb__slash" aria-hidden="true">/</span>
           <a
             href={segment.href}
@@ -59,6 +62,9 @@ const segments = path
   .breadcrumb__slash {
     color: var(--fg-muted);
     opacity: 0.6;
+  }
+  .breadcrumb--titles .breadcrumb__slash {
+    margin-inline: 0.5em;
   }
   .breadcrumb__link {
     color: var(--fg-muted);

@@ -102,15 +102,15 @@ describe("scripts/uptime.mjs", () => {
     site.down.add("/api/cloudinary/pool");
     const run = await check();
     expect(run.status).toBe(1);
-    expect(run.out).toMatch(/FAIL {2}cloudinary +HTTP 500 \(twice/);
-    expect(run.report.split("\n")[0]).toBe("<!-- uptime-key: cloudinary -->");
+    expect(run.out).toMatch(/FAIL {2}photos +HTTP 500 \(twice/);
+    expect(run.report.split("\n")[0]).toBe("<!-- uptime-key: photos -->");
   });
 
   it("fails when the site is down, and can't vouch for the deploy", async () => {
     for (const path of ["/healthz", "/", "/photography", "/api/cloudinary/pool", "/api/rawg/platforms"]) site.down.add(path);
     const run = await check();
     expect(run.status).toBe(1);
-    expect(run.report.split("\n")[0]).toBe("<!-- uptime-key: health,home page,photography,cloudinary,rawg,deploy -->");
+    expect(run.report.split("\n")[0]).toBe("<!-- uptime-key: health,home page,photography,photos,rawg,deploy -->");
   });
 
   it("retries once, so a few seconds of 502 during a container swap pass", async () => {

@@ -1,7 +1,7 @@
 // Content that only fails at runtime (a skeleton where a photo should be, a
 // dead PDF link, a TOC link that scrolls nowhere) checked straight from the
-// source files. No network: Cloudinary ids are checked against the manifest
-// that `npm run cloudinary:seed` writes after uploading.
+// source files. No network: image ids are checked against the manifest the
+// dashboard writes when it uploads one.
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -11,8 +11,8 @@ const ROOT = join(import.meta.dirname, "../..");
 const SRC = join(ROOT, "src");
 const PUBLIC = join(ROOT, "public");
 
-// Reserved slots in scripts/cloudinary-map.mjs that still need an upload.
-// The page shows the skeleton until then; remove an id once it's seeded.
+// Reserved slots that still need an upload.
+// The page shows the skeleton until then; remove an id once it's there.
 const PENDING_UPLOADS = new Set<string>([]);
 
 const walk = (dir: string): string[] =>
@@ -26,7 +26,7 @@ const sources = walk(SRC).filter((path) =>
 );
 const read = (path: string) => readFileSync(path, "utf8");
 
-describe("Cloudinary site imagery", () => {
+describe("site imagery", () => {
   const referenced = new Map<string, string>();
   for (const path of sources) {
     // Quoted in code and MDX props, bare in YAML/frontmatter values.
@@ -42,7 +42,7 @@ describe("Cloudinary site imagery", () => {
     expect(referenced.size).toBeGreaterThan(40);
   });
 
-  it("every referenced public_id has been seeded", () => {
+  it("every referenced public_id is in the manifest", () => {
     const missing = [...referenced]
       .filter(([id]) => !(id in manifest) && !PENDING_UPLOADS.has(id))
       .map(([id, file]) => `${id} (${file})`);

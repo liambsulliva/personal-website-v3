@@ -30,8 +30,6 @@
 # Optional, in .env:
 #   STACK          compose project and image name (personal-website)
 #   DEPLOY_BRANCH  the branch to follow (main)
-#   IMAGE_BACKEND  nas: photos come from the NAS. It's built into the pages, so
-#                  the image is tagged <sha>-nas and changing it redeploys.
 #   PHOTOS=1       also run the photo services (compose.photos.yaml)
 #   CMS_BRANCH     also run cms-dashboard from that branch (compose.cms.yaml)
 #
@@ -69,8 +67,6 @@ main() {
   CANDIDATE="$STACK-candidate"
   BRANCH="${DEPLOY_BRANCH:-$(env_get DEPLOY_BRANCH)}"
   BRANCH="${BRANCH:-main}"
-  BACKEND="$(env_get IMAGE_BACKEND)"
-  BACKEND="${BACKEND:-cloudinary}"
   PHOTOS="$(env_get PHOTOS)"
   CMS_BRANCH="$(env_get CMS_BRANCH)"
   COMPOSE_DIR="$PROJECT_DIR"
@@ -91,7 +87,7 @@ main() {
 }
 
 deploy_site() {
-  local current remote tag failed
+  local current remote failed
   current="$(env_get SITE_SHA)"
   remote="$(git_ ls-remote "$REMOTE_URL" "refs/heads/$BRANCH" 2>>"$LOG" | cut -f1)" || remote=""
   if [[ ! "$remote" =~ ^[0-9a-f]{40}$ ]]; then
@@ -99,10 +95,7 @@ deploy_site() {
     return 1
   fi
 
-  tag="$remote"
-  [[ "$BACKEND" == nas ]] && tag="$remote-nas"
-
-  if [[ "$tag" == "$current" && (-z "$PHOTOS" || -n "$(env_get PHOTOS_SHA)") ]]; then
+  if [[ "$remote" == "$current" && (-z "$PHOTOS" || -n "$(env_get PHOTOS_SHA)") ]]; then
     # Up to date. Bring the stack back if something stopped it.
     local service
     for service in site ${PHOTOS:+img photos repo}; do
@@ -115,7 +108,7 @@ deploy_site() {
   fi
 
   failed="$(cat "$FAILED_FILE" 2>/dev/null || true)"
-  if [[ "$tag" == "$failed" && "${FORCE:-0}" != 1 ]]; then
+  if [[ "$remote" == "$failed" && "${FORCE:-0}" != 1 ]]; then
     return 0 # logged when it failed; waits for the next push
   fi
 
@@ -129,25 +122,25 @@ deploy_site() {
 
   # First: a site that reads the photo index needs one to pass its checks.
   if [[ -n "$PHOTOS" ]]; then
-    deploy_photos "$remote" "$tag" || return 1
+    deploy_photos "$remote" || return 1
   fi
 
-  if docker image inspect "$IMAGE:$tag" >/dev/null 2>&1; then
+  if docker image inspect "$IMAGE:$remote" >/dev/null 2>&1; then
     log "image $IMAGE:${remote:0:12} already built"
-  elif ! build_site "$remote" "$tag"; then
-    echo "$tag" >"$FAILED_FILE"
+  elif ! build_site "$remote"; then
+    echo "$remote" >"$FAILED_FILE"
     log "build failed for ${remote:0:12} (see build.log); still serving ${current:0:12}"
     return 1
   fi
 
-  if ! check_candidate "$tag"; then
+  if ! check_candidate "$remote"; then
     log "checks failed for ${remote:0:12}; still serving ${current:0:12}; will retry next run"
     return 1
   fi
 
-  switch_to "$tag" "$current" || return 1
+  switch_to "$remote" "$current" || return 1
   rm -f "$FAILED_FILE"
-  prune "$IMAGE" "$tag"
+  prune "$IMAGE" "$remote"
   log "deployed ${remote:0:12}"
 }
 
@@ -156,7 +149,7 @@ deploy_site() {
 deploy_photos() {
   local tree current user dir
   # Compose needs some SITE_SHA to read its files, and the first run has none.
-  local -x SITE_SHA="$2"
+  local -x SITE_SHA="$1"
   tree="$(cd "$REPO_DIR" && git_ rev-parse "$1:services" 2>>"$LOG")" || { log "no services/ at ${1:0:12}"; return 1; }
   current="$(env_get PHOTOS_SHA)"
   [[ "$tree" == "$current" ]] && return 0
@@ -340,10 +333,7 @@ fetch() {
 }
 
 build_site() {
-  # An older Dockerfile doesn't know the argument; it only matters for nas.
-  local backend=(--build-arg IMAGE_BACKEND="$BACKEND")
-  [[ "$BACKEND" == cloudinary ]] && backend=(--label image-backend=cloudinary)
-  build "$IMAGE:$2" "$REPO_DIR" --build-arg CLOUDINARY_CLOUD_NAME="$(env_get CLOUDINARY_CLOUD_NAME)" --build-arg SITE_SHA="$1" "${backend[@]}"
+  build "$IMAGE:$1" "$REPO_DIR" --build-arg SITE_SHA="$1"
 }
 
 # build <image> <dir> [docker build arguments]
@@ -412,17 +402,12 @@ healthy() {
 
 # The new image, started on its own beside the live one and checked.
 check_candidate() {
-  local name
   docker rm -f "$CANDIDATE" >/dev/null 2>&1 || true
   CANDIDATE_STARTED=1
   # Values come from this process's environment, never the command line.
-  for name in CLOUDINARY_CLOUD_NAME CLOUDINARY_API_KEY CLOUDINARY_API_SECRET RAWG_API_KEY; do
-    export "$name=$(env_get "$name")"
-  done
-  local nas=()
-  [[ "$BACKEND" == nas ]] && nas=(-e IMAGE_BACKEND=nas -v "$(index_dir):/index:ro")
+  export RAWG_API_KEY="$(env_get RAWG_API_KEY)"
   docker run --detach --name "$CANDIDATE" --read-only --tmpfs /tmp:size=16m --memory 384m \
-    -e CLOUDINARY_CLOUD_NAME -e CLOUDINARY_API_KEY -e CLOUDINARY_API_SECRET -e RAWG_API_KEY ${nas[@]+"${nas[@]}"} \
+    -e RAWG_API_KEY -v "$(index_dir):/index:ro" \
     "$IMAGE:$1" >/dev/null 2>>"$LOG" || return 1
   local ok=0
   healthy "$CANDIDATE" || ok=1

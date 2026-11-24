@@ -1,6 +1,6 @@
 // The outside uptime check (.github/workflows/uptime.yml runs it every 15
 // minutes from GitHub, off the NAS). It catches what a deploy failure looks
-// like from outside: the site down, an upstream key gone (Cloudinary, RAWG),
+// like from outside: the site down, no photos, the RAWG key gone,
 // or main moving on while the site keeps serving an older commit.
 //
 //   node scripts/uptime.mjs https://liambsullivan.com
@@ -72,8 +72,8 @@ const checks = [
   { name: "home page", path: "/", test: ({ status, text }) => (status !== 200 ? `HTTP ${status}` : /<title>/.test(text) ? null : "no <title>") },
   { name: "photography", path: "/photography", test: ({ status }) => (status !== 200 ? `HTTP ${status}` : null) },
   {
-    // The page renders 200 even when Cloudinary fails; this route doesn't.
-    name: "cloudinary",
+    // The page renders 200 even without a photo index; this route doesn't.
+    name: "photos",
     path: "/api/cloudinary/pool",
     test: ({ status, text }) => (status !== 200 ? `HTTP ${status}` : json(text)?.resources?.length ? null : "no photos"),
   },

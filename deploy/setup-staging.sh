@@ -33,14 +33,13 @@ main() {
     (
       umask 077
       {
-        for key in CLOUDINARY_CLOUD_NAME CLOUDINARY_API_KEY CLOUDINARY_API_SECRET RAWG_API_KEY; do
+        for key in RAWG_API_KEY; do
           sed -n "s/^$key=/$key=/p" "$live/.env" | tail -n 1
         done
         echo "TUNNEL_TOKEN=$token"
         echo "TUNNEL_PROTOCOL=$(sed -n 's/^TUNNEL_PROTOCOL=//p' "$live/.env" | tail -n 1)"
         echo "STACK=personal-website-staging"
         echo "DEPLOY_BRANCH=staging"
-        echo "IMAGE_BACKEND=nas"
         echo "PHOTOS=1"
         echo "PHOTOS_USER=$(stat -c '%u:%g' /volume1/photography/Published)"
         for key in PHOTOS_API_SECRET REPO_CMS_SECRET; do

@@ -1,80 +1,75 @@
 import { describe, expect, it } from "vitest";
-import { ALL, PHOTOGRAPHY_TITLE, photographyTitle, shareHref, sourceFromParams, tagLabel } from "../../src/lib/photoShare";
+import { topOf } from "../../src/lib/albumData";
+import { ALL, parentHref, photographyCrumbs, photographyTitle, sameSource, shareHref, sourceFromHref, sourceFromUrl, tagLabel, type GallerySource } from "../../src/lib/photoShare";
 
-// The site title's suffix (its branding), taken from the site rather than written out here.
-const SUFFIX = PHOTOGRAPHY_TITLE.slice(PHOTOGRAPHY_TITLE.indexOf(" - "));
+const CURRENT: Record<string, string> = {
+  "2026-otakon": "2026-otakon",
+  "2026-otakon/day-1": "2026-otakon/day-1",
+  "old/day-1": "2026-otakon/day-1", // it moved
+};
+const read = (path: string, query = "") => sourceFromUrl(path, new URLSearchParams(query), { current: (link) => (Object.hasOwn(CURRENT, link) ? CURRENT[link] : null), tags: ["music", "street art"] });
+const album = (path: string): GallerySource => ({ kind: "album", path });
+const ok = (source: GallerySource) => ({ source, missing: null, redirect: null });
 
-const shown = { albums: ["2026-sample-expo-2026", "2024-sample-expo-0803"], tags: ["basketball", "street-art", "a.b:c-d_e"] };
-const parse = (query: string) => sourceFromParams(new URLSearchParams(query), shown);
-
-describe("sourceFromParams (shared /photography links)", () => {
-  it("no params is All", () => {
-    expect(parse("")).toEqual({ source: ALL, missing: null });
-    expect(parse("album=&tag=")).toEqual({ source: ALL, missing: null });
+describe("photography addresses", () => {
+  it("opens an album or sub-album by its path, slash or not", () => {
+    expect(read("2026-otakon")).toEqual(ok(album("2026-otakon")));
+    expect(read("2026-otakon/day-1")).toEqual(ok(album("2026-otakon/day-1")));
+    expect(read("2026-otakon/")).toEqual(ok(album("2026-otakon")));
   });
 
-  it("resolves a shown album by slug", () => {
-    expect(parse("album=2026-sample-expo-2026")).toEqual({ source: { kind: "album", slug: "2026-sample-expo-2026" }, missing: null });
+  it("opens a tag, or everything", () => {
+    expect(read("", "tag=street%20art")).toEqual(ok({ kind: "tag", tag: "street art" }));
+    expect(read("")).toEqual(ok(ALL));
+    expect(read("", "album=&tag=")).toEqual(ok(ALL));
   });
 
-  it("resolves a chip tag, punctuation included", () => {
-    expect(parse("tag=basketball")).toEqual({ source: { kind: "tag", tag: "basketball" }, missing: null });
-    expect(parse("tag=a.b%3Ac-d_e")).toEqual({ source: { kind: "tag", tag: "a.b:c-d_e" }, missing: null });
+  it("redirects ?album= links and links an album had before it moved", () => {
+    expect(read("", "album=2026-otakon").redirect).toBe("/photography/2026-otakon");
+    expect(read("", "album=2026-otakon&tag=music&ref=x").redirect).toBe("/photography/2026-otakon?ref=x");
+    expect(read("old/day-1").redirect).toBe("/photography/2026-otakon/day-1");
+    expect(read("", "album=old/day-1").redirect).toBe("/photography/2026-otakon/day-1");
+    expect(read("2026-otakon", "album=x").redirect).toBe("/photography/2026-otakon");
   });
 
-  it("an album wins over a tag", () => {
-    expect(parse("tag=basketball&album=2024-sample-expo-0803").source).toEqual({ kind: "album", slug: "2024-sample-expo-0803" });
+  it("opens the full gallery, and says so, for a link to nothing shown", () => {
+    expect(read("gone")).toEqual({ source: ALL, missing: "album", redirect: null });
+    expect(read("2026-otakon/gone")).toEqual({ source: ALL, missing: "album", redirect: null });
+    expect(read("", "album=gone")).toEqual({ source: ALL, missing: "album", redirect: null });
+    expect(read("", "album=gone&tag=music")).toEqual({ source: { kind: "tag", tag: "music" }, missing: "album", redirect: null });
+    expect(read("", "tag=gone")).toEqual({ source: ALL, missing: "tag", redirect: null });
   });
 
-  it("a slug or tag the page doesn't show falls back to All and says which", () => {
-    // Titles aren't slugs; hidden (under 5 photos), deleted and renamed albums aren't shown.
-    expect(parse("album=Sample%20Expo%202026")).toEqual({ source: ALL, missing: "album" });
-    expect(parse("album=2022-sample-shoot-0212")).toEqual({ source: ALL, missing: "album" });
-    // Hidden tags (editorial, `_`-prefixed) never reach the chip list.
-    expect(parse("tag=featured")).toEqual({ source: ALL, missing: "tag" });
-    expect(parse("tag=_album-2026-x")).toEqual({ source: ALL, missing: "tag" });
-    expect(parse("tag=Basketball")).toEqual({ source: ALL, missing: "tag" });
-  });
-
-  it("a missing album still shows the link's tag", () => {
-    expect(parse("album=gone&tag=basketball")).toEqual({ source: { kind: "tag", tag: "basketball" }, missing: "album" });
-  });
-});
-
-describe("shareHref", () => {
-  const page = new URL("https://example.test/photography?utm_source=x#top");
-
-  it("sets one param, keeping the rest of the URL", () => {
-    expect(shareHref({ kind: "album", slug: "2026-sample-expo-2026" }, page)).toBe(
-      "https://example.test/photography?utm_source=x&album=2026-sample-expo-2026#top",
-    );
-    expect(shareHref({ kind: "tag", tag: "basketball" }, new URL("https://example.test/photography?album=old"))).toBe(
-      "https://example.test/photography?tag=basketball",
-    );
-  });
-
-  it("All drops both params", () => {
-    expect(shareHref(ALL, new URL("https://example.test/photography?album=a&tag=b"))).toBe("https://example.test/photography");
-  });
-
-  it("round-trips through sourceFromParams", () => {
-    for (const source of [{ kind: "album", slug: "2024-sample-expo-0803" }, { kind: "tag", tag: "a.b:c-d_e" }, ALL] as const) {
-      expect(sourceFromParams(new URL(shareHref(source, page)).searchParams, shown).source).toEqual(source);
+  it("writes the address the share button copies, and reads it back", () => {
+    const here = new URL("https://x.test/photography?tag=music&ref=a#top");
+    expect(shareHref(album("2026-otakon/day-1"), here)).toBe("https://x.test/photography/2026-otakon/day-1?ref=a#top");
+    expect(shareHref({ kind: "tag", tag: "street art" }, new URL("https://x.test/photography/2026-otakon?album=y"))).toBe("https://x.test/photography?tag=street+art");
+    expect(shareHref(ALL, here)).toBe("https://x.test/photography?ref=a#top");
+    for (const source of [album("2026-otakon"), album("2026-otakon/day-1"), ALL, { kind: "tag", tag: "street art" } as GallerySource]) {
+      expect(sourceFromHref(new URL(shareHref(source, here)))).toEqual(source);
     }
-  });
-});
-
-describe("photographyTitle", () => {
-  const albums = [{ slug: "2026-sample-expo-2026", title: "Sample Expo 2026" }];
-
-  it("names the album or tag", () => {
-    expect(photographyTitle({ kind: "album", slug: "2026-sample-expo-2026" }, albums)).toBe(`Sample Expo 2026${SUFFIX}`);
-    expect(photographyTitle({ kind: "tag", tag: "basketball" }, albums)).toBe(`Basketball Photos${SUFFIX}`);
-    expect(photographyTitle(ALL, albums)).toBe(PHOTOGRAPHY_TITLE);
+    expect(sourceFromHref(new URL("https://x.test/photography/"))).toEqual(ALL);
   });
 
-  it("tagLabel matches the chips", () => {
+  it("compares sources", () => {
+    expect([sameSource(album("a"), album("a")), sameSource(album("a"), album("b")), sameSource(ALL, { kind: "tag", tag: "" }), sameSource(album(""), ALL)]).toEqual([true, false, true, false]);
+  });
+
+  it("gives every level a crumb, and the back button its parent", () => {
+    expect(photographyCrumbs([{ path: "2026-otakon", title: "Otakon 2026" }, { path: "2026-otakon/day-1", title: "Day 1" }])).toEqual([
+      { label: "Photography", href: "/photography" },
+      { label: "Otakon 2026", href: "/photography/2026-otakon" },
+      { label: "Day 1", href: "/photography/2026-otakon/day-1" },
+    ]);
+    expect(["a/b/c", "a/b", "a"].map(parentHref)).toEqual(["/photography/a/b", "/photography/a", "/photography"]);
+    expect(topOf("a/b/c")).toBe("a");
+  });
+
+  it("titles the document after what's open", () => {
+    expect(photographyTitle(album("a"), "Day 1")).toBe("Day 1 - Liam Sullivan");
+    expect(photographyTitle(album("a"))).toBe("Photography - Liam Sullivan");
+    expect(photographyTitle({ kind: "tag", tag: "street art" })).toBe("Street Art Photos - Liam Sullivan");
+    expect(photographyTitle(ALL)).toBe("Photography - Liam Sullivan");
     expect(tagLabel("street art")).toBe("Street Art");
-    expect(tagLabel("street-art")).toBe("Street-art");
   });
 });

@@ -17,7 +17,7 @@ import { compile } from "@mdx-js/mdx";
 import { experimental_AstroContainer as AstroContainer } from "astro/container";
 import { apply, contentStatus, restore, type CaseFile } from "./apply";
 import { ROOT } from "./loader";
-import { mockFetch, renderRoute } from "./routes";
+import { mockFetch, renderRoute, writePhotoIndex } from "./routes";
 
 vi.mock("astro:content", () => import("./loader"));
 
@@ -40,9 +40,8 @@ let initialStatus = "";
 beforeAll(() => {
   initialStatus = contentStatus();
   vi.stubGlobal("fetch", mockFetch);
-  vi.stubEnv("CLOUDINARY_CLOUD_NAME", "demo");
-  vi.stubEnv("CLOUDINARY_API_KEY", "key");
-  vi.stubEnv("CLOUDINARY_API_SECRET", "secret");
+  // Photos and albums aren't content: /photography reads them from the photo index.
+  vi.stubEnv("PHOTO_INDEX_FILE", writePhotoIndex());
 });
 afterEach(() => restore());
 afterAll(() => {
@@ -102,7 +101,7 @@ describe.runIf(cases.length)(`CMS contract (${cases.length} cases from ${process
 
     if (c.tags) {
       const { isPublicTag } = await import("../../src/lib/cloudinarySearchPolicy");
-      const { publicTags } = await import("../../src/lib/cloudinaryServer");
+      const { publicTags } = await import("../../src/lib/photoSearch");
       for (const tag of c.tags.accepted) {
         const hidden = c.tags.hidden.includes(tag);
         expect(isPublicTag(tag), `tag “${tag}” is ${hidden ? "hidden" : "public"} in the CMS`).toBe(!hidden);
@@ -135,7 +134,7 @@ describe.runIf(cases.length)("real Astro content sync", () => {
 
   // One retry: a genuine schema rejection fails both times; npx/cache hiccups don't.
   it("accepts one authored case per collection at once", { retry: 1, timeout: 120_000 }, () => {
-    const picked = ["entries.featured.engineering", "entries.berlin", "sections.add", "career.text", "albums.cover"]
+    const picked = ["entries.featured.engineering", "entries.berlin", "sections.add", "career.text"]
       .map((id) => cases.find((c) => c.id === id))
       .filter((c): c is ContractCase => !!c);
     expect(picked.length).toBeGreaterThan(0);

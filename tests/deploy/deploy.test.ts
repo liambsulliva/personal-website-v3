@@ -75,7 +75,7 @@ beforeEach(() => {
   writeFileSync(join(work, "deploy/compose.yaml"), readFileSync(join(ROOT, "deploy/compose.yaml")));
   writeFileSync(
     join(project, ".env"),
-    "CLOUDINARY_CLOUD_NAME=demo\nCLOUDINARY_API_KEY=key\nCLOUDINARY_API_SECRET=secret\nRAWG_API_KEY=rawg\nTUNNEL_TOKEN=t\nSITE_SHA=\n",
+    "RAWG_API_KEY=rawg\nTUNNEL_TOKEN=t\nSITE_SHA=\n",
   );
   chmodSync(join(project, ".env"), 0o600);
   const docker = join(dir, "bin/docker");
@@ -98,7 +98,6 @@ describe.skipIf(!hasTools)("deploy.sh (poll a branch, build, switch)", () => {
     expect(read(join(project, "deploy.log"))).toContain(`deployed ${a.slice(0, 12)}`);
     // The build gets the public cloud name and the commit, never a secret.
     const [build] = builds();
-    expect(build).toContain("--build-arg CLOUDINARY_CLOUD_NAME=demo");
     expect(build).toContain(`--build-arg SITE_SHA=${a}`);
     expect(build).toContain("--memory 1536m");
     expect(build).not.toMatch(/secret|key=|rawg/i);
@@ -351,8 +350,8 @@ describe.skipIf(!hasTools)("deploy.sh (poll a branch, build, switch)", () => {
       writeFileSync(
         join(project, ".env"),
         [
-          "CLOUDINARY_CLOUD_NAME=demo\nCLOUDINARY_API_KEY=key\nCLOUDINARY_API_SECRET=secret\nRAWG_API_KEY=rawg\nTUNNEL_TOKEN=t\nSITE_SHA=",
-          "STACK=pw-staging\nDEPLOY_BRANCH=staging\nIMAGE_BACKEND=nas\nPHOTOS=1",
+          "RAWG_API_KEY=rawg\nTUNNEL_TOKEN=t\nSITE_SHA=",
+          "STACK=pw-staging\nDEPLOY_BRANCH=staging\nPHOTOS=1",
           `PHOTOS_USER=${process.getuid!()}:${process.getgid!()}\nCMS_BRANCH=env/nas-images\nGITHUB_TOKEN=${TOKEN}\n`,
         ].join("\n"),
       );
@@ -363,20 +362,19 @@ describe.skipIf(!hasTools)("deploy.sh (poll a branch, build, switch)", () => {
       const cms = pushCms("cms a");
       const first = run();
       expect(first.status, first.out + log()).toBe(0);
-      expect(setting("SITE_SHA")).toBe(`${a}-nas`);
-      expect(service("site")).toBe(`${a}-nas`);
+      expect(setting("SITE_SHA")).toBe(a);
+      expect(service("site")).toBe(a);
       expect([service("img"), service("repo")]).toEqual([setting("PHOTOS_SHA"), setting("PHOTOS_SHA")]);
       expect(service("photos")).toBe(sh(work, "git", "rev-parse", "HEAD:services"));
       expect(service("cms")).toBe(cms);
       const site = builds().find((call) => call.includes("pw-staging:"))!;
-      expect(site).toContain("--build-arg IMAGE_BACKEND=nas");
       expect(site, "healthz reports the commit, not the tag").toContain(`--build-arg SITE_SHA=${a} `);
       // The photo services come first: the candidate's checks need an index.
       const order = calls()
         .map((call) => (call.includes(" up -d img photos repo") ? "photos" : call.startsWith("run ") ? "candidate" : ""))
         .filter(Boolean);
       expect(order).toEqual(["photos", "candidate"]);
-      expect(calls().find((call) => call.startsWith("run "))).toContain(`-e IMAGE_BACKEND=nas -v ${project}/photos/index:/index:ro`);
+      expect(calls().find((call) => call.startsWith("run "))).toContain(`-v ${project}/photos/index:/index:ro`);
     });
 
     it("never acts on the live project, by deploy.sh or by hand", () => {
@@ -426,7 +424,7 @@ describe.skipIf(!hasTools)("deploy.sh (poll a branch, build, switch)", () => {
       expect(run().status).toBe(1);
       expect(setting("PHOTOS_SHA")).toBe(good);
       expect(service("photos")).toBe(good);
-      expect(service("site")).toBe(`${a}-nas`);
+      expect(service("site")).toBe(a);
     });
 
     it("leaves nothing running when the first photo services are unhealthy", () => {
@@ -480,7 +478,7 @@ describe.skipIf(!hasTools)("deploy.sh (poll a branch, build, switch)", () => {
       pushCms("broken");
       writeFileSync(join(state, "build-fail"), "pw-staging-cms");
       expect(run().status).toBe(1);
-      expect(service("site")).toBe(`${a}-nas`);
+      expect(service("site")).toBe(a);
       resetCalls();
       expect(run().status).toBe(0);
       expect(builds()).toEqual([]);
@@ -499,20 +497,6 @@ describe.skipIf(!hasTools)("deploy.sh (poll a branch, build, switch)", () => {
       expect(run().status).toBe(1);
       expect(setting("CMS_SHA")).toBe(good);
       expect(service("cms")).toBe(good);
-    });
-
-    it("redeploys the same commit when IMAGE_BACKEND changes, and changes back without a build", () => {
-      const a = pushStaging("a");
-      pushCms("cms a");
-      run();
-      edit((env) => env.replace("IMAGE_BACKEND=nas", "IMAGE_BACKEND=cloudinary"));
-      expect(run().status).toBe(0);
-      expect(service("site")).toBe(a);
-      resetCalls();
-      edit((env) => env.replace("IMAGE_BACKEND=cloudinary", "IMAGE_BACKEND=nas"));
-      expect(run().status).toBe(0);
-      expect(service("site")).toBe(`${a}-nas`);
-      expect(builds()).toEqual([]);
     });
 
     it("starts the photo services when PHOTOS is turned on for a commit already serving", () => {

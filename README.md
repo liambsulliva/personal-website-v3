@@ -45,7 +45,7 @@ The earlier versions are still online at [v2](https://v2.liambsullivan.com) and 
 | Career      | `/career`      | `src/content/career`                                                      | The timeline of jobs and education           |
 | Engineering | `/engineering` | `src/content/entries` and `src/content/sections/engineering.yaml`         | Projects, as cards or write-ups              |
 | Design      | `/design`      | `src/content/entries` and `src/content/sections/design.yaml`              | Design work, as cards or write-ups           |
-| Photography | `/photography` | Cloudinary and `src/content/albums`                                       | Galleries and album stacks                   |
+| Photography | `/photography` | The photo index on the NAS                                                | Galleries and album stacks                   |
 | Writing     | `/writing`     | `src/content/entries`, `src/content/sections/writing.yaml`, and WordPress | Posts and the Berlin study-abroad feed       |
 
 ## Content
@@ -57,29 +57,26 @@ Content lives in Astro content collections. Zod schemas in `src/content.config.t
 | `entries`  | `src/content/entries`  | MDX    | Every card and write-up on Engineering, Design, and Writing                 |
 | `sections` | `src/content/sections` | YAML   | One file per wing, with the page's sections, their layouts, and their order |
 | `career`   | `src/content/career`   | YAML   | The Career timeline                                                         |
-| `albums`   | `src/content/albums`   | YAML   | One album per shoot, for the Photography stacks                             |
 
 Each entry names its `wing` and `section`. The section's `layout` decides which card the entry renders as. An entry with a body gets a write-up page at `/<wing>/<slug>`, and its `href`, if set, becomes the demo button. An entry without a body is a card that links to its `href`, or to its `github` repo when it has no `href`. Set `hidden: true` to keep an entry in the repo without a card, page, or sitemap URL.
 
 ## Images
 
-Site images live in Cloudinary under `site/`. Photography lives at the root of the same cloud and is filtered by tag.
+Photos and site images live in one folder on the NAS, `Published`, and are resized there by `services/img`. The `photos` service watches the folder and keeps an index, which the site reads. `docs/photo-pipeline-plan.md` and `docs/folder-albums-plan.md` have the details.
 
-- `scripts/cloudinary-map.mjs` maps each image's public ID to its source file.
-- `npm run cloudinary:seed` uploads the mapped images and writes their sizes to `src/data/cloudinary-manifest.json`.
-- An ID that isn't in the manifest yet renders as a gray skeleton and doesn't request the image. The same skeleton appears if an uploaded image fails to load.
-- `npm run photos:tags -- add featured <public_id>` tags a photo. The `featured` tag puts it in the Photography carousel. Run `npm run photos:tags` with no arguments for the full usage.
-
-`npm run photos:albums` builds the album files in `src/content/albums` from the shoot folders listed in `scripts/album-folders.json`. Cloudinary doesn't link photos back to those folders, so the script matches photos to folders by capture date. The `propose` stage writes a proposal for you to review, and the `build` stage writes the albums from it. Run the four stages in order: `exif`, `flickr`, `propose`, and `build`. Most Cloudinary copies are Flickr originals that lost their EXIF data, so the `flickr` stage looks up each photo's capture date on Flickr.
+- Every folder in `Published` is an album, at any depth. Its `album.yaml` holds its address, date and order.
+- Files directly in `Published`, or in a folder that starts with `_`, are published in no album.
+- Site images are in `Published/_site`. The dashboard uploads them and writes their sizes to `src/data/cloudinary-manifest.json`.
+- An ID that isn't in the manifest renders as a gray skeleton and doesn't request the image. The same skeleton appears if an image fails to load.
 
 ## API routes
 
-All routes are read-only.
+All routes are read-only. The photo routes kept their old names when the photos moved off Cloudinary.
 
 - `GET /api/cloudinary/search` returns a page of photos for one tag. It only accepts the gallery's own query shapes.
 - `GET /api/cloudinary/tags` returns the public photo tags. It leaves out `featured` and tags that start with `_`.
 - `GET /api/cloudinary/pool` returns every photo for one tag, or for All when no tag is given. The gallery shuffles that set in the browser, so each tag shows a random selection.
-- `GET /api/cloudinary/album?slug=` returns one album's photos in capture order.
+- `GET /api/cloudinary/album?slug=` returns one album's own photos in order, and its sub-albums. The slug is its path, such as `2026-otakon-2026/day-1`.
 - `GET /api/rawg/*` proxies RAWG for the Switch menu embed. It only answers requests from the embed, so the key never reaches the browser.
 
 v2's upload, delete, and tag-editing routes and its admin dashboard are not part of this repo.
@@ -104,30 +101,24 @@ To run it yourself, you need:
 
 - Node.js 24, pinned in `.nvmrc` and `package.json`
 - npm
-- A Cloudinary account, for the photos
 
-The Switch embed's game data needs a RAWG key, and the Flickr stage of the album script needs Flickr keys.
+The Switch embed's game data needs a RAWG key. Images come from the resizer on the NAS, so they're missing from a local run.
 
 ## Environment variables
 
 Copy `.env.example` to `.env` in the project root, then fill in the values:
 
 ```bash
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
 RAWG_API_KEY=your_rawg_api_key
-FLICKR_API_KEY=your_flickr_api_key
-FLICKR_USER_ID=your_flickr_user_id
+PHOTO_INDEX_FILE=a copy of Published/.site/index.json
 ```
 
-| Variable                                                               | Needed for                                                                          |
-| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | The photo routes, the seed script, the tag script, and the album script             |
-| `RAWG_API_KEY`                                                         | The Switch menu embed's game data. Without it, the embed's game data returns a 503. |
-| `FLICKR_API_KEY`, `FLICKR_USER_ID`                                     | The `flickr` stage of `npm run photos:albums`                                       |
+| Variable           | Needed for                                                                          |
+| ------------------ | ----------------------------------------------------------------------------------- |
+| `RAWG_API_KEY`     | The Switch menu embed's game data. Without it, the embed's game data returns a 503. |
+| `PHOTO_INDEX_FILE` | `/photography`. Without it, the page has no photos.                                 |
 
-Set the Cloudinary and RAWG variables on the Vercel project too. Keep `RAWG_API_KEY` server-only, so don't prefix it with `PUBLIC_` or `VITE_`.
+Keep `RAWG_API_KEY` server-only, so don't prefix it with `PUBLIC_` or `VITE_`.
 
 ## Commands
 
@@ -142,15 +133,12 @@ Run these from the project root. The project targets Node 24.x.
 | `npm test`                | Runs the Vitest suite once. The build checks skip when there is no build.        |
 | `npm run test:watch`      | Runs the suite in watch mode                                                     |
 | `npm run test:build`      | Builds first, then runs the suite, including the checks against the build output |
-| `npm run cloudinary:seed` | Uploads the mapped images and writes their sizes to the manifest                 |
-| `npm run photos:tags`     | Lists, adds, and removes photo tags in Cloudinary                                |
-| `npm run photos:albums`   | Builds the album files in four stages. See [Images](#images).                    |
 
 ## Tests
 
 Vitest runs every `.test.ts` file under `tests/`.
 
-- `tests/lib` checks the helpers in `src/lib`, such as album parsing, shared photo links, the Berlin feed, and the redirect rules that accept a trailing slash.
+- `tests/lib` checks the helpers in `src/lib`, such as albums, photo addresses, the Berlin feed, and the redirect rules that accept a trailing slash.
 - `tests/content` reads the content files directly and catches problems that only show at runtime, such as a skeleton where a photo should be, a dead PDF link, or a table-of-contents link that scrolls nowhere.
 - `tests/components` renders the cards and the image component through Astro's container API.
 - `tests/build` checks the Vercel build output, including the redirects, the prerendered pages, robots.txt, and the inlined critical CSS. It reads whatever the last build wrote, so run `npm run test:build` after you change a route.
@@ -167,21 +155,19 @@ Vitest runs every `.test.ts` file under `tests/`.
 - [React Photo Album](https://react-photo-album.com/) and [Yet Another React Lightbox](https://yet-another-react-lightbox.com/)
 - [PDF.js](https://mozilla.github.io/pdf.js/) for slide carousels
 - [Shiki](https://shiki.style/) for syntax highlighting
-- [Cloudinary](https://cloudinary.com/) for images
+- [sharp](https://sharp.pixelplumbing.com/) for images
 - [Vitest](https://vitest.dev/) for tests
 
 ## Credits
 
-- **Cloudinary** hosts every image, and its search API backs the photo routes.
 - **WordPress.com** serves the Berlin posts through its public API, and Photon resizes their images.
 - **RAWG** supplies the game data for the Switch menu embed.
-- **Flickr** supplies capture dates for photos that lost their EXIF data.
 - **Figma** holds the design, which sets the layout, components, and tokens.
 
 ## FAQ
 
 **Why is a photo a gray box?**
-An ID that isn't in the manifest yet renders as a skeleton. Map the image in `scripts/cloudinary-map.mjs`, then run `npm run cloudinary:seed`.
+An ID that isn't in the manifest yet renders as a skeleton. Upload the image in the dashboard.
 
 **Why are there no Berlin posts?**
 The feed comes back empty when WordPress returns an error or can't be reached. The rest of the Writing page still renders.

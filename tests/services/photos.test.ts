@@ -1,15 +1,12 @@
-import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, unlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { emptyIndex, indexReader, loadIndex, saveIndex, tagsOf } from "../../services/lib/index.mjs";
-import { buildAlbums } from "../../services/lib/albums.mjs";
 import { createWarmer, createWatcher, warmPaths } from "../../services/photos/main.mjs";
 import { exifDate, iptcKeywords, readMetadata } from "../../services/photos/metadata.mjs";
 import { listPublished, REMOVAL_HOLD, scan } from "../../services/photos/scan.mjs";
-import { seed } from "../../services/photos/seed.mjs";
 import { parsePath } from "../../services/img/transforms.mjs";
 
 let dir: string;
@@ -402,36 +399,5 @@ describe("watcher", () => {
     expect(read()).toEqual(emptyIndex());
     writeFileSync(file, "{ half");
     expect(read()).toEqual(emptyIndex());
-  });
-});
-
-describe("seed", () => {
-  const md5 = (body: Buffer) => createHash("md5").update(body).digest("hex");
-  it("keeps ids, dates, tags and album slugs, and the first scan then changes nothing", async () => {
-    const [a, b] = [await jpeg("red"), await jpeg("blue")];
-    await put("Bash 4-11/WBB_v._a-1_x.jpg", a);
-    await put("_unsorted/b.jpg", b);
-    await put("_site/me/portrait.jpg", jpeg("green"));
-    const asset = (public_id: string, body: Buffer, tags: string[] = []) => ({ public_id, created_at: "2025-10-31T06:48:58+00:00", etag: md5(body), tags, alt: null });
-    const exported = [asset("WBB_v._a-1_x", a, ["sports"]), asset("b", b), asset("site/me/portrait", await jpeg("green"))];
-    const albums = [{ slug: "2026-bash-0411", photos: ["WBB_v._a-1_x"] }];
-    const { index, problems } = await seed({ exported, root, albums } as any);
-    expect(Object.values(problems).flat()).toEqual([]);
-    expect(index.photos["WBB_v._a-1_x"]).toMatchObject({ createdAt: "2025-10-31T06:48:58.000Z", tagEdits: { sports: true }, path: "Bash 4-11/WBB_v._a-1_x.jpg" });
-    expect(index.albums).toEqual({ "2026-bash-0411": { folder: "Bash 4-11", known: ["WBB_v._a-1_x"] } });
-    const s = scanner(index);
-    expect([(await s.settle()).changed, buildAlbums(s.index).all.get("Bash 4-11")?.link]).toEqual([false, "2026-bash-0411"]);
-  });
-
-  it("names what's missing, different or unaccounted for", async () => {
-    await put("A/a.jpg", jpeg("red"));
-    await put("A/extra.jpg", jpeg("blue"));
-    const exported = [
-      { public_id: "a", created_at: "2025-10-31T06:48:58+00:00", etag: "0", tags: ["bad tag"], alt: null },
-      { public_id: "lost", created_at: "2025-10-31T06:48:58+00:00", etag: "0", tags: [], alt: null },
-    ];
-    const { problems } = await seed({ exported, root, albums: [{ slug: "x", photos: ["lost"] }] } as any);
-    expect(problems).toMatchObject({ missing: ["lost"], different: ["a"], extra: ["A/extra.jpg"], badTags: ["a: bad tag"] });
-    expect(problems.albums).toHaveLength(1);
   });
 });

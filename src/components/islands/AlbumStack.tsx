@@ -1,9 +1,10 @@
 import { useId, type CSSProperties } from "react";
-import type { AlbumCard, StackPhoto } from "../../lib/albums";
+import type { AlbumCard, StackPhoto } from "../../lib/albumData";
 import { springEasing } from "./lightboxFlight";
 import ProgressiveImage from "./ProgressiveImage";
 
-// Figma AlbumStack (190:586): three prints of a shoot, fanned on hover. The
+// Figma AlbumStack (190:586): three prints of a shoot, fanned on hover; in the
+// carousel, or as a sub-album's tile inside its parent. The
 // button and its [data-album-stack] / [data-album-card] hooks are what
 // PhotoGallery's explode flight measures; the motion itself lives in
 // global.css (Album stacks).
@@ -55,7 +56,7 @@ export default function AlbumStack({ album, open, load, disabled, onSelect }: Al
   return (
     <button
       type="button"
-      data-album-stack={album.slug}
+      data-album-stack={album.path}
       aria-pressed={open}
       aria-label={`${open ? "Close" : "Open"} album ${album.title}`}
       aria-describedby={detailsId}
@@ -74,7 +75,7 @@ export default function AlbumStack({ album, open, load, disabled, onSelect }: Al
             open ? "opacity-100" : "opacity-0"
           }`}
         />
-        {CARD_ORDER.map((index) => (
+        {CARD_ORDER.filter((index) => index < Math.max(1, album.previews.length)).map((index) => (
           <StackCard key={index} index={index} photo={load ? album.previews[index] : undefined} />
         ))}
       </span>

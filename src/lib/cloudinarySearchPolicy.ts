@@ -105,20 +105,3 @@ export const sanitizePublicCloudinarySearch = (
 
   return sanitized;
 };
-
-export function publicCloudinarySearchUrl(params: {
-  expression: string;
-  max_results: number;
-  next_cursor?: string | null;
-}): string {
-  const search = new URLSearchParams({
-    expression: params.expression,
-    max_results: String(params.max_results),
-  });
-
-  if (params.next_cursor) {
-    search.set("next_cursor", params.next_cursor);
-  }
-
-  return `/api/cloudinary/search?${search}`;
-}

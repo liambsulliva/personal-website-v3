@@ -1,7 +1,7 @@
 name: Uptime
 
 # Every 15 minutes from GitHub's runners, off the NAS (scripts/uptime.mjs):
-# is the site up, are its Cloudinary and RAWG keys working, and is it serving
+# is the site up, are its photos there and its RAWG key working, and is it serving
 # main, so a failed or stalled deploy shows up. Off until the repository
 # variable UPTIME_URL is set (Settings → Secrets and variables → Actions →
 # Variables), e.g. https://liambsullivan.com; set it at cutover.
