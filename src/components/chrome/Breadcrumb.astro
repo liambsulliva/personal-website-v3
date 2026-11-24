@@ -4,8 +4,8 @@
  * the page's URL path, styled like the slug itself: "/engineering/kingdra-app".
  * Every segment links to its level; the last one is the current page, so
  * clicking it reloads. With `crumbs` it shows those titles instead
- * (/photography's albums), which the gallery keeps in step as it opens them
- * (lib/breadcrumb).
+ * (/photography's albums), which the gallery keeps in step as it opens them,
+ * and the levels that don't fit give way to "/ ..." (lib/breadcrumb).
  */
 interface Props {
   /** URL pathname to mirror; omit for the name alone */
@@ -54,6 +54,14 @@ const segments = crumbs?.map((crumb, index, all) => ({ ...crumb, current: index 
         </li>
       ))
     }
+    {
+      crumbs && (
+        <li class="inline font-mono text-[13px] md:text-[14px]" data-crumb-more hidden>
+          <span class="breadcrumb__slash" aria-hidden="true">/</span>
+          <a class="breadcrumb__link -ml-4 py-3 pl-4 font-sans no-underline">...</a>
+        </li>
+      )
+    }
   </ol>
 </nav>
 
@@ -63,18 +71,14 @@ const segments = crumbs?.map((crumb, index, all) => ({ ...crumb, current: index 
     color: var(--fg-muted);
     opacity: 0.6;
   }
-  /* Titles get long: the trail scrolls sideways, and stays at its end (lib/breadcrumb). */
-  .breadcrumb--titles ol {
-    overflow-x: auto;
-    overflow-y: hidden;
-    text-overflow: clip;
-    scrollbar-width: none;
-  }
-  .breadcrumb--titles ol::-webkit-scrollbar {
-    display: none;
-  }
   .breadcrumb--titles .breadcrumb__slash {
     margin-inline: 0.5em;
+  }
+  /* A phone's line is short: just the spaces around a slash. */
+  @media (width < 768px) {
+    .breadcrumb--titles .breadcrumb__slash {
+      margin-inline: 0;
+    }
   }
   .breadcrumb__link {
     color: var(--fg-muted);
@@ -119,6 +123,10 @@ const segments = crumbs?.map((crumb, index, all) => ({ ...crumb, current: index 
 </style>
 
 <script>
+  import { watchBreadcrumb } from "../../lib/breadcrumb";
+
+  watchBreadcrumb();
+
   const reduced = () =>
     document.documentElement.hasAttribute("data-reduced-motion");
 

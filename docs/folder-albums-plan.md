@@ -112,5 +112,6 @@ How, in order:
 
 - **`.` folders** (2026-11-24): never published.
 - **The stack's flight** (2026-11-24): the carousel and its card flight stay; sub-albums fade.
+- **The trail** (2026-11-24): the levels that would run into the menu button give way to a last `/ ...`, which opens the first of them.
 - **Esc** (2026-11-24): goes up a level, as the back button does. An open photo or the site's menu closes first.
 - **Sub-albums' place** (2026-11-24): a row of their own above the photos, which scrolls sideways like the top-level carousel and never wraps. On a phone its prints are a photo column wide, so the third is cut off half way. Tiles inside the masonry were tried (7bb3f3d) and taken out: the sizing was off.
