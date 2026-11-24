@@ -3,7 +3,13 @@
 // (with IMAGE_BACKEND=nas) the site. docs/photo-pipeline-plan.md.
 //
 //   photos  { <id>: Photo }   id is the old Cloudinary public_id, or 20 random characters
-//   albums  { <slug>: { folder, title } }   which Published folder an album's photos come from
+//   folders { <folder path>: Folder }   every album folder (lib/albums.mjs)
+//   albums  { <slug>: { folder, known } }   before folders had an album.yaml; only read for an
+//           old album's address until the one-time copy has run, and by a rollback
+//
+// Folder: what its album.yaml says (link, date, order, was), and sig ("size:mtimeMs"
+// of that file), ino (the folder's inode), broken (why the file can't be used; the
+// values are then its last good ones), unsaved (the file has yet to be written).
 //
 // Photo: kind ("photo" | "site"), path (relative to Published, "/" separated),
 // sig ("size:mtimeMs", to skip unchanged files), hash (sha256), version (first
@@ -19,14 +25,15 @@ export const INDEX_VERSION = 1;
 /** Same rule as cms-dashboard: a tag outside it couldn't be filtered on /photography. */
 export const TAG_RE = /^[A-Za-z0-9_.:-]{1,64}$/;
 
-/** @returns {{ indexVersion: number, photos: Record<string, any>, albums: Record<string, any> }} */
-export const emptyIndex = () => ({ indexVersion: INDEX_VERSION, photos: {}, albums: {} });
+/** @returns {{ indexVersion: number, photos: Record<string, any>, folders: Record<string, any>, albums: Record<string, any> }} */
+export const emptyIndex = () => ({ indexVersion: INDEX_VERSION, photos: {}, folders: {}, albums: {} });
 
 export function parseIndex(text) {
   const index = JSON.parse(text);
   if (index?.indexVersion !== INDEX_VERSION || typeof index.photos !== "object" || typeof index.albums !== "object") {
     throw new Error("not a photo index this version understands");
   }
+  index.folders ??= {};
   return index;
 }
 
