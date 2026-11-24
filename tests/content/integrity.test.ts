@@ -105,6 +105,24 @@ describe("local links in content", () => {
   });
 });
 
+describe("albums", () => {
+  const dir = join(SRC, "content/albums");
+  const ids = new Set(walk(dir).map((path) => relative(dir, path).replace(/\.ya?ml$/, "")));
+
+  it("finds the albums it is meant to check", () => {
+    expect(ids.size).toBeGreaterThan(40);
+  });
+
+  it("every sub-album has its parent album", () => {
+    expect([...ids].filter((id) => id.includes("/") && !ids.has(id.slice(0, id.lastIndexOf("/"))))).toEqual([]);
+  });
+
+  // The file's path is the album's address.
+  it("every album's path is a plain link", () => {
+    expect([...ids].filter((id) => !/^[a-z0-9]+(?:-[a-z0-9]+)*(?:\/[a-z0-9]+(?:-[a-z0-9]+)*)*$/.test(id))).toEqual([]);
+  });
+});
+
 describe("sections", () => {
   const sections = Object.fromEntries(
     walk(join(SRC, "content/sections")).map((path) => {

@@ -1,0 +1,77 @@
+---
+/**
+ * /photography (Figma Subpage / Photography / Albums 190:3925). SSR: the album
+ * stacks (the `albums` content collection, no Cloudinary call), the tag list, and a random
+ * first masonry page of All. One pass over every photo (two Search calls)
+ * yields the chips, the page, and any album's photos. One island holds the
+ * stacks and the gallery, since opening an album fills the gallery; it starts
+ * above the fold, so it hydrates on load.
+ *
+ * /photography/<album path> and ?tag=<tag> (lib/photoShare) arrive with that
+ * album open or that chip selected, its first page rendered here, and so is its
+ * link preview. An old ?album=<slug> link redirects to the album's path. A link
+ * to nothing shown renders All; the island says so.
+ */
+import SubpageLayout from "../../layouts/SubpageLayout.astro";
+import PhotoGallery from "../../components/islands/PhotoGallery.tsx";
+import { albumDetails, albumsByPath, listAlbums, toAlbumCard, toAlbumView, toOgImage } from "../../lib/albums";
+import { photoExpression, PUBLIC_CACHE_CONTROL, searchAlbumPhotos, searchAllPhotos } from "../../lib/cloudinaryServer";
+import { shuffled, toGalleryPhoto } from "../../lib/photos";
+import { PHOTOGRAPHY, photographyCrumbs, photographyTitle, shareHref, sourceFromUrl } from "../../lib/photoShare";
+
+export const prerender = false;
+
+Astro.response.headers.set("Cache-Control", PUBLIC_CACHE_CONTROL);
+
+const FIRST_PAGE = 20; // PhotoGallery's PAGE_SIZE
+
+const byPath = await albumsByPath();
+const all = await searchAllPhotos(photoExpression());
+const { source, missing, redirect } = sourceFromUrl(Astro.params.path ?? "", Astro.url.searchParams, {
+  current: (link) => byPath.get(link)?.path ?? null,
+  tags: all.tags,
+});
+// Not cached, so it can change (or be rolled back) at once.
+if (redirect) return new Response(null, { status: 301, headers: { Location: redirect, "Cache-Control": "private, no-cache" } });
+
+const album = source.kind === "album" ? (byPath.get(source.path) ?? null) : null;
+const view = album && toAlbumView(album);
+
+// An album shows whole, in its own order; a chip shows a random first page
+// and the island carries on through its own shuffle of the rest.
+const pool = album
+  ? await searchAlbumPhotos(album.photos)
+  : source.kind === "tag" && source.tag
+    ? await searchAllPhotos(photoExpression(source.tag))
+    : all;
+const resources = album ? pool.resources : shuffled(pool.resources).slice(0, FIRST_PAGE);
+const photos = resources.map(toGalleryPhoto);
+const initialCursor = !album && pool.resources.length > FIRST_PAGE ? String(FIRST_PAGE) : null;
+
+const shared = source.kind === "album" || source.tag !== "";
+const origin = Astro.site ?? Astro.url;
+---
+
+<SubpageLayout
+  title={photographyTitle(source, album?.title)}
+  description={album ? albumDetails(album) : undefined}
+  ogUrl={shared ? shareHref(source, new URL(PHOTOGRAPHY, origin)) : undefined}
+  ogImage={album ? toOgImage(album.cover[0]) : undefined}
+  canonicalPath={missing ? PHOTOGRAPHY : undefined}
+  section="photography"
+  crumbs={photographyCrumbs(view?.crumbs ?? [])}
+>
+  <div class="flex w-full min-w-0 flex-col items-stretch gap-8 overflow-x-clip px-6 py-6 md:px-16 md:py-12" data-name="Content">
+    <PhotoGallery
+      client:load
+      albums={(await listAlbums()).map(toAlbumCard)}
+      tags={all.tags}
+      initialSource={source}
+      initialView={view}
+      initialPhotos={photos}
+      initialCursor={initialCursor}
+      initialError={shared && !pool.ok}
+      missing={missing}
+    />
+  </div>
+</SubpageLayout>

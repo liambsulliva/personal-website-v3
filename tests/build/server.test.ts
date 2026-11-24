@@ -12,12 +12,15 @@ import { request as httpRequest, type IncomingHttpHeaders } from "node:http";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { albumVersion } from "../../src/lib/albumData";
-import { listAlbums } from "../../src/lib/albums";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { albumVersion, listAlbums, toAlbumView } from "../../src/lib/albums";
 import { LEGACY_REDIRECTS } from "../../src/lib/redirects.mjs";
 import { SWITCH_MENU_PROJECT_URL } from "../../src/lib/switchMenuEmbed";
 import { BUILT, DIST, ENTRY, ROOT, TARGET, redirectTargetExists, writeupPages } from "./site";
+
+// The albums as the files have them: Vitest's own content store is whatever
+// `astro dev` last left, and empty in a fresh checkout.
+vi.mock("astro:content", () => import("../cms/loader"));
 
 const RUN = BUILT && TARGET === "node";
 const HOST = "liambsullivan.com";
@@ -258,12 +261,30 @@ describe.skipIf(!RUN)("Node server (server.mjs over dist/)", () => {
 
     it("renders a shared album link and a shared tag link as that source", async () => {
       const [album] = await listAlbums();
-      const byAlbum = await get(`/photography?album=${album.slug}`, viaTunnel);
+      const byAlbum = await get(`/photography/${album.path}`, viaTunnel);
       expect(byAlbum.status).toBe(200);
       expect(title(byAlbum.body)).toBe(`${album.title} - Liam Sullivan`);
-      expect(byAlbum.body).toMatch(new RegExp(`property="og:url" content="https://liambsullivan\\.com/photography/?\\?album=${album.slug}"`));
+      expect(byAlbum.body).toMatch(new RegExp(`property="og:url" content="https://liambsullivan\\.com/photography/${album.path}"`));
+      expect(byAlbum.headers["cache-control"]).toBe("public, s-maxage=300, stale-while-revalidate=86400");
       const byTag = await get("/photography?tag=music", viaTunnel);
       expect(title(byTag.body)).toMatch(/^Music Photos - /);
+    });
+
+    it("sends an old ?album= link to the album's path, and never caches that", async () => {
+      const [album] = await listAlbums();
+      const res = await get(`/photography?album=${album.path}&ref=x`, viaTunnel);
+      expect(res.status).toBe(301);
+      expect(res.headers.location).toBe(`/photography/${album.path}?ref=x`);
+      expect(res.headers["cache-control"]).toBe("private, no-cache");
+    });
+
+    it("shows the full gallery for an album link to nothing, as /photography's page", async () => {
+      for (const path of ["/photography/nope", "/photography/nope/day-1", "/photography?album=nope"]) {
+        const res = await get(path, viaTunnel);
+        expect(res.status, path).toBe(200);
+        expect(title(res.body), path).toBe("Photography - Liam Sullivan");
+        expect(res.body, path).toMatch(/rel="canonical" href="https:\/\/liambsullivan\.com\/photography\/?"/);
+      }
     });
 
     it("answers the four Cloudinary API routes with their JSON shapes", async () => {
@@ -279,14 +300,15 @@ describe.skipIf(!RUN)("Node server (server.mjs over dist/)", () => {
       const pool = JSON.parse((await get("/api/cloudinary/pool?tag=music")).body);
       expect(Object.keys(pool)).toEqual(["resources"]);
       expect(pool.resources.length).toBeGreaterThan(0);
-      const albumRes = await get(`/api/cloudinary/album?slug=${album.slug}`);
+      const albumRes = await get(`/api/cloudinary/album?slug=${album.path}`);
       expect(albumRes.status).toBe(200);
+      expect(JSON.parse(albumRes.body).album).toEqual(toAlbumView(album));
       expect(JSON.parse(albumRes.body).resources.map((r: { public_id: string }) => r.public_id)).toEqual(album.photos);
       expect((await get("/api/cloudinary/pool?tag=_internal")).status).toBe(403);
       expect((await get("/api/cloudinary/album?slug=nope")).status).toBe(404);
     });
 
-    it("(regression) keeps an album for a day only under its current photo list's URL", async () => {
+    it("(regression) keeps an album for a day only under its current state's URL", async () => {
       // Cloudflare isn't purged on deploy, so a CMS publish that changes an
       // album must change the URL the gallery asks for.
       const albums = await listAlbums();
@@ -295,10 +317,10 @@ describe.skipIf(!RUN)("Node server (server.mjs over dist/)", () => {
         const version = albumVersion(album);
         // The island's props carry each album's version ([0, value] is Astro's string encoding).
         expect(page).toContain(`&quot;version&quot;:[0,&quot;${version}&quot;]`);
-        const current = await get(`/api/cloudinary/album?slug=${album.slug}&v=${version}`);
+        const current = await get(`/api/cloudinary/album?slug=${album.path}&v=${version}`);
         expect(current.status).toBe(200);
         expect(current.headers["cache-control"]).toBe("public, s-maxage=86400, stale-while-revalidate=604800");
-        for (const stale of [`/api/cloudinary/album?slug=${album.slug}`, `/api/cloudinary/album?slug=${album.slug}&v=old`]) {
+        for (const stale of [`/api/cloudinary/album?slug=${album.path}`, `/api/cloudinary/album?slug=${album.path}&v=old`]) {
           const res = await get(stale);
           expect(res.status).toBe(200);
           expect(res.headers["cache-control"]).toBe("public, s-maxage=300, stale-while-revalidate=86400");

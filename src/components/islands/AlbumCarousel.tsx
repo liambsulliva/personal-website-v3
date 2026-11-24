@@ -1,16 +1,21 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
-import type { AlbumCard } from "../../lib/albums";
+import type { AlbumCard } from "../../lib/albumData";
 import AlbumStack from "./AlbumStack";
 import { CarouselNavigationButton } from "./Carousel";
 
 // Figma AlbumCarousel (desktop 190:3925, mobile 190:4535): one scroll-snapped
 // row of album stacks. Desktop pages with Carousel.tsx's 40px buttons;
-// mobile is swipe-only.
+// mobile is swipe-only. The top-level albums, or an open album's sub-albums.
 
 type AlbumCarouselProps = {
   albums: AlbumCard[];
-  openSlug: string | null;
+  openPath: string | null;
   disabled?: boolean;
+  label?: string;
+  /** Sub-albums: a smaller row on a phone, in a .sub-albums. */
+  compact?: boolean;
+  /** Where the row is scrolled to, for a row that unmounts and comes back. */
+  position?: { left: number };
   onSelect: (album: AlbumCard, button: HTMLButtonElement) => void;
 };
 
@@ -18,18 +23,29 @@ type AlbumCarouselProps = {
 // desktop row is 5½ stacks. The rest load as they come within one track
 // width of view, and stay loaded.
 const EAGER_STACKS = 6;
+// Stacks that fit the widest row (1144px). Until the row is measured, more than
+// this counts as overflowing.
+const FITTING_STACKS = 4;
 
 const scrollBehavior = (): ScrollBehavior =>
   document.documentElement.hasAttribute("data-reduced-motion") ? "auto" : "smooth";
 
-export default function AlbumCarousel({ albums, openSlug, disabled = false, onSelect }: AlbumCarouselProps) {
+export default function AlbumCarousel({
+  albums,
+  openPath,
+  disabled = false,
+  label = "Photo albums",
+  compact = false,
+  position,
+  onSelect,
+}: AlbumCarouselProps) {
   const trackRef = useRef<HTMLDivElement>(null);
-  // SSR assumes the Figma state (overflowing, at the start) so hydration only
+  // SSR assumes the Figma state (a full row, at the start) so hydration only
   // ever toggles the buttons, never moves anything.
-  const [overflow, setOverflow] = useState(true);
+  const [overflow, setOverflow] = useState(albums.length > FITTING_STACKS);
   const [canPrev, setCanPrev] = useState(false);
   const [canNext, setCanNext] = useState(true);
-  const [loaded, setLoaded] = useState(() => new Set(albums.slice(0, EAGER_STACKS).map((album) => album.slug)));
+  const [loaded, setLoaded] = useState(() => new Set(albums.slice(0, EAGER_STACKS).map((album) => album.path)));
 
   useEffect(() => {
     const track = trackRef.current;
@@ -40,7 +56,7 @@ export default function AlbumCarousel({ albums, openSlug, disabled = false, onSe
         if (!near.length) return;
         setLoaded((previous) => {
           const next = new Set(previous);
-          near.forEach((slug) => slug && next.add(slug));
+          near.forEach((path) => path && next.add(path));
           return next.size === previous.size ? previous : next;
         });
       },
@@ -54,8 +70,10 @@ export default function AlbumCarousel({ albums, openSlug, disabled = false, onSe
   useEffect(() => {
     const track = trackRef.current;
     if (!track) return;
+    if (position) track.scrollLeft = position.left;
     const check = () => {
       const max = track.scrollWidth - track.clientWidth;
+      if (position) position.left = track.scrollLeft;
       setOverflow(max > 1);
       setCanPrev(track.scrollLeft > 1);
       setCanNext(track.scrollLeft < max - 1);
@@ -68,7 +86,7 @@ export default function AlbumCarousel({ albums, openSlug, disabled = false, onSe
       track.removeEventListener("scroll", check);
       resizeObserver.disconnect();
     };
-  }, [albums]);
+  }, [albums, position]);
 
   const scrollByPage = useCallback((direction: 1 | -1) => {
     const track = trackRef.current;
@@ -95,17 +113,18 @@ export default function AlbumCarousel({ albums, openSlug, disabled = false, onSe
           margins; scroll-padding keeps snapped stacks on the content edge. */}
       <div
         ref={trackRef}
-        className="album-track -mx-6 -my-8 flex snap-x snap-mandatory scroll-px-6 gap-4 overflow-x-auto overscroll-x-contain px-6 py-8 md:gap-6"
+        className={`album-track -mx-6 -my-8 flex snap-x snap-mandatory scroll-px-6 overflow-x-auto overscroll-x-contain px-6 py-8 md:gap-6 ${compact ? "gap-3" : "gap-4"}`}
         role="group"
-        aria-label="Photo albums"
+        aria-label={label}
       >
         {albums.map((album) => (
           <AlbumStack
-            key={album.slug}
+            key={album.path}
             album={album}
-            open={album.slug === openSlug}
-            load={loaded.has(album.slug)}
+            open={album.path === openPath}
+            load={loaded.has(album.path)}
             disabled={disabled}
+            compact={compact}
             onSelect={onSelect}
           />
         ))}

@@ -13,7 +13,7 @@ const PAGES: Record<string, () => Promise<PageModule>> = {
   "/design": () => import("../../src/pages/design/index.astro"),
   "/writing": () => import("../../src/pages/writing/index.astro"),
   "/career": () => import("../../src/pages/career.astro"),
-  "/photography": () => import("../../src/pages/photography.astro"),
+  "/photography": () => import("../../src/pages/photography/[...path].astro"),
   "/engineering/[slug]": () => import("../../src/pages/engineering/[slug].astro"),
   "/design/[slug]": () => import("../../src/pages/design/[slug].astro"),
   "/writing/[slug]": () => import("../../src/pages/writing/[slug].astro"),
@@ -73,18 +73,22 @@ export async function renderRoute(route: string): Promise<Rendered> {
   }
 
   const dynamic = path.match(/^\/(engineering|design|writing)\/([^/]+)$/);
-  const key = dynamic ? `/${dynamic[1]}/[slug]` : path;
+  const album = path.match(/^\/photography\/(.+)$/);
+  const key = dynamic ? `/${dynamic[1]}/[slug]` : album ? "/photography" : path;
   const load = PAGES[key];
   if (!load) throw new Error(`No page mapped for ${route}`);
   const mod = await load();
   let props: Record<string, unknown> | undefined;
-  let params: Record<string, string> | undefined;
+  let params: Record<string, string> | undefined = album ? { path: album[1]! } : undefined;
   if (dynamic) {
     const match = (await mod.getStaticPaths!()).find((p) => p.params.slug === dynamic[2]);
     if (!match) return { status: 404, body: "" };
     ({ params, props } = match);
   }
   const c = await getContainer();
-  const body = await c.renderToString(mod.default as never, { params, props, request: new Request(url) });
-  return { status: 200, body: normalize(body) };
+  const res = await c.renderToResponse(mod.default as never, { params, props, request: new Request(url) });
+  // Followed as a browser would (an old ?album= link).
+  const location = res.headers.get("location");
+  if (location) return renderRoute(location);
+  return { status: res.status, body: normalize(await res.text()) };
 }

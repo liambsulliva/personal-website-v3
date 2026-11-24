@@ -83,7 +83,8 @@ const sections = defineCollection({
  * The source of truth: title, year and date are edited here by hand, and
  * `npm run photos:albums -- build` keeps them, refreshing only photos and count.
  * The photos are Cloudinary public_ids in capture order; the first three are
- * the stack's cards.
+ * the stack's cards. A file in a folder named after an album is its sub-album
+ * (lib/albums): <album>/<sub-album>.yaml.
  */
 const albums = defineCollection({
   loader: glob({ pattern: "**/*.{yaml,yml}", base: "./src/content/albums" }),

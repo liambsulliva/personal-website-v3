@@ -146,6 +146,23 @@ describe("Cloudinary reads go through the cache", () => {
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
+  it("opens every album for the All pool's one search", async () => {
+    const fetch = vi.fn(async () => Response.json({ resources: [photo("c"), photo("b"), photo("a")] }));
+    vi.stubGlobal("fetch", fetch);
+    expect((await searchAlbumPhotos(["a", "c"])).resources.map((r) => r.public_id)).toEqual(["a", "c"]);
+    expect((await searchAlbumPhotos(["b"])).resources.map((r) => r.public_id)).toEqual(["b"]);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("searches for an album's photos when the All pool doesn't have them all", async () => {
+    const fetch = vi.fn(async (_url: string, init?: RequestInit) =>
+      Response.json({ resources: String(init?.body).includes("public_id=") ? [photo("new"), photo("a")] : [photo("a")] }),
+    );
+    vi.stubGlobal("fetch", fetch);
+    expect((await searchAlbumPhotos(["a", "new"])).resources.map((r) => r.public_id)).toEqual(["a", "new"]);
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
   it("orders an album without reordering the shared cached result", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => Response.json({ resources: [photo("b"), photo("a")] })));
     const album = await searchAlbumPhotos(["a", "b"]);

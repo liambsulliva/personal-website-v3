@@ -47,7 +47,7 @@ describe.skipIf(!BUILT || TARGET !== "vercel")("Vercel routing (config.json)", (
   });
 
   it("serves the SSR wings and APIs from the function", () => {
-    for (const path of ["/photography", "/writing/", "/api/cloudinary/search", "/api/rawg/games"]) {
+    for (const path of ["/photography", "/photography/an-album", "/photography/an-album/a-sub-album", "/writing/", "/api/cloudinary/search", "/api/rawg/games"]) {
       expect(resolve(path)?.dest, path).toBe("_render");
     }
   });

@@ -57,7 +57,7 @@ Content lives in Astro content collections. Zod schemas in `src/content.config.t
 | `entries`  | `src/content/entries`  | MDX    | Every card and write-up on Engineering, Design, and Writing                 |
 | `sections` | `src/content/sections` | YAML   | One file per wing, with the page's sections, their layouts, and their order |
 | `career`   | `src/content/career`   | YAML   | The Career timeline                                                         |
-| `albums`   | `src/content/albums`   | YAML   | One album per shoot, for the Photography stacks                             |
+| `albums`   | `src/content/albums`   | YAML   | One album per shoot, for Photography; a nested file is a sub-album          |
 
 Each entry names its `wing` and `section`. The section's `layout` decides which card the entry renders as. An entry with a body gets a write-up page at `/<wing>/<slug>`, and its `href`, if set, becomes the demo button. An entry without a body is a card that links to its `href`, or to its `github` repo when it has no `href`. Set `hidden: true` to keep an entry in the repo without a card, page, or sitemap URL.
 

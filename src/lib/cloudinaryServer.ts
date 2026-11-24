@@ -139,10 +139,14 @@ export async function searchAllPhotos(
   return { ok: true, status: 200, resources, tags: publicTags(tags) };
 }
 
-/** An album's photos in the album's own order (Search returns its own). */
+/** An album's photos in the album's own order (Search returns its own). Read
+ *  off the All pool, so opening every album (a crawler, say) costs no more
+ *  Search calls than one; its own search is only for photos All doesn't have. */
 export async function searchAlbumPhotos(ids: readonly string[]): ReturnType<typeof searchAllPhotos> {
-  const result = await searchAllPhotos(idsExpression(ids));
   const order = new Map(ids.map((id, index) => [id, index]));
+  const all = await searchAllPhotos(photoExpression());
+  const own = all.resources.filter(({ public_id }) => order.has(public_id));
+  const result = own.length === order.size ? { ...all, resources: own } : await searchAllPhotos(idsExpression(ids));
   const resources = result.resources.toSorted((a, b) => (order.get(a.public_id) ?? 0) - (order.get(b.public_id) ?? 0));
   return { ...result, resources };
 }

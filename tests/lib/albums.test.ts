@@ -558,15 +558,18 @@ describe("album labels", () => {
 
   it("shapes an album card", () => {
     const album: Album = {
-      slug: "2026-sample-pet-0425",
+      path: "2026-sample-pet-0425",
       title: "Sample Pet",
       date: "2026-04-25",
       year: 2026,
       count: 7,
       photos: ["a", "b", "c", "d", "e", "f", "g"],
+      cover: ["a", "b", "c"],
+      subs: [],
+      crumbs: [],
     };
     const card = toAlbumCard(album);
-    expect(card).toMatchObject({ slug: "2026-sample-pet-0425", title: "Sample Pet", details: "Apr 2026 · 7 photos" });
+    expect(card).toMatchObject({ path: "2026-sample-pet-0425", title: "Sample Pet", details: "Apr 2026 · 7 photos" });
     expect(card.previews.map((p) => p.key)).toEqual(["a", "b", "c"]);
     // One 2× center crop per card, no srcset; the photo ids stay on the server.
     expect(card.previews[0].src).toContain("/upload/c_fill,w_352,h_440,f_auto,q_auto/");

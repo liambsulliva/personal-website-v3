@@ -119,7 +119,8 @@ for (const path of ["/", "/me/", "/career/", "/engineering/", "/design/", "/writ
 await check("page /me (no slash)", "/me", (res) => [res.status, title(res)]);
 
 // Shared photography links render that source.
-await check(`photography ?album=${album.slug}`, `/photography?album=${album.slug}`, (res) => [res.status, title(res), ogUrl(res)]);
+await check(`photography/${album.slug}`, `/photography/${album.slug}`, (res) => [res.status, title(res), ogUrl(res)]);
+await check(`photography ?album=${album.slug}`, `/photography?album=${album.slug}`, (res) => [res.status, res.headers.location ?? null]);
 await check("photography ?tag=music", "/photography?tag=music", (res) => [res.status, title(res), ogUrl(res)]);
 
 // The four Cloudinary routes: status and JSON shape.
