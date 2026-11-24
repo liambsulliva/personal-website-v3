@@ -108,8 +108,7 @@ How, in order:
 - **Dashboard actions:** `services/photos/albumOps.mjs`. Nothing is ever written over. "Remove album" moves every file out, published or not; what's left (`album.yaml`, hidden files) goes to the 30-day trash with the folder.
 - **Site:** `/photography/<path>`, `src/lib/photoShare.ts`. The JSON routes kept their `/api/cloudinary/` names: the pinned deploy script and the uptime check ask for them. Opening a top-level album from its stack still flies its cards; sub-albums, crumbs, the back button and the browser's own fade.
 
-## Questions
+## Settled since
 
-Asked of Liam; the rest of the plan doesn't wait for them.
-
-- **The stack's flight.** "Opening an album fades the current set out and the new one in" could mean the cards no longer fly out of a top-level stack. They still do: the current set fades out, and the new one arrives by the cards. Dropping the flight is a small change.
+- **`.` folders** (2026-11-24): never published.
+- **The stack's flight** (2026-11-24): the carousel and its card flight stay; sub-albums are inline and fade.
