@@ -427,6 +427,19 @@ label[for] {
   transition: none;
 }
 
+/* An open album's row of sub-albums. On a phone its prints are as wide as a
+   photo in the masonry below (PhotoGallery's columns and spacing there), which
+   cuts the third one off half way at the screen's edge. Capped well under the
+   top row's 176px for a phone on its side; from 768px, full size. */
+.sub-albums {
+  container-type: inline-size;
+}
+@media (width < 768px) {
+  .sub-albums .album-stack {
+    --print: min((100cqw - 16px) / 3, 140px);
+  }
+}
+
 /* Gallery share button (PhotoGallery ShareRow): a light glyph that fades in
    and out with the selection. Restates .squishy's press spring, which this
    transition would otherwise replace. */

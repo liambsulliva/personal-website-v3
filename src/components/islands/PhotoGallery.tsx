@@ -1149,12 +1149,13 @@ export default function PhotoGallery({
         <div ref={albumRef} className="w-full min-w-0 origin-top">
         {tileCards.length > 0 && (
           // Flex: the row's own margins would otherwise collapse out of it.
-          <div ref={tilesRef} className={`flex ${photos.length > 0 ? "mb-8" : ""}`} data-name="SubAlbums">
+          <div ref={tilesRef} className={`sub-albums flex ${photos.length > 0 ? "mb-8" : ""}`} data-name="SubAlbums">
             <AlbumCarousel
               key={view?.path}
               albums={tileCards}
               openPath={null}
               label={`Albums in ${view?.title}`}
+              compact
               position={rowPosition(view?.path ?? "")}
               onSelect={({ path }) => request({ kind: "album", path })}
             />

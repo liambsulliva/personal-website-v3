@@ -12,6 +12,8 @@ type AlbumCarouselProps = {
   openPath: string | null;
   disabled?: boolean;
   label?: string;
+  /** Sub-albums: a smaller row on a phone, in a .sub-albums. */
+  compact?: boolean;
   /** Where the row is scrolled to, for a row that unmounts and comes back. */
   position?: { left: number };
   onSelect: (album: AlbumCard, button: HTMLButtonElement) => void;
@@ -33,6 +35,7 @@ export default function AlbumCarousel({
   openPath,
   disabled = false,
   label = "Photo albums",
+  compact = false,
   position,
   onSelect,
 }: AlbumCarouselProps) {
@@ -110,7 +113,7 @@ export default function AlbumCarousel({
           margins; scroll-padding keeps snapped stacks on the content edge. */}
       <div
         ref={trackRef}
-        className="album-track -mx-6 -my-8 flex snap-x snap-mandatory scroll-px-6 gap-4 overflow-x-auto overscroll-x-contain px-6 py-8 md:gap-6"
+        className={`album-track -mx-6 -my-8 flex snap-x snap-mandatory scroll-px-6 overflow-x-auto overscroll-x-contain px-6 py-8 md:gap-6 ${compact ? "gap-3" : "gap-4"}`}
         role="group"
         aria-label={label}
       >
@@ -121,6 +124,7 @@ export default function AlbumCarousel({
             open={album.path === openPath}
             load={loaded.has(album.path)}
             disabled={disabled}
+            compact={compact}
             onSelect={onSelect}
           />
         ))}
