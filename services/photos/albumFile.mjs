@@ -50,6 +50,12 @@ export function parseAlbumFile(text) {
   return out;
 }
 
+/** An album as src/content/albums kept it, for the one-time copy (scripts/album-yaml.mjs). */
+export function parseOldAlbum(text) {
+  const { title, year, date, photos } = parseDocument(text, { schema: "failsafe" }).toJS();
+  return { title, year: Number(year), date: date && date !== "null" ? date : null, photos };
+}
+
 /** `text` (null for a new file) with these fields set; an undefined or empty one is taken out. */
 export function editAlbumFile(text, fields) {
   let doc = text === null ? new Document({}) : parseDocument(text);
